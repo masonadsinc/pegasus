@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -122,6 +122,19 @@ function AdImage({ src, alt, className = '' }: { src?: string | null; alt: strin
 function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
   ad: any; open: boolean; onClose: () => void; resultLabel: string; targetCpl: number | null
 }) {
+  const [fbUrl, setFbUrl] = useState<string | null>(null)
+  const [fbLoading, setFbLoading] = useState(false)
+
+  useEffect(() => {
+    if (!ad?.platform_ad_id || !open) { setFbUrl(null); return }
+    setFbLoading(true)
+    fetch(`/api/facebook-url?ad_id=${ad.platform_ad_id}`)
+      .then(r => r.json())
+      .then(d => setFbUrl(d.url || null))
+      .catch(() => setFbUrl(`https://www.facebook.com/ads/library/?id=${ad.platform_ad_id}`))
+      .finally(() => setFbLoading(false))
+  }, [ad?.platform_ad_id, open])
+
   if (!ad) return null
   const imageUrl = ad.creative_url || ad.creative_thumbnail_url
   const ctaMap: Record<string, string> = {
@@ -139,7 +152,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
             {ad.creative_video_url ? (
               <video src={ad.creative_video_url} controls className="w-full h-full object-contain" />
             ) : imageUrl ? (
-              <img src={imageUrl} alt={ad.ad_name} className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
+              <img src={imageUrl} alt={ad.ad_name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
             ) : (
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c4c4cc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
@@ -162,6 +175,17 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
               </div>
               <DialogDescription>{ad.campaign_name}</DialogDescription>
             </div>
+
+            {/* View on Facebook */}
+            <a
+              href={fbUrl || `https://www.facebook.com/ads/library/?id=${ad.platform_ad_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#1877f2] hover:bg-[#166fe5] text-white text-[12px] font-medium rounded-lg transition-colors w-fit"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              {fbLoading ? 'Loading...' : 'View on Facebook'}
+            </a>
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 gap-2">
