@@ -238,9 +238,12 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
   const [adSearch, setAdSearch] = useState('')
   const [adSort, setAdSort] = useState<'spend' | 'cpr' | 'results' | 'ctr'>('spend')
   const [adStatusFilter, setAdStatusFilter] = useState<'all' | 'active' | 'paused'>('all')
+  const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('overview')
 
   const filteredAds = useMemo(() => {
     let list = [...ads]
+    if (campaignFilter) list = list.filter(a => a.platform_campaign_id === campaignFilter)
     if (adSearch) {
       const q = adSearch.toLowerCase()
       list = list.filter(a => a.ad_name.toLowerCase().includes(q) || a.campaign_name.toLowerCase().includes(q) || (a.creative_body && a.creative_body.toLowerCase().includes(q)))
@@ -254,7 +257,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
       return b.spend - a.spend
     })
     return list
-  }, [ads, adSearch, adSort, adStatusFilter])
+  }, [ads, adSearch, adSort, adStatusFilter, campaignFilter])
 
   const toggleMetric = (m: string) => {
     setChartMetrics(prev => {
@@ -307,7 +310,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
 
   return (
     <>
-    <Tabs defaultValue="overview">
+    <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== 'ads') setCampaignFilter(null) }}>
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="ads">Ads ({ads.length})</TabsTrigger>
@@ -483,7 +486,15 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
             </div>
           </div>
 
-          <p className="text-[12px] text-[#9d9da8]">{filteredAds.length} of {ads.length} ads</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[12px] text-[#9d9da8]">{filteredAds.length} of {ads.length} ads</p>
+            {campaignFilter && (
+              <button onClick={() => setCampaignFilter(null)} className="flex items-center gap-1 px-2 py-0.5 bg-[#eff6ff] text-[#2563eb] text-[11px] font-medium rounded-full hover:bg-[#dbeafe] transition-colors">
+                {campaigns.find(c => c.platform_campaign_id === campaignFilter)?.campaign_name?.slice(0, 30) || 'Campaign'}
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" /></svg>
+              </button>
+            )}
+          </div>
 
           {adsView === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -564,19 +575,24 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {campaigns.map(c => (
-              <Card key={c.platform_campaign_id} className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="text-[13px] font-semibold truncate max-w-[200px]">{c.campaign_name}</h4>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[12px]">
-                  <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(c.spend)}</p></div>
-                  <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{c.results}</p></div>
-                  <div><span className="text-[#9d9da8]">CPR</span><p className="font-semibold">{c.cpr > 0 ? formatCurrency(c.cpr) : '—'}</p></div>
-                  <div><span className="text-[#9d9da8]">CTR</span><p className="font-semibold">{formatPercent(c.ctr)}</p></div>
-                </div>
-              </Card>
-            ))}
+            {campaigns.map(c => {
+              const adCount = ads.filter(a => a.platform_campaign_id === c.platform_campaign_id).length
+              return (
+                <Card key={c.platform_campaign_id} className="p-4 cursor-pointer hover:shadow-md hover:border-[#c4c4cc] transition-all" onClick={() => { setCampaignFilter(c.platform_campaign_id); setActiveTab('ads') }}>
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="text-[13px] font-semibold truncate max-w-[200px]">{c.campaign_name}</h4>
+                    <span className="text-[10px] text-[#9d9da8] bg-[#f4f4f6] rounded-full px-2 py-0.5">{adCount} ads</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[12px]">
+                    <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(c.spend)}</p></div>
+                    <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{c.results}</p></div>
+                    <div><span className="text-[#9d9da8]">CPR</span><p className="font-semibold">{c.cpr > 0 ? formatCurrency(c.cpr) : '—'}</p></div>
+                    <div><span className="text-[#9d9da8]">CTR</span><p className="font-semibold">{formatPercent(c.ctr)}</p></div>
+                  </div>
+                  <p className="text-[10px] text-[#2563eb] mt-2 font-medium">View ads →</p>
+                </Card>
+              )
+            })}
           </div>
         </div>
       </TabsContent>
