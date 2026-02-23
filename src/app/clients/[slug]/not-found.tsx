@@ -15,7 +15,7 @@ export default function ClientNotFound() {
           </div>
           <h2 className="text-xl font-bold text-[#111113] mb-2">Client Not Found</h2>
           <p className="text-[13px] text-[#9d9da8] mb-6">This client doesn&apos;t exist or you don&apos;t have access to it.</p>
-          <Link href="/clients" className="inline-flex items-center gap-2 px-4 py-2 bg-[#111113] text-white text-[13px] font-medium rounded-lg hover:bg-[#333] transition-colors">
+          <Link href="/clients" className="inline-flex items-center gap-2 px-4 py-2 bg-[#111113] text-white text-[13px] font-medium rounded hover:bg-[#333] transition-colors">
             ← Back to Clients
           </Link>
         </div>

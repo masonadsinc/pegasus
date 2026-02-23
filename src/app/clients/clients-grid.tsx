@@ -94,7 +94,7 @@ function ClientCard({ account }: { account: Account }) {
 
   return (
     <Link href={`/clients/${account.client_slug}`}>
-      <div className="rounded-xl bg-white border border-[#e8e8ec] p-5 card-hover cursor-pointer h-full">
+      <div className="rounded-md bg-white border border-[#e8e8ec] p-5 card-hover cursor-pointer h-full">
         <div className="mb-3">
           <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider mb-1.5">Last 30 Days</p>
           <DotHeatmap daily={account.daily} />
@@ -195,7 +195,7 @@ export function ClientsGrid({ accounts }: { accounts: Account[] }) {
 
       {/* Filter + Sort bar */}
       <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-1 bg-white border border-[#e8e8ec] rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-white border border-[#e8e8ec] rounded p-1">
           {filters.map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
               className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${filter === f.key ? 'bg-[#dc2626] text-white' : 'text-[#6b6b76] hover:bg-[#f4f4f6]'}`}>

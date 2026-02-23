@@ -31,21 +31,21 @@ export default function LoginPage() {
           <p className="text-[#9d9da8] text-[14px] mt-1">Agency Command</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
+        <div className="bg-white rounded-md border border-[#e8e8ec] p-6">
           <form onSubmit={handleLogin} className="space-y-3">
             <input
               type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg bg-[#f8f8fa] border border-[#e8e8ec] text-[14px] focus:outline-none focus:border-[#2563eb] transition-colors"
+              className="w-full px-4 py-3 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[14px] focus:outline-none focus:border-[#2563eb] transition-colors"
               autoComplete="email" required
             />
             <input
               type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg bg-[#f8f8fa] border border-[#e8e8ec] text-[14px] focus:outline-none focus:border-[#2563eb] transition-colors"
+              className="w-full px-4 py-3 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[14px] focus:outline-none focus:border-[#2563eb] transition-colors"
               autoComplete="current-password" required
             />
             {error && <p className="text-[#dc2626] text-[13px] text-center">{error}</p>}
             <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-lg bg-[#2563eb] text-white font-semibold text-[14px] hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors mt-1">
+              className="w-full py-3 rounded bg-[#2563eb] text-white font-semibold text-[14px] hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors mt-1">
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>

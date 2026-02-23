@@ -10,7 +10,7 @@ interface MetricCardProps {
 
 export function MetricCard({ label, value, subtext, change, className }: MetricCardProps) {
   return (
-    <div className={cn('rounded-xl bg-white border border-[#e8e8ec] p-5', className)}>
+    <div className={cn('rounded-md bg-white border border-[#e8e8ec] p-5', className)}>
       <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-2">{label}</p>
       <p className="text-2xl font-semibold tabular-nums text-[#111113]">{value}</p>
       <div className="flex items-center gap-2 mt-1">

@@ -13,20 +13,13 @@ function KpiCard({ label, value, target, sub, status, icon, progressPct }: {
   label: string; value: string; target?: string; sub?: string; status?: boolean; icon?: string; progressPct?: number
 }) {
   return (
-    <div className={`rounded-xl bg-white border border-[#e8e8ec] p-5 relative overflow-hidden card-hover ${
+    <div className={`rounded-md bg-white border border-[#e8e8ec] p-5 relative overflow-hidden ${
       status === true ? 'border-l-[3px] border-l-[#16a34a]' :
       status === false ? 'border-l-[3px] border-l-[#dc2626]' :
       ''
     }`}>
       <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          {icon && <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] ${
-            status === true ? 'bg-[#dcfce7] text-[#16a34a]' :
-            status === false ? 'bg-[#fef2f2] text-[#dc2626]' :
-            'bg-[#eff6ff] text-[#2563eb]'
-          }`}>{icon}</span>}
-          <span className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</span>
-        </div>
+        <span className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</span>
         {status !== undefined && (
           <Badge variant={status ? 'success' : 'danger'}>{status ? 'On Target' : 'Over'}</Badge>
         )}
@@ -102,7 +95,7 @@ export default async function ClientDetailPage({ params, searchParams }: { param
     <>
       <Nav current="clients" />
       <PageWrapper>
-        <div className="p-6 max-w-[1200px] mx-auto">
+        <div className="p-6 lg:p-8 max-w-[1440px] mx-auto">
           {/* Breadcrumb */}
           <div className="flex items-center justify-between mb-2">
             <div className="text-[12px] text-[#9d9da8]">
@@ -122,19 +115,19 @@ export default async function ClientDetailPage({ params, searchParams }: { param
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
-              <a href="/clients" className="w-8 h-8 rounded-lg bg-[#f4f4f6] hover:bg-[#e8e8ec] flex items-center justify-center transition-colors flex-shrink-0">
+              <a href="/clients" className="w-8 h-8 rounded bg-[#f4f4f6] hover:bg-[#e8e8ec] flex items-center justify-center transition-colors flex-shrink-0">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b6b76" strokeWidth="2" strokeLinecap="round"><path d="M10 4l-4 4 4 4" /></svg>
               </a>
               <h1 className="text-xl font-bold text-[#111113]">{client.name}</h1>
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="success">Active</Badge>
-              <Suspense fallback={<span className="text-[12px] text-[#9d9da8] bg-white border border-[#e8e8ec] rounded-lg px-3 py-1.5">Last {days} days</span>}>
+              <Suspense fallback={<span className="text-[12px] text-[#9d9da8] bg-white border border-[#e8e8ec] rounded px-3 py-1.5">Last {days} days</span>}>
                 <DateRangePicker />
               </Suspense>
               <a
                 href={`/api/export?account_id=${activeAccount.id}&type=ads&days=${days}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-[#6b6b76] bg-white border border-[#e8e8ec] rounded-lg hover:bg-[#f4f4f6] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-[#6b6b76] bg-white border border-[#e8e8ec] rounded hover:bg-[#f4f4f6] transition-colors"
               >
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3M3 12h10" /></svg>
                 Export

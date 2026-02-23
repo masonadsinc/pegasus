@@ -24,7 +24,7 @@ export function DateRangePicker() {
   }
 
   return (
-    <div className="flex items-center gap-1 bg-white border border-[#e8e8ec] rounded-lg p-0.5">
+    <div className="flex items-center gap-1 bg-white border border-[#e8e8ec] rounded p-0.5">
       {ranges.map(r => (
         <button
           key={r.value}

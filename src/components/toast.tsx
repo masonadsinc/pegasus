@@ -23,7 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2">
         {toasts.map(t => (
-          <div key={t.id} className={`toast-in px-4 py-2.5 rounded-xl shadow-lg text-[13px] font-medium flex items-center gap-2 ${
+          <div key={t.id} className={`toast-in px-4 py-2.5 rounded-md shadow-lg text-[13px] font-medium flex items-center gap-2 ${
             t.type === 'error' ? 'bg-[#dc2626] text-white' :
             t.type === 'info' ? 'bg-[#111113] text-white' :
             'bg-[#111113] text-white'

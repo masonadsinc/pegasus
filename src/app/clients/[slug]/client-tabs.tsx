@@ -56,10 +56,7 @@ function StatBox({ label, value, sub, change, sparkData, sparkColor, icon, highl
 }) {
   return (
     <Card className={`p-4 ${highlight ? 'border-[#f59e0b] border-2' : ''}`}>
-      <div className="flex items-start justify-between">
-        <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</p>
-        {icon && <span className="text-[11px] text-[#9d9da8]">{icon}</span>}
-      </div>
+      <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</p>
       <p className="text-xl font-bold tabular-nums text-[#111113] mt-1">{value}</p>
       <div className="flex items-center gap-2 mt-0.5">
         {sub && <span className="text-[11px] text-[#9d9da8]">{sub}</span>}
@@ -220,7 +217,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
               href={fbUrl || `https://www.facebook.com/ads/library/?id=${ad.platform_ad_id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#1877f2] hover:bg-[#166fe5] text-white text-[12px] font-medium rounded-lg transition-colors w-fit"
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#1877f2] hover:bg-[#166fe5] text-white text-[12px] font-medium rounded transition-colors w-fit"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
               {fbLoading ? 'Loading...' : 'View on Facebook'}
@@ -236,7 +233,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
                 { label: 'Impressions', value: formatNumber(ad.impressions) },
                 { label: 'Clicks', value: formatNumber(ad.clicks) },
               ].map(m => (
-                <div key={m.label} className="bg-[#f8f8fa] rounded-lg p-2.5">
+                <div key={m.label} className="bg-[#f8f8fa] rounded p-2.5">
                   <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">{m.label}</p>
                   <p className={`text-[14px] font-bold tabular-nums ${m.highlight || ''}`}>{m.value}</p>
                 </div>
@@ -245,7 +242,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
 
             {/* Creative Copy */}
             {(ad.creative_headline || ad.creative_body || ad.creative_cta) && (
-              <div className="border border-[#e8e8ec] rounded-xl p-4 space-y-2">
+              <div className="border border-[#e8e8ec] rounded-md p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Ad Copy</p>
                   <button onClick={(e) => { e.stopPropagation(); const text = [ad.creative_headline, ad.creative_body].filter(Boolean).join('\n\n'); navigator.clipboard.writeText(text); const btn = e.currentTarget; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = 'Copy' }, 1500) }} className="text-[10px] text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">Copy</button>
@@ -253,7 +250,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
                 {ad.creative_headline && <p className="text-[14px] font-semibold text-[#111113]">{ad.creative_headline}</p>}
                 {ad.creative_body && <p className="text-[13px] text-[#6b6b76] whitespace-pre-line leading-relaxed">{ad.creative_body}</p>}
                 {ad.creative_cta && (
-                  <span className="inline-block mt-1 px-3 py-1.5 bg-[#2563eb] text-white text-[11px] font-medium rounded-lg">
+                  <span className="inline-block mt-1 px-3 py-1.5 bg-[#2563eb] text-white text-[11px] font-medium rounded">
                     {ctaMap[ad.creative_cta] || ad.creative_cta.replace(/_/g, ' ')}
                   </span>
                 )}
@@ -510,7 +507,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               <Card className="p-5">
                 <h3 className="text-[14px] font-semibold mb-3">Creative Type Performance</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[#f8f8fa] rounded-xl p-4">
+                  <div className="bg-[#f8f8fa] rounded-md p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
                       <span className="text-[12px] font-semibold">Images</span>
@@ -523,7 +520,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                     </div>
                     {totalCreativeSpend > 0 && <div className="mt-2 h-1.5 bg-[#e8e8ec] rounded-full"><div className="h-full bg-[#2563eb] rounded-full" style={{ width: `${(imageSpend / totalCreativeSpend) * 100}%` }} /></div>}
                   </div>
-                  <div className="bg-[#f8f8fa] rounded-xl p-4">
+                  <div className="bg-[#f8f8fa] rounded-md p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
                       <span className="text-[12px] font-semibold">Videos</span>
@@ -551,11 +548,11 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             const bestCprDay = [...daysWithResults].sort((a, b) => (a.spend / a.results) - (b.spend / b.results))[0]
             const worstCprDay = [...daysWithResults].sort((a, b) => (b.spend / b.results) - (a.spend / a.results))[0]
             const insights: string[] = []
-            if (zeroDays > 3) insights.push(`⚠️ ${zeroDays} days with spend but zero results`)
-            if (daysOverTarget > daily.length * 0.5 && targetCpl) insights.push(`🔴 Over target on ${daysOverTarget} of ${daily.length} days`)
+            if (zeroDays > 3) insights.push(`${zeroDays} days with spend but zero results`)
+            if (daysOverTarget > daily.length * 0.5 && targetCpl) insights.push(`Over target on ${daysOverTarget} of ${daily.length} days`)
             if (bestCprDay && totalResultsPeriod > 10) {
               const bestDayName = new Date(bestCprDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
-              insights.push(`🏆 Best day: ${bestDayName} at ${formatCurrency(bestCprDay.spend / bestCprDay.results)} CPR`)
+              insights.push(`Best day: ${bestDayName} at ${formatCurrency(bestCprDay.spend / bestCprDay.results)} CPR`)
             }
             if (insights.length === 0) return null
             return (
@@ -573,8 +570,8 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 <h3 className="text-[14px] font-semibold text-[#16a34a] mb-3">Top Performers</h3>
                 <div className="space-y-3">
                   {topAds.map((ad, i) => (
-                    <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded-lg p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
-                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded-lg flex-shrink-0" />
+                    <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
+                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded flex-shrink-0" />
                       <span className="w-5 h-5 rounded-full bg-[#dcfce7] text-[#16a34a] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
@@ -591,8 +588,8 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 <h3 className="text-[14px] font-semibold text-[#dc2626] mb-3">Underperformers</h3>
                 <div className="space-y-3">
                   {bottomAds.map((ad, i) => (
-                    <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded-lg p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
-                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded-lg flex-shrink-0" />
+                    <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
+                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded flex-shrink-0" />
                       <span className="w-5 h-5 rounded-full bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
@@ -646,9 +643,9 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <div className="flex items-center gap-3">
               <div className="relative">
                 <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9d9da8]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M13 13l4 4" /></svg>
-                <input value={adSearch} onChange={e => setAdSearch(e.target.value)} placeholder="Search ads..." className="pl-8 pr-3 py-1.5 text-[12px] bg-white border border-[#e8e8ec] rounded-lg w-[200px] focus:outline-none focus:border-[#2563eb] placeholder-[#9d9da8]" />
+                <input value={adSearch} onChange={e => setAdSearch(e.target.value)} placeholder="Search ads..." className="pl-8 pr-3 py-1.5 text-[12px] bg-white border border-[#e8e8ec] rounded w-[200px] focus:outline-none focus:border-[#2563eb] placeholder-[#9d9da8]" />
               </div>
-              <div className="flex items-center gap-1 bg-white border border-[#e8e8ec] rounded-lg p-0.5">
+              <div className="flex items-center gap-1 bg-white border border-[#e8e8ec] rounded p-0.5">
                 {(['all', 'active', 'paused'] as const).map(f => (
                   <button key={f} onClick={() => setAdStatusFilter(f)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${adStatusFilter === f ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
                     {f === 'all' ? 'All' : f === 'active' ? 'Active' : 'Paused'}
@@ -1005,7 +1002,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 <h3 className="text-[14px] font-semibold mb-3">Device Performance</h3>
                 <div className="space-y-3">
                   {device.map(d => (
-                    <div key={d.dimension_value} className="p-3 rounded-lg bg-[#f8f8fa] border border-[#e8e8ec]">
+                    <div key={d.dimension_value} className="p-3 rounded bg-[#f8f8fa] border border-[#e8e8ec]">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-2.5 h-2.5 rounded-sm bg-[#2563eb]" />
                         <span className="text-[13px] font-medium">{d.dimension_value}</span>
@@ -1026,7 +1023,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                   <h3 className="text-[14px] font-semibold text-[#16a34a] mb-3">Best Performers</h3>
                   <div className="space-y-3">
                     {topAudienceSegments.map((seg, i) => (
-                      <div key={seg.dimension_value} className="flex items-center gap-3 p-3 rounded-lg bg-[#f0fdf4] border border-[#bbf7d0]">
+                      <div key={seg.dimension_value} className="flex items-center gap-3 p-3 rounded bg-[#f0fdf4] border border-[#bbf7d0]">
                         <span className="w-6 h-6 rounded-full bg-[#16a34a] text-white text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -1050,7 +1047,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                     {worstAudienceSegments.map((seg, i) => {
                       const potentialSavings = targetCpl && seg.cpr > targetCpl ? (seg.cpr - targetCpl) * seg.results : 0
                       return (
-                        <div key={seg.dimension_value} className="flex items-center gap-3 p-3 rounded-lg bg-[#fef2f2] border border-[#fecaca]">
+                        <div key={seg.dimension_value} className="flex items-center gap-3 p-3 rounded bg-[#fef2f2] border border-[#fecaca]">
                           <span className="w-6 h-6 rounded-full bg-[#dc2626] text-white text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -1281,7 +1278,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                       const abbr = r.dimension_value?.slice(0, 2).toUpperCase() || '??'
                       const pct = totalSpend > 0 ? ((r.spend / totalSpend) * 100).toFixed(1) : '0'
                       return (
-                        <div key={r.dimension_value} className="text-center p-1.5 rounded-lg bg-[#f4f4f6]">
+                        <div key={r.dimension_value} className="text-center p-1.5 rounded bg-[#f4f4f6]">
                           <p className="text-[11px] font-semibold text-[#2563eb]">{abbr}</p>
                           <p className="text-[9px] text-[#9d9da8]">{pct}%</p>
                         </div>

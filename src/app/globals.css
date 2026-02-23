@@ -52,9 +52,9 @@ body {
 .toast-in { animation: toastIn 0.2s ease-out; }
 .toast-out { animation: toastOut 0.15s ease-in forwards; }
 
-/* Card hover */
-.card-hover { transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease; }
-.card-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: #d4d4d8; transform: translateY(-1px); }
+/* Card hover — subtle only */
+.card-hover { transition: border-color 0.15s ease; }
+.card-hover:hover { border-color: #d4d4d8; }
 
 /* Table improvements */
 table thead th { position: sticky; top: 0; background: white; z-index: 1; }

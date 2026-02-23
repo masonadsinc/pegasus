@@ -62,7 +62,7 @@ export function AccountEditor({ account }: { account: any }) {
     setSaving(false)
   }
 
-  const inputClass = "w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm focus:outline-none focus:border-zinc-500"
+  const inputClass = "w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-sm focus:outline-none focus:border-zinc-500"
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
@@ -124,7 +124,7 @@ export function AccountEditor({ account }: { account: any }) {
           Active
         </label>
         <div className="flex-1" />
-        <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-white text-zinc-900 text-sm font-semibold hover:bg-zinc-200 disabled:opacity-50 transition-colors">
+        <button type="submit" disabled={saving} className="px-4 py-2 rounded bg-white text-zinc-900 text-sm font-semibold hover:bg-zinc-200 disabled:opacity-50 transition-colors">
           {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save'}
         </button>
       </div>
