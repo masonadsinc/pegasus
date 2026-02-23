@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getUser } from '@/lib/auth'
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN!
 const META_API_VERSION = process.env.META_API_VERSION || 'v21.0'
@@ -14,11 +15,14 @@ async function metaGet(path: string, params: Record<string, string> = {}) {
 }
 
 export async function GET(req: NextRequest) {
-  const adId = req.nextUrl.searchParams.get('ad_id')
-  if (!adId) return NextResponse.json({ error: 'ad_id required' }, { status: 400 })
-
   try {
-    // 1. Try preview_shareable_link from ad previews
+    const user = await getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const adId = req.nextUrl.searchParams.get('ad_id')
+    if (!adId || !/^\d+$/.test(adId)) return NextResponse.json({ error: 'Valid ad_id required' }, { status: 400 })
+
+    // 1. Try preview_shareable_link
     const previewData = await metaGet(`/${adId}`, { fields: 'preview_shareable_link' })
     if (previewData?.preview_shareable_link) {
       return NextResponse.json({ url: previewData.preview_shareable_link, source: 'preview' })
@@ -29,10 +33,8 @@ export async function GET(req: NextRequest) {
     if (storyData?.effective_object_story_id) {
       const [pageId, postId] = storyData.effective_object_story_id.split('_')
       if (pageId && postId) {
-        // Check if it's a video post
         const postData = await metaGet(`/${storyData.effective_object_story_id}`, { fields: 'type' })
         if (postData?.type === 'video') {
-          // Try to get video ID from story spec
           const videoData = storyData?.creative?.object_story_spec?.video_data?.video_id
           if (videoData) {
             return NextResponse.json({ url: `https://www.facebook.com/${pageId}/videos/${videoData}`, source: 'video' })
@@ -45,6 +47,6 @@ export async function GET(req: NextRequest) {
     // 3. Fallback to Ad Library
     return NextResponse.json({ url: `https://www.facebook.com/ads/library/?id=${adId}`, source: 'library' })
   } catch {
-    return NextResponse.json({ url: `https://www.facebook.com/ads/library/?id=${adId}`, source: 'library' })
+    return NextResponse.json({ error: 'Failed to fetch URL' }, { status: 500 })
   }
 }
