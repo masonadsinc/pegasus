@@ -4,7 +4,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 
 export const revalidate = 60
-
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
 async function getOrgData() {
@@ -24,22 +23,6 @@ async function getOrgData() {
   }
 }
 
-function SettingsCard({ href, title, description, stat }: { href: string; title: string; description: string; stat?: string }) {
-  return (
-    <Link href={href}>
-      <Card className="p-5 hover:bg-[#f5f5f7]/50 transition-colors cursor-pointer h-full">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-semibold text-sm">{title}</h3>
-            <p className="text-xs text-[#86868b]500 mt-1">{description}</p>
-          </div>
-          {stat && <span className="text-lg font-bold text-[#86868b]400">{stat}</span>}
-        </div>
-      </Card>
-    </Link>
-  )
-}
-
 export default async function SettingsPage() {
   const { org, members, clients, accounts, lastSync } = await getOrgData()
 
@@ -49,41 +32,43 @@ export default async function SettingsPage() {
     ? new Date(lastSync.completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
     : 'Never'
 
+  const cards = [
+    { href: '/settings/clients', title: 'Clients', desc: 'Add, edit, and manage client accounts', stat: `${activeClients}` },
+    { href: '/settings/team', title: 'Team', desc: 'Manage team members and roles', stat: `${members.length}` },
+    { href: '/settings/sync', title: 'Sync Status', desc: `Last sync: ${lastSyncTime}`, stat: `${activeAccounts}` },
+  ]
+
   return (
-    <><PageWrapper><main className="pb-8">
+    <>
       <Nav current="settings" />
+      <PageWrapper>
+        <div className="p-8 max-w-[1000px] mx-auto">
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold text-white">Settings</h1>
+            <p className="text-sm text-zinc-500 mt-1">{org?.name || 'Organization'} · {org?.plan || 'Starter'} plan</p>
+          </div>
 
-      <div className="max-w-4xl mx-auto px-4 mt-6">
-        <div className="mb-6">
-          <h1 className="text-xl font-bold">Settings</h1>
-          <p className="text-sm text-[#86868b]500">{org?.name || 'Organization'} · {org?.plan || 'Starter'} plan</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cards.map(c => (
+              <Link key={c.href} href={c.href}>
+                <Card className="p-5 hover:bg-zinc-800/50 transition-colors cursor-pointer h-full">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-white">{c.title}</h3>
+                      <p className="text-[12px] text-zinc-500 mt-1">{c.desc}</p>
+                    </div>
+                    <span className="text-lg font-semibold text-zinc-400">{c.stat}</span>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+            <Card className="p-5 opacity-40">
+              <h3 className="text-sm font-medium text-zinc-400">Integrations</h3>
+              <p className="text-[12px] text-zinc-600 mt-1">Stripe, Mercury, Slack — coming soon</p>
+            </Card>
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <SettingsCard
-            href="/settings/clients"
-            title="Clients"
-            description="Add, edit, and manage client accounts"
-            stat={`${activeClients}`}
-          />
-          <SettingsCard
-            href="/settings/team"
-            title="Team"
-            description="Manage team members and roles"
-            stat={`${members.length}`}
-          />
-          <SettingsCard
-            href="/settings/sync"
-            title="Sync Status"
-            description={`Last sync: ${lastSyncTime}`}
-            stat={`${activeAccounts}`}
-          />
-          <Card className="p-5 opacity-50">
-            <h3 className="font-semibold text-sm">Integrations</h3>
-            <p className="text-xs text-[#86868b]500 mt-1">Stripe, Mercury, Slack — coming soon</p>
-          </Card>
-        </div>
-      </div>
-    </main></PageWrapper></>
+      </PageWrapper>
+    </>
   )
 }

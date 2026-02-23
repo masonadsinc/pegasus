@@ -2,9 +2,21 @@ import { getDashboardData } from '@/lib/queries'
 import { formatCurrency, formatNumber, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
+import Link from 'next/link'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 export const revalidate = 300
+
+function MiniBar({ data, color = 'bg-blue-500' }: { data: number[]; color?: string }) {
+  const max = Math.max(...data, 1)
+  return (
+    <div className="flex items-end gap-[2px] h-[32px]">
+      {data.map((v, i) => (
+        <div key={i} className={`flex-1 ${color} rounded-sm opacity-60`} style={{ height: `${Math.max((v / max) * 100, 4)}%` }} />
+      ))}
+    </div>
+  )
+}
 
 export default async function Dashboard() {
   const accounts = await getDashboardData(ORG_ID, 7)
@@ -23,46 +35,52 @@ export default async function Dashboard() {
     <>
       <Nav current="dashboard" />
       <PageWrapper>
-        <div className="p-6 max-w-[1200px] mx-auto">
-          <h1 className="text-xl font-bold text-[#1d1d1f] mb-1">Health Tracker</h1>
-          <p className="text-[13px] text-[#86868b] mb-6">Agency overview · Last 7 days</p>
+        <div className="p-8 max-w-[1400px] mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
+            <p className="text-sm text-zinc-500 mt-1">Agency performance overview — last 7 days</p>
+          </div>
 
           {/* KPI Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Card className="p-5">
-              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Total Spend</p>
-              <p className="text-[28px] font-bold tabular-nums">{formatCurrency(totalSpend)}</p>
-              <p className="text-[12px] text-[#86868b]">{formatCurrency(totalSpend / 7)}/day</p>
+              <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider mb-2">Total Spend</p>
+              <p className="text-[28px] font-semibold tabular-nums text-white">{formatCurrency(totalSpend)}</p>
+              <p className="text-[12px] text-zinc-500 mt-1">{formatCurrency(totalSpend / 7)} / day avg</p>
             </Card>
             <Card className="p-5">
-              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Total Results</p>
-              <p className="text-[28px] font-bold tabular-nums">{formatNumber(totalResults)}</p>
-              <p className="text-[12px] text-[#86868b]">{(totalResults / 7).toFixed(0)}/day</p>
+              <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider mb-2">Total Results</p>
+              <p className="text-[28px] font-semibold tabular-nums text-white">{formatNumber(totalResults)}</p>
+              <p className="text-[12px] text-zinc-500 mt-1">{(totalResults / 7).toFixed(0)} / day avg</p>
             </Card>
             <Card className="p-5">
-              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Blended CPR</p>
-              <p className="text-[28px] font-bold tabular-nums">{blendedCPR > 0 ? formatCurrency(blendedCPR) : '—'}</p>
-              <p className="text-[12px] text-[#86868b]">Non-ecom accounts</p>
+              <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider mb-2">Blended CPR</p>
+              <p className="text-[28px] font-semibold tabular-nums text-white">{blendedCPR > 0 ? formatCurrency(blendedCPR) : '—'}</p>
+              <p className="text-[12px] text-zinc-500 mt-1">Non-ecom accounts</p>
             </Card>
             <Card className="p-5">
-              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Active Accounts</p>
-              <p className="text-[28px] font-bold tabular-nums">{activeAccounts.length}</p>
-              <p className="text-[12px] text-[#86868b]">{accounts.length} total</p>
+              <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider mb-2">Active Accounts</p>
+              <p className="text-[28px] font-semibold tabular-nums text-white">{activeAccounts.length}</p>
+              <p className="text-[12px] text-zinc-500 mt-1">{accounts.length} total</p>
             </Card>
           </div>
 
-          {/* Account List */}
-          <Card className="p-5">
-            <h2 className="text-[14px] font-semibold mb-4">All Accounts</h2>
-            <div className="overflow-x-auto">
+          {/* Account Table */}
+          <Card>
+            <div className="px-5 py-4 border-b border-zinc-800">
+              <h2 className="text-sm font-medium text-white">All Accounts</h2>
+            </div>
+            <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="border-b border-[#e5e5e5]">
-                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-left uppercase tracking-wider">Client</th>
-                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">Spend</th>
-                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">Results</th>
-                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">CPR</th>
-                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">Impressions</th>
+                  <tr className="border-b border-zinc-800/50">
+                    <th className="py-3 px-5 text-[11px] text-zinc-500 font-medium text-left uppercase tracking-wider">Client</th>
+                    <th className="py-3 px-5 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider">Spend</th>
+                    <th className="py-3 px-5 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider">Results</th>
+                    <th className="py-3 px-5 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider">CPR</th>
+                    <th className="py-3 px-5 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider">Impressions</th>
+                    <th className="py-3 px-5 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider w-[120px]">7d Trend</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -70,17 +88,20 @@ export default async function Dashboard() {
                     const cpr = a.results > 0 ? a.spend / a.results : 0
                     const isOver = a.target_cpl ? cpr > a.target_cpl : false
                     return (
-                      <tr key={a.ad_account_id} className="border-b border-[#f0f0f0] hover:bg-[#fafafa]">
-                        <td className="py-2.5 px-3">
-                          <a href={`/clients/${a.client_slug}`} className="font-medium text-[#007aff] hover:underline">{a.client_name}</a>
-                          <p className="text-[11px] text-[#86868b]">{a.result_label}</p>
+                      <tr key={a.ad_account_id} className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors">
+                        <td className="py-3.5 px-5">
+                          <Link href={`/clients/${a.client_slug}`} className="font-medium text-white hover:text-blue-400 transition-colors">{a.client_name}</Link>
+                          <p className="text-[11px] text-zinc-500 mt-0.5">{a.result_label}</p>
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums font-medium">{formatCurrency(a.spend)}</td>
-                        <td className="py-2.5 px-3 text-right tabular-nums">{formatNumber(a.results)}</td>
-                        <td className={`py-2.5 px-3 text-right tabular-nums font-semibold ${isOver ? 'text-[#ff3b30]' : cpr > 0 ? 'text-[#34c759]' : 'text-[#aeaeb2]'}`}>
+                        <td className="py-3.5 px-5 text-right tabular-nums font-medium text-white">{formatCurrency(a.spend)}</td>
+                        <td className="py-3.5 px-5 text-right tabular-nums text-zinc-300">{formatNumber(a.results)}</td>
+                        <td className={`py-3.5 px-5 text-right tabular-nums font-semibold ${isOver ? 'text-red-400' : cpr > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
                           {cpr > 0 ? formatCurrency(cpr) : '—'}
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums text-[#86868b]">{formatNumber(a.impressions)}</td>
+                        <td className="py-3.5 px-5 text-right tabular-nums text-zinc-400">{formatNumber(a.impressions)}</td>
+                        <td className="py-3.5 px-5">
+                          <MiniBar data={a.daily.slice(-7).map(d => d.spend)} />
+                        </td>
                       </tr>
                     )
                   })}

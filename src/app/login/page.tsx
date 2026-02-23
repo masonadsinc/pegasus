@@ -24,28 +24,31 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 bg-[#f5f5f7]">
+    <div className="min-h-screen flex items-center justify-center px-6 bg-[#09090b]">
       <div className="w-full max-w-xs">
         <div className="text-center mb-10">
-          <h1 className="text-[28px] font-bold text-[#1d1d1f]">Ads.Inc</h1>
-          <p className="text-[#86868b] text-[14px] mt-1">Agency Command</p>
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-lg font-bold">A</span>
+          </div>
+          <h1 className="text-xl font-semibold text-white">Agency Command</h1>
+          <p className="text-zinc-500 text-[13px] mt-1">Sign in to continue</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#e5e5e5] p-6 shadow-sm">
+        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <form onSubmit={handleLogin} className="space-y-3">
             <input
               type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] border border-[#e5e5e5] text-[14px] focus:outline-none focus:border-[#007aff] transition-colors"
+              className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-zinc-700 text-[14px] text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
               autoComplete="email" required
             />
             <input
               type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] border border-[#e5e5e5] text-[14px] focus:outline-none focus:border-[#007aff] transition-colors"
+              className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-zinc-700 text-[14px] text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
               autoComplete="current-password" required
             />
-            {error && <p className="text-[#ff3b30] text-[13px] text-center">{error}</p>}
+            {error && <p className="text-red-400 text-[13px] text-center">{error}</p>}
             <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-xl bg-[#007aff] text-white font-semibold text-[14px] hover:bg-[#0051a8] disabled:opacity-50 transition-colors mt-1">
+              className="w-full py-3 rounded-lg bg-blue-600 text-white font-medium text-[14px] hover:bg-blue-500 disabled:opacity-50 transition-colors mt-1">
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
