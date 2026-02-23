@@ -1,5 +1,12 @@
 import { supabaseAdmin } from './supabase'
 
+// All data is through yesterday — today's data is incomplete
+function getYesterday(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().split('T')[0]
+}
+
 export interface AccountSummary {
   client_name: string
   client_slug: string
@@ -126,6 +133,7 @@ export async function getDashboardData(orgId: string, days: number = 7): Promise
     .eq('org_id', orgId)
     .eq('level', 'campaign')
     .gte('date', dateStr)
+    .lte('date', getYesterday())
     .order('date', { ascending: true })
 
   if (error) throw error
@@ -227,6 +235,7 @@ export async function getClientInsights(accountId: string, days: number = 30, pr
     .eq('ad_account_id', accountId)
     .eq('level', 'campaign')
     .gte('date', dateStr)
+    .lte('date', getYesterday())
     .order('date')
 
   if (error) throw error
@@ -262,6 +271,7 @@ export async function getCampaignBreakdown(accountId: string, days: number = 30,
     .eq('ad_account_id', accountId)
     .eq('level', 'campaign')
     .gte('date', dateStr)
+    .lte('date', getYesterday())
 
   if (error) throw error
 
@@ -311,6 +321,7 @@ export async function getAdSetBreakdown(accountId: string, days: number = 30, pr
     .eq('ad_account_id', accountId)
     .eq('level', 'ad')
     .gte('date', dateStr)
+    .lte('date', getYesterday())
 
   if (error) throw error
 
@@ -378,6 +389,7 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
     .eq('ad_account_id', accountId)
     .eq('level', 'ad')
     .gte('date', dateStr)
+    .lte('date', getYesterday())
 
   if (error) throw error
 
@@ -439,6 +451,7 @@ export async function getBreakdownData(accountId: string, breakdownType: string,
     .eq('ad_account_id', accountId)
     .eq('breakdown_type', breakdownType)
     .gte('date', dateStr)
+    .lte('date', getYesterday())
 
   if (error) throw error
 
