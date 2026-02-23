@@ -36,24 +36,39 @@ interface ClientTabsProps {
 }
 
 /* ── Sparkline ──────────────────────────────────── */
-function Spark({ data, color = '#2563eb', h = 32 }: { data: number[]; color?: string; h?: number }) {
+function Spark({ data, color = '#2563eb', h = 32, labels, formatVal }: { data: number[]; color?: string; h?: number; labels?: string[]; formatVal?: (v: number) => string }) {
+  const [hover, setHover] = useState<number | null>(null)
   if (data.length < 2) return null
   const max = Math.max(...data, 1); const min = Math.min(...data, 0); const range = max - min || 1
-  const w = 100 // viewBox width, scales to container
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 4) - 2}`)
-  const areaPath = `M0,${h} ${pts.map(p => `L${p}`).join(' ')} L${w},${h} Z`
+  const w = 100
+  const pts = data.map((v, i) => ({ x: (i / (data.length - 1)) * w, y: h - ((v - min) / range) * (h - 4) - 2 }))
+  const areaPath = `M0,${h} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${w},${h} Z`
+  const polyPts = pts.map(p => `${p.x},${p.y}`).join(' ')
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-2 w-full" style={{ height: h }}>
-      <defs><linearGradient id={`sg_${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.15" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
-      <path d={areaPath} fill={`url(#sg_${color.replace('#','')})`} />
-      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div className="relative mt-2 w-full" style={{ height: h }}
+      onMouseMove={e => { const rect = e.currentTarget.getBoundingClientRect(); const pct = (e.clientX - rect.left) / rect.width; setHover(Math.min(data.length - 1, Math.max(0, Math.round(pct * (data.length - 1))))) }}
+      onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-full">
+        <defs><linearGradient id={`sg_${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.15" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+        <path d={areaPath} fill={`url(#sg_${color.replace('#','')})`} />
+        <polyline points={polyPts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {hover !== null && pts[hover] && <circle cx={pts[hover].x} cy={pts[hover].y} r="3" fill={color} stroke="white" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {hover !== null && labels?.[hover] && (
+        <div className="absolute bottom-full mb-1 -translate-x-1/2 z-50 pointer-events-none" style={{ left: `${(hover / (data.length - 1)) * 100}%` }}>
+          <div className="bg-[#111113] text-white rounded px-2 py-1 text-[10px] whitespace-nowrap shadow-lg text-center">
+            <p className="text-[#9d9da8]">{labels[hover]}</p>
+            <p className="font-semibold">{formatVal ? formatVal(data[hover]) : data[hover].toLocaleString()}</p>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
 /* ── Stat Box ───────────────────────────────────── */
-function StatBox({ label, value, sub, change, sparkData, sparkColor, icon, highlight }: {
-  label: string; value: string; sub?: string; change?: { label: string; positive: boolean }; sparkData?: number[]; sparkColor?: string; icon?: string; highlight?: boolean
+function StatBox({ label, value, sub, change, sparkData, sparkColor, sparkLabels, sparkFormat, icon, highlight }: {
+  label: string; value: string; sub?: string; change?: { label: string; positive: boolean }; sparkData?: number[]; sparkColor?: string; sparkLabels?: string[]; sparkFormat?: (v: number) => string; icon?: string; highlight?: boolean
 }) {
   return (
     <Card className={`p-4 ${highlight ? 'border-[#f59e0b] border-2' : ''}`}>
@@ -65,7 +80,7 @@ function StatBox({ label, value, sub, change, sparkData, sparkColor, icon, highl
           <span className={`text-[11px] font-medium ${change.positive ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>{change.label}</span>
         )}
       </div>
-      {sparkData && <Spark data={sparkData} color={sparkColor || '#2563eb'} />}
+      {sparkData && <Spark data={sparkData} color={sparkColor || '#2563eb'} labels={sparkLabels} formatVal={sparkFormat} />}
     </Card>
   )
 }
@@ -423,12 +438,12 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
           </Card>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-            <StatBox label="Spend" value={formatCurrency(twSum('spend'))} icon="$" sparkData={tw.map(d => d.spend)} change={wowChange(twSum('spend'), lwSum('spend'))} />
-            <StatBox label={resultLabel} value={formatNumber(twSum('results'))} sparkData={tw.map(d => d.results)} sparkColor="#16a34a" change={wowChange(twSum('results'), lwSum('results'))} />
-            <StatBox label="CPR" value={twSum('results') > 0 ? formatCurrency(twSum('spend') / twSum('results')) : '—'} change={wowChangeCPL(twSum('results') > 0 ? twSum('spend')/twSum('results') : 0, lwSum('results') > 0 ? lwSum('spend')/lwSum('results') : 0)} />
-            <StatBox label="Impressions" value={formatNumber(twSum('impressions'))} sparkData={tw.map(d => d.impressions)} change={wowChange(twSum('impressions'), lwSum('impressions'))} />
-            <StatBox label="Clicks" value={formatNumber(twSum('clicks'))} sparkData={tw.map(d => d.clicks)} change={wowChange(twSum('clicks'), lwSum('clicks'))} />
-            <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} />
+            <StatBox label="Spend" value={formatCurrency(twSum('spend'))} icon="$" sparkData={tw.map(d => d.spend)} sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatCurrency(v)} change={wowChange(twSum('spend'), lwSum('spend'))} />
+            <StatBox label={resultLabel} value={formatNumber(twSum('results'))} sparkData={tw.map(d => d.results)} sparkColor="#16a34a" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(twSum('results'), lwSum('results'))} />
+            <StatBox label="CPR" value={twSum('results') > 0 ? formatCurrency(twSum('spend') / twSum('results')) : '—'} sparkData={tw.map(d => d.results > 0 ? d.spend / d.results : 0)} sparkColor="#f59e0b" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => v > 0 ? formatCurrency(v) : '—'} change={wowChangeCPL(twSum('results') > 0 ? twSum('spend')/twSum('results') : 0, lwSum('results') > 0 ? lwSum('spend')/lwSum('results') : 0)} />
+            <StatBox label="Impressions" value={formatNumber(twSum('impressions'))} sparkData={tw.map(d => d.impressions)} sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(twSum('impressions'), lwSum('impressions'))} />
+            <StatBox label="Clicks" value={formatNumber(twSum('clicks'))} sparkData={tw.map(d => d.clicks)} sparkColor="#06b6d4" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(twSum('clicks'), lwSum('clicks'))} />
+            <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} sparkData={tw.map(d => d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0)} sparkColor="#ec4899" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatPercent(v)} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
