@@ -5,12 +5,12 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const variants: Record<string, string> = {
-  default: 'bg-zinc-800 text-zinc-400',
-  success: 'bg-emerald-500/10 text-emerald-400',
-  warning: 'bg-amber-500/10 text-amber-400',
-  danger: 'bg-red-500/10 text-red-400',
-  info: 'bg-blue-500/10 text-blue-400',
-  neutral: 'bg-zinc-800 text-zinc-500',
+  default: 'bg-[#f4f4f6] text-[#6b6b76]',
+  success: 'bg-[#dcfce7] text-[#15803d]',
+  warning: 'bg-[#fff7ed] text-[#c2410c]',
+  danger: 'bg-[#fef2f2] text-[#dc2626]',
+  info: 'bg-[#eff6ff] text-[#2563eb]',
+  neutral: 'bg-[#f4f4f6] text-[#9d9da8]',
 }
 
 export function Badge({ variant = 'default', className, children, ...props }: BadgeProps) {

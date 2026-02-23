@@ -30,72 +30,20 @@ const statusConfig: Record<Status, { label: string; variant: 'success' | 'warnin
   'no-data': { label: 'No Target', variant: 'neutral' },
 }
 
-function SparkArea({ daily }: { daily: AccountSummary['daily'] }) {
+function SparkLine({ daily }: { daily: AccountSummary['daily'] }) {
   const data = daily.slice(-14).map(d => d.spend)
   if (data.length < 2) return null
   const max = Math.max(...data, 1)
   const min = Math.min(...data, 0)
   const range = max - min || 1
-  const w = 120
-  const h = 32
+  const w = 100
+  const h = 28
   const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`)
-  const fillPoints = [`0,${h}`, ...points, `${w},${h}`]
 
   return (
-    <svg width={w} height={h} className="opacity-50">
-      <polygon points={fillPoints.join(' ')} fill="rgba(59,130,246,0.15)" />
-      <polyline points={points.join(' ')} fill="none" stroke="#3b82f6" strokeWidth="1.5" />
+    <svg width={w} height={h}>
+      <polyline points={points.join(' ')} fill="none" stroke="#2563eb" strokeWidth="1.5" opacity="0.5" />
     </svg>
-  )
-}
-
-function ClientRow({ account }: { account: AccountSummary }) {
-  const status = getStatus(account)
-  const cfg = statusConfig[status]
-  const isEcom = isEcomActionType(account.primary_action_type)
-  const cpr = account.results > 0 ? account.spend / account.results : 0
-  const roas = account.spend > 0 ? account.purchase_value / account.spend : 0
-
-  return (
-    <Link href={`/clients/${account.client_slug}`} className="block">
-      <div className="flex items-center px-5 py-4 border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors cursor-pointer gap-4">
-        {/* Name */}
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-white truncate">{account.client_name}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">{account.result_label}</p>
-        </div>
-
-        {/* Spark */}
-        <div className="hidden md:block">
-          <SparkArea daily={account.daily} />
-        </div>
-
-        {/* Metrics */}
-        <div className="flex items-center gap-6 text-right">
-          <div className="w-20">
-            <p className="text-[11px] text-zinc-500">Spend</p>
-            <p className="text-[13px] font-medium text-white tabular-nums">{formatCurrency(account.spend)}</p>
-          </div>
-          <div className="w-16">
-            <p className="text-[11px] text-zinc-500">Results</p>
-            <p className="text-[13px] font-medium text-zinc-300 tabular-nums">{formatNumber(account.results)}</p>
-          </div>
-          <div className="w-20">
-            <p className="text-[11px] text-zinc-500">{isEcom ? 'ROAS' : 'CPR'}</p>
-            <p className={`text-[13px] font-semibold tabular-nums ${
-              status === 'on-target' ? 'text-emerald-400' :
-              status === 'critical' ? 'text-red-400' :
-              status === 'over' ? 'text-amber-400' : 'text-zinc-400'
-            }`}>
-              {isEcom ? (roas > 0 ? `${roas.toFixed(2)}x` : '—') : (cpr > 0 ? formatCurrency(cpr) : '—')}
-            </p>
-          </div>
-          <div className="w-20">
-            <Badge variant={cfg.variant}>{cfg.label}</Badge>
-          </div>
-        </div>
-      </div>
-    </Link>
   )
 }
 
@@ -121,40 +69,74 @@ export default async function ClientsPage() {
     <>
       <Nav current="clients" />
       <PageWrapper>
-        <div className="p-8 max-w-[1400px] mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+        <div className="p-6 max-w-[1200px] mx-auto">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-semibold text-white">Clients</h1>
-              <p className="text-sm text-zinc-500 mt-1">All client accounts — last 7 days</p>
+              <h2 className="text-xl font-bold text-[#111113]">Clients</h2>
+              <p className="text-[13px] text-[#9d9da8]">All client accounts — last 7 days</p>
             </div>
-            <div className="flex items-center gap-4 text-[12px] text-zinc-400">
-              {critical > 0 && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-400" />{critical} critical</span>}
-              {over > 0 && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />{over} over target</span>}
-              {onTarget > 0 && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />{onTarget} on target</span>}
+            <div className="flex items-center gap-4 text-[12px] text-[#6b6b76]">
+              {critical > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#dc2626]" />{critical} critical</span>}
+              {over > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#ea580c]" />{over} over target</span>}
+              {onTarget > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#16a34a]" />{onTarget} on target</span>}
             </div>
           </div>
 
-          {/* Active Accounts */}
-          <Card className="mb-6">
-            <div className="px-5 py-4 border-b border-zinc-800">
-              <h2 className="text-sm font-medium text-white">Active Accounts</h2>
-              <p className="text-[11px] text-zinc-500 mt-0.5">{active.length} accounts with spend</p>
+          <Card>
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-[#e8e8ec]">
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Client</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider w-[100px]">14d Trend</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Results</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {active.map(a => {
+                    const status = getStatus(a)
+                    const cfg = statusConfig[status]
+                    const isEcom = isEcomActionType(a.primary_action_type)
+                    const cpr = a.results > 0 ? a.spend / a.results : 0
+                    const roas = a.spend > 0 ? a.purchase_value / a.spend : 0
+
+                    return (
+                      <tr key={a.ad_account_id} className="border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors">
+                        <td className="py-3 px-5">
+                          <Link href={`/clients/${a.client_slug}`} className="font-medium text-[#2563eb] hover:underline">{a.client_name}</Link>
+                          <p className="text-[11px] text-[#9d9da8] mt-0.5">{a.result_label}</p>
+                        </td>
+                        <td className="py-3 px-5 text-right"><SparkLine daily={a.daily} /></td>
+                        <td className="py-3 px-5 text-right tabular-nums font-medium">{formatCurrency(a.spend)}</td>
+                        <td className="py-3 px-5 text-right tabular-nums text-[#6b6b76]">{formatNumber(a.results)}</td>
+                        <td className={`py-3 px-5 text-right tabular-nums font-semibold ${
+                          status === 'on-target' ? 'text-[#16a34a]' :
+                          status === 'critical' ? 'text-[#dc2626]' :
+                          status === 'over' ? 'text-[#ea580c]' : 'text-[#9d9da8]'
+                        }`}>
+                          {isEcom ? (roas > 0 ? `${roas.toFixed(2)}x` : '—') : (cpr > 0 ? formatCurrency(cpr) : '—')}
+                        </td>
+                        <td className="py-3 px-5"><Badge variant={cfg.variant}>{cfg.label}</Badge></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
-            {active.map(a => <ClientRow key={a.ad_account_id} account={a} />)}
           </Card>
 
-          {/* Inactive */}
           {inactive.length > 0 && (
-            <Card>
-              <div className="px-5 py-4 border-b border-zinc-800">
-                <h2 className="text-sm font-medium text-zinc-400">Inactive</h2>
-                <p className="text-[11px] text-zinc-600 mt-0.5">{inactive.length} accounts with no spend</p>
+            <Card className="mt-6">
+              <div className="px-5 py-3 border-b border-[#e8e8ec]">
+                <h3 className="text-[13px] font-medium text-[#9d9da8]">Inactive ({inactive.length})</h3>
               </div>
               {inactive.map(a => (
-                <div key={a.ad_account_id} className="flex items-center px-5 py-3 border-b border-zinc-800/30">
-                  <p className="text-[13px] text-zinc-500">{a.client_name}</p>
-                  <span className="ml-auto text-[11px] text-zinc-600">No spend</span>
+                <div key={a.ad_account_id} className="flex items-center justify-between px-5 py-2.5 border-b border-[#f4f4f6] last:border-0">
+                  <span className="text-[13px] text-[#9d9da8]">{a.client_name}</span>
+                  <span className="text-[11px] text-[#c4c4cc]">No spend</span>
                 </div>
               ))}
             </Card>

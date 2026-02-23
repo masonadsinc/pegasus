@@ -12,7 +12,7 @@ const ORG_ID = process.env.ADSINC_ORG_ID!
 async function getClients() {
   const { data, error } = await supabaseAdmin
     .from('clients')
-    .select(`id, name, slug, industry, status, monthly_retainer, rev_share_pct, contract_start, contract_end, primary_contact_name, primary_contact_email, website, notes, ad_accounts(id, name, platform_account_id, platform, objective, primary_action_type, target_cpl, target_roas, is_active)`)
+    .select(`id, name, slug, industry, status, monthly_retainer, primary_contact_email, ad_accounts(id, is_active)`)
     .eq('org_id', ORG_ID)
     .order('name')
   if (error) throw error
@@ -20,10 +20,7 @@ async function getClients() {
 }
 
 const statusVariant: Record<string, 'success' | 'info' | 'neutral' | 'danger'> = {
-  active: 'success',
-  pipeline: 'info',
-  inactive: 'neutral',
-  churned: 'danger',
+  active: 'success', pipeline: 'info', inactive: 'neutral', churned: 'danger',
 }
 
 export default async function ClientsSettingsPage() {
@@ -39,40 +36,40 @@ export default async function ClientsSettingsPage() {
     <>
       <Nav current="settings" />
       <PageWrapper>
-        <div className="p-8 max-w-[1200px] mx-auto">
-          <div className="flex items-center justify-between mb-8">
+        <div className="p-6 max-w-[1000px] mx-auto">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <div className="text-[12px] text-zinc-500 mb-3 flex items-center gap-1.5">
-                <Link href="/settings" className="hover:text-white transition-colors">Settings</Link>
-                <span className="text-zinc-700">/</span>
-                <span className="text-zinc-300">Clients</span>
+              <div className="text-[12px] text-[#9d9da8] mb-1">
+                <Link href="/settings" className="hover:text-[#111113]">Settings</Link>
+                <span className="mx-1.5">/</span>
+                <span className="text-[#6b6b76]">Clients</span>
               </div>
-              <h1 className="text-2xl font-semibold text-white">Client Management</h1>
-              <p className="text-sm text-zinc-500 mt-1">{clients.length} clients total</p>
+              <h2 className="text-xl font-bold text-[#111113]">Client Management</h2>
+              <p className="text-[13px] text-[#9d9da8]">{clients.length} clients total</p>
             </div>
             <ClientActions />
           </div>
 
           {Object.entries(grouped).map(([status, group]) => group.length > 0 && (
-            <div key={status} className="mb-8">
-              <h2 className="text-sm font-medium text-zinc-400 mb-3 capitalize">{status} ({group.length})</h2>
+            <div key={status} className="mb-6">
+              <h3 className="text-[13px] font-semibold text-[#9d9da8] mb-2 capitalize">{status} ({group.length})</h3>
               <div className="space-y-2">
                 {group.map(client => (
                   <Link key={client.id} href={`/settings/clients/${client.id}`}>
-                    <Card className="p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer mb-2">
+                    <Card className="p-4 hover:bg-[#fafafb] transition-colors cursor-pointer mb-2">
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-[13px] font-medium text-white">{client.name}</h3>
+                            <h4 className="text-[13px] font-medium">{client.name}</h4>
                             <Badge variant={statusVariant[client.status || 'neutral'] || 'neutral'}>{client.status}</Badge>
                           </div>
-                          <p className="text-[12px] text-zinc-500 mt-0.5">
+                          <p className="text-[12px] text-[#9d9da8] mt-0.5">
                             {client.industry || 'No industry'}
                             {client.monthly_retainer ? ` · ${formatCurrency(client.monthly_retainer)}/mo` : ''}
-                            {' · '}{(client.ad_accounts as any[])?.filter((a: any) => a.is_active).length || 0} active accounts
+                            {' · '}{(client.ad_accounts as any[])?.filter((a: any) => a.is_active).length || 0} accounts
                           </p>
                         </div>
-                        <span className="text-[12px] text-zinc-500">{client.primary_contact_email || 'No contact'}</span>
+                        <span className="text-[12px] text-[#9d9da8]">{client.primary_contact_email || ''}</span>
                       </div>
                     </Card>
                   </Link>

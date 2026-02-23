@@ -7,6 +7,39 @@ import { ClientTabs } from './client-tabs'
 
 export const revalidate = 300
 
+function KpiCard({ label, value, target, sub, status, icon, progressPct }: {
+  label: string; value: string; target?: string; sub?: string; status?: boolean; icon?: string; progressPct?: number
+}) {
+  return (
+    <div className="rounded-xl bg-white border border-[#e8e8ec] p-5 relative overflow-hidden">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          {icon && <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+            status === true ? 'bg-[#dcfce7] text-[#16a34a]' :
+            status === false ? 'bg-[#fef2f2] text-[#dc2626]' :
+            'bg-[#eff6ff] text-[#2563eb]'
+          }`}>{icon}</span>}
+          <span className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</span>
+        </div>
+        {status !== undefined && (
+          <Badge variant={status ? 'success' : 'danger'}>{status ? 'On Target' : 'Over'}</Badge>
+        )}
+      </div>
+      <p className="text-[28px] font-bold tabular-nums text-[#111113] tracking-tight">{value}</p>
+      {target && <p className="text-[12px] text-[#9d9da8] mt-0.5">{target}</p>}
+      {sub && <p className="text-[12px] text-[#9d9da8] mt-0.5">{sub}</p>}
+      {progressPct !== undefined && (
+        <div className="mt-3 h-1.5 bg-[#f4f4f6] rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{
+            width: `${Math.min(progressPct, 100)}%`,
+            backgroundColor: progressPct <= 100 ? '#16a34a' : progressPct <= 125 ? '#ea580c' : '#dc2626'
+          }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default async function ClientDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   let client
@@ -15,7 +48,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ s
 
   const activeAccount = (client.ad_accounts as any[])?.find((a: any) => a.is_active)
   if (!activeAccount) return (
-    <><Nav current="clients" /><PageWrapper><div className="p-8 text-zinc-500">No active ad account</div></PageWrapper></>
+    <><Nav current="clients" /><PageWrapper><div className="p-8 text-[#9d9da8]">No active ad account</div></PageWrapper></>
   )
 
   const pat = activeAccount.primary_action_type
@@ -45,53 +78,56 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ s
 
   const cprOnTarget = activeAccount.target_cpl ? cpr <= activeAccount.target_cpl : undefined
   const roasOnTarget = activeAccount.target_roas ? roas >= activeAccount.target_roas : undefined
+  const cplProgressPct = activeAccount.target_cpl && cpr > 0 ? (cpr / activeAccount.target_cpl) * 100 : undefined
 
-  // Top/bottom ads
   const adsWithSpend = ads.filter(a => a.spend > 0 && a.results > 0)
-  const topAds = [...adsWithSpend].sort((a, b) => a.cpr - b.cpr).slice(0, 5)
-  const bottomAds = [...adsWithSpend].sort((a, b) => b.cpr - a.cpr).slice(0, 5)
+  const topAds = [...adsWithSpend].sort((a, b) => a.cpr - b.cpr).slice(0, 3)
+  const bottomAds = [...adsWithSpend].sort((a, b) => b.cpr - a.cpr).slice(0, 3)
+
+  const funnelSteps = [
+    { label: 'Impressions', value: totals.impressions },
+    { label: 'Clicks', value: totals.clicks, rate: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0, rateLabel: 'CTR' },
+    { label: resultLabel, value: totals.results, rate: totals.clicks > 0 ? (totals.results / totals.clicks) * 100 : 0, rateLabel: 'Conv Rate' },
+  ]
 
   return (
     <>
       <Nav current="clients" />
       <PageWrapper>
-        <div className="p-8 max-w-[1400px] mx-auto">
+        <div className="p-6 max-w-[1200px] mx-auto">
           {/* Breadcrumb */}
-          <div className="text-[12px] text-zinc-500 mb-3 flex items-center gap-1.5">
-            <a href="/" className="hover:text-white transition-colors">Dashboard</a>
-            <span className="text-zinc-700">/</span>
-            <a href="/clients" className="hover:text-white transition-colors">Clients</a>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-300">{client.name}</span>
+          <div className="text-[12px] text-[#9d9da8] mb-2">
+            <a href="/" className="hover:text-[#111113]">Dashboard</a>
+            <span className="mx-1.5">/</span>
+            <a href="/clients" className="hover:text-[#111113]">Clients</a>
+            <span className="mx-1.5">/</span>
+            <span className="text-[#111113]">{client.name}</span>
           </div>
 
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-semibold text-white">{client.name}</h1>
-              <p className="text-sm text-zinc-500 mt-1">{ads.length} ads — last {days} days</p>
-            </div>
+          <div className="flex items-center justify-between mb-5">
+            <h1 className="text-xl font-bold text-[#111113]">{client.name}</h1>
             <div className="flex items-center gap-2">
               <Badge variant="success">Active</Badge>
-              <span className="text-[12px] text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5">Last {days} days</span>
+              <span className="text-[12px] text-[#9d9da8] bg-white border border-[#e8e8ec] rounded-lg px-3 py-1.5">Last {days} days</span>
             </div>
           </div>
 
           {/* KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-4 gap-4 mb-6">
             {isEcom ? (
               <>
-                <KpiCard label="ROAS" value={`${roas.toFixed(2)}x`} target={activeAccount.target_roas ? `Target: ${activeAccount.target_roas}x` : undefined} status={roasOnTarget} />
-                <KpiCard label="Total Spend" value={formatCurrency(totals.spend)} sub={`${formatCurrency(totals.spend / days)} / day`} />
-                <KpiCard label={`Total ${resultLabel}`} value={formatNumber(totals.results)} sub={`${(totals.results / days).toFixed(1)} / day`} />
-                <KpiCard label="CTR" value={formatPercent(ctr)} sub={ctr > 3 ? 'Above average' : ctr > 2 ? 'Average' : 'Below average'} />
+                <KpiCard label="ROAS" value={`${roas.toFixed(2)}x`} target={activeAccount.target_roas ? `Target: ${activeAccount.target_roas}x` : undefined} status={roasOnTarget} icon="$" />
+                <KpiCard label="Total Spend" value={formatCurrency(totals.spend)} sub={`Last ${days} days`} icon="$" />
+                <KpiCard label={`Total ${resultLabel}`} value={formatNumber(totals.results)} sub={`~${(totals.results / days).toFixed(1)}/day avg`} icon="#" />
+                <KpiCard label="Click Rate" value={formatPercent(ctr)} sub={ctr > 3 ? 'Excellent' : ctr > 2 ? 'Average' : 'Below average'} icon="%" />
               </>
             ) : (
               <>
-                <KpiCard label={`Cost Per ${resultLabel.replace(/s$/, '')}`} value={cpr > 0 ? formatCurrency(cpr) : '—'} target={activeAccount.target_cpl ? `Target: ${formatCurrency(activeAccount.target_cpl)}` : undefined} status={cprOnTarget} />
-                <KpiCard label="Total Spend" value={formatCurrency(totals.spend)} sub={`${formatCurrency(totals.spend / days)} / day`} />
-                <KpiCard label={`Total ${resultLabel}`} value={formatNumber(totals.results)} sub={`${(totals.results / days).toFixed(1)} / day`} />
-                <KpiCard label="CTR" value={formatPercent(ctr)} sub={ctr > 3 ? 'Above average' : ctr > 2 ? 'Average' : 'Below average'} />
+                <KpiCard label={`Cost Per ${resultLabel.replace(/s$/, '')}`} value={cpr > 0 ? formatCurrency(cpr) : '—'} target={activeAccount.target_cpl ? `Target: ${formatCurrency(activeAccount.target_cpl)}` : undefined} status={cprOnTarget} icon="$" progressPct={cplProgressPct} />
+                <KpiCard label="Total Spend" value={formatCurrency(totals.spend)} sub={`Last ${days} days`} icon="$" />
+                <KpiCard label={`Total ${resultLabel}`} value={formatNumber(totals.results)} sub={`~${(totals.results / days).toFixed(1)}/day avg`} icon="#" />
+                <KpiCard label="Click Rate" value={formatPercent(ctr)} sub={ctr > 3 ? 'Excellent' : ctr > 2 ? 'Average' : 'Below average'} icon="%" />
               </>
             )}
           </div>
@@ -103,6 +139,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ s
             ads={ads}
             topAds={topAds}
             bottomAds={bottomAds}
+            funnelSteps={funnelSteps}
             ageGender={ageGender}
             placement={placement}
             device={device}
@@ -116,23 +153,5 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ s
         </div>
       </PageWrapper>
     </>
-  )
-}
-
-function KpiCard({ label, value, target, sub, status }: {
-  label: string; value: string; target?: string; sub?: string; status?: boolean
-}) {
-  return (
-    <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">{label}</span>
-        {status !== undefined && (
-          <Badge variant={status ? 'success' : 'danger'}>{status ? 'On Target' : 'Over'}</Badge>
-        )}
-      </div>
-      <p className="text-[28px] font-semibold tabular-nums text-white tracking-tight">{value}</p>
-      {target && <p className="text-[12px] text-zinc-500 mt-1">{target}</p>}
-      {sub && <p className="text-[12px] text-zinc-500 mt-1">{sub}</p>}
-    </div>
   )
 }

@@ -24,11 +24,7 @@ async function getTeam() {
 }
 
 const roleColors: Record<string, 'success' | 'info' | 'warning' | 'neutral'> = {
-  owner: 'success',
-  admin: 'info',
-  operator: 'warning',
-  viewer: 'neutral',
-  ai_agent: 'neutral',
+  owner: 'success', admin: 'info', operator: 'warning', viewer: 'neutral', ai_agent: 'neutral',
 }
 
 export default async function TeamPage() {
@@ -38,16 +34,16 @@ export default async function TeamPage() {
     <>
       <Nav current="settings" />
       <PageWrapper>
-        <div className="p-8 max-w-[1000px] mx-auto">
-          <div className="flex items-center justify-between mb-8">
+        <div className="p-6 max-w-[1000px] mx-auto">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <div className="text-[12px] text-zinc-500 mb-3 flex items-center gap-1.5">
-                <Link href="/settings" className="hover:text-white transition-colors">Settings</Link>
-                <span className="text-zinc-700">/</span>
-                <span className="text-zinc-300">Team</span>
+              <div className="text-[12px] text-[#9d9da8] mb-1">
+                <Link href="/settings" className="hover:text-[#111113]">Settings</Link>
+                <span className="mx-1.5">/</span>
+                <span className="text-[#6b6b76]">Team</span>
               </div>
-              <h1 className="text-2xl font-semibold text-white">Team Management</h1>
-              <p className="text-sm text-zinc-500 mt-1">{members.length} members</p>
+              <h2 className="text-xl font-bold text-[#111113]">Team Management</h2>
+              <p className="text-[13px] text-[#9d9da8]">{members.length} members</p>
             </div>
             <TeamActions />
           </div>
@@ -58,24 +54,24 @@ export default async function TeamPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-[13px] font-medium text-white">{member.display_name || member.email}</h3>
+                      <h3 className="text-[13px] font-medium">{member.display_name || member.email}</h3>
                       <Badge variant={roleColors[member.role] || 'neutral'}>{member.role}</Badge>
                     </div>
-                    <p className="text-[12px] text-zinc-500 mt-0.5">{member.email}</p>
+                    <p className="text-[12px] text-[#9d9da8] mt-0.5">{member.email}</p>
                   </div>
-                  <p className="text-[12px] text-zinc-500">Joined {new Date(member.created_at).toLocaleDateString()}</p>
+                  <p className="text-[12px] text-[#9d9da8]">Joined {new Date(member.created_at).toLocaleDateString()}</p>
                 </div>
               </Card>
             ))}
           </div>
 
-          <Card className="p-5 mt-8">
-            <h3 className="text-sm font-medium text-white mb-3">Role Permissions</h3>
-            <div className="grid grid-cols-2 gap-2 text-[12px] text-zinc-500">
-              <div><span className="text-zinc-300">Owner</span> — Full access, billing, delete org</div>
-              <div><span className="text-zinc-300">Admin</span> — Manage clients, team, settings</div>
-              <div><span className="text-zinc-300">Operator</span> — View + edit ads, run reports</div>
-              <div><span className="text-zinc-300">Viewer</span> — Read-only dashboard access</div>
+          <Card className="p-5 mt-6">
+            <h3 className="text-[14px] font-semibold mb-3">Role Permissions</h3>
+            <div className="grid grid-cols-2 gap-2 text-[12px] text-[#9d9da8]">
+              <div><span className="text-[#6b6b76] font-medium">Owner</span> — Full access, billing, delete org</div>
+              <div><span className="text-[#6b6b76] font-medium">Admin</span> — Manage clients, team, settings</div>
+              <div><span className="text-[#6b6b76] font-medium">Operator</span> — View + edit ads, run reports</div>
+              <div><span className="text-[#6b6b76] font-medium">Viewer</span> — Read-only dashboard access</div>
             </div>
           </Card>
         </div>

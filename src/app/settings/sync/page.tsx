@@ -17,13 +17,13 @@ async function getSyncData() {
   return { logs: logsRes.data || [], accounts: accountsRes.data || [], totalInsights: insightsRes.count || 0 }
 }
 
-function formatDuration(ms: number): string {
+function formatDuration(ms: number) {
   if (ms < 1000) return `${ms}ms`
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
   return `${(ms / 60000).toFixed(1)}m`
 }
 
-function formatAgo(date: string): string {
+function formatAgo(date: string) {
   const diff = Date.now() - new Date(date).getTime()
   const hours = diff / 3600000
   if (hours < 1) return `${Math.floor(diff / 60000)}m ago`
@@ -38,32 +38,31 @@ export default async function SyncPage() {
     <>
       <Nav current="settings" />
       <PageWrapper>
-        <div className="p-8 max-w-[1200px] mx-auto">
-          <div className="text-[12px] text-zinc-500 mb-3 flex items-center gap-1.5">
-            <Link href="/settings" className="hover:text-white transition-colors">Settings</Link>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-300">Sync Status</span>
+        <div className="p-6 max-w-[1200px] mx-auto">
+          <div className="text-[12px] text-[#9d9da8] mb-1">
+            <Link href="/settings" className="hover:text-[#111113]">Settings</Link>
+            <span className="mx-1.5">/</span>
+            <span className="text-[#6b6b76]">Sync Status</span>
           </div>
-          <div className="mb-8">
-            <h1 className="text-2xl font-semibold text-white">Sync Status</h1>
-            <p className="text-sm text-zinc-500 mt-1">{formatNumber(totalInsights)} insight rows · {accounts.length} active accounts</p>
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-[#111113]">Sync Status</h2>
+            <p className="text-[13px] text-[#9d9da8]">{formatNumber(totalInsights)} insight rows · {accounts.length} active accounts</p>
           </div>
 
-          {/* Account Status */}
-          <h2 className="text-sm font-medium text-zinc-400 mb-3">Account Status</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
+          <h3 className="text-[13px] font-semibold text-[#9d9da8] mb-2">Account Status</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
             {accounts.map((acc: any) => {
               const isStale = !acc.last_synced_at || (Date.now() - new Date(acc.last_synced_at).getTime()) > 86400000 * 2
               return (
                 <Card key={acc.id} className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[13px] font-medium text-white">{(acc.clients as any).name}</p>
-                      <p className="text-[11px] text-zinc-500">act_{acc.platform_account_id}</p>
+                      <p className="text-[13px] font-medium">{(acc.clients as any).name}</p>
+                      <p className="text-[11px] text-[#9d9da8]">act_{acc.platform_account_id}</p>
                     </div>
                     <div className="text-right">
-                      <span className={`w-2 h-2 rounded-full inline-block ${isStale ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                      <p className="text-[11px] text-zinc-500 mt-0.5">{acc.last_synced_at ? formatAgo(acc.last_synced_at) : 'Never'}</p>
+                      <span className={`w-2 h-2 rounded-full inline-block ${isStale ? 'bg-[#ea580c]' : 'bg-[#16a34a]'}`} />
+                      <p className="text-[11px] text-[#9d9da8] mt-0.5">{acc.last_synced_at ? formatAgo(acc.last_synced_at) : 'Never'}</p>
                     </div>
                   </div>
                 </Card>
@@ -71,52 +70,48 @@ export default async function SyncPage() {
             })}
           </div>
 
-          {/* Sync History */}
-          <h2 className="text-sm font-medium text-zinc-400 mb-3">Sync History</h2>
+          <h3 className="text-[13px] font-semibold text-[#9d9da8] mb-2">Sync History</h3>
           <Card>
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="border-b border-zinc-800/50">
-                    <th className="py-3 px-4 text-[11px] text-zinc-500 font-medium text-left uppercase tracking-wider">Time</th>
-                    <th className="py-3 px-4 text-[11px] text-zinc-500 font-medium text-left uppercase tracking-wider">Type</th>
-                    <th className="py-3 px-4 text-[11px] text-zinc-500 font-medium text-left uppercase tracking-wider">Range</th>
-                    <th className="py-3 px-4 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider">Records</th>
-                    <th className="py-3 px-4 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider">Errors</th>
-                    <th className="py-3 px-4 text-[11px] text-zinc-500 font-medium text-right uppercase tracking-wider">Duration</th>
-                    <th className="py-3 px-4 text-[11px] text-zinc-500 font-medium text-left uppercase tracking-wider">Status</th>
+                  <tr className="border-b border-[#e8e8ec]">
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Time</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Type</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Range</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Records</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Errors</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Duration</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {logs.map((log: any) => (
-                    <tr key={log.id} className="border-b border-zinc-800/20 hover:bg-zinc-800/20">
-                      <td className="py-3 px-4 text-zinc-300">{log.completed_at ? new Date(log.completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
-                      <td className="py-3 px-4 text-zinc-400">{log.sync_type}</td>
-                      <td className="py-3 px-4 text-zinc-500">{log.date_range_start} → {log.date_range_end}</td>
-                      <td className="py-3 px-4 text-right tabular-nums text-zinc-300">{formatNumber(log.records_synced || 0)}</td>
-                      <td className="py-3 px-4 text-right tabular-nums text-zinc-400">{log.errors || 0}</td>
-                      <td className="py-3 px-4 text-right tabular-nums text-zinc-400">{log.duration_ms ? formatDuration(log.duration_ms) : '—'}</td>
-                      <td className="py-3 px-4">
+                    <tr key={log.id} className="border-b border-[#f4f4f6] hover:bg-[#fafafb]">
+                      <td className="py-2.5 px-4">{log.completed_at ? new Date(log.completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
+                      <td className="py-2.5 px-4 text-[#6b6b76]">{log.sync_type}</td>
+                      <td className="py-2.5 px-4 text-[#9d9da8]">{log.date_range_start} → {log.date_range_end}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums">{formatNumber(log.records_synced || 0)}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums">{log.errors || 0}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums">{log.duration_ms ? formatDuration(log.duration_ms) : '—'}</td>
+                      <td className="py-2.5 px-4">
                         <Badge variant={log.status === 'success' ? 'success' : log.status === 'partial' ? 'warning' : 'danger'}>{log.status}</Badge>
                       </td>
                     </tr>
                   ))}
-                  {logs.length === 0 && (
-                    <tr><td colSpan={7} className="py-8 text-center text-zinc-500">No sync logs yet</td></tr>
-                  )}
+                  {logs.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-[#9d9da8]">No sync logs yet</td></tr>}
                 </tbody>
               </table>
             </div>
           </Card>
 
-          {/* Schedule */}
           <Card className="p-5 mt-4">
-            <h3 className="text-sm font-medium text-white mb-3">Sync Schedule</h3>
-            <div className="text-[12px] text-zinc-500 space-y-1.5">
-              <p><span className="text-zinc-300">Nightly sync:</span> 1:30 AM PST (9:30 UTC) — 7-day rolling window</p>
-              <p><span className="text-zinc-300">Breakdowns:</span> Last 2 days only (saves API calls)</p>
-              <p><span className="text-zinc-300">Structure:</span> Skipped if already synced today</p>
-              <p><span className="text-zinc-300">Backfill:</span> 90 days loaded on initial setup</p>
+            <h3 className="text-[14px] font-semibold mb-2">Sync Schedule</h3>
+            <div className="text-[12px] text-[#9d9da8] space-y-1">
+              <p><span className="text-[#6b6b76] font-medium">Nightly sync:</span> 1:30 AM PST (9:30 UTC) — 7-day rolling window</p>
+              <p><span className="text-[#6b6b76] font-medium">Breakdowns:</span> Last 2 days only</p>
+              <p><span className="text-[#6b6b76] font-medium">Structure:</span> Skipped if already synced today</p>
+              <p><span className="text-[#6b6b76] font-medium">Backfill:</span> 90 days loaded on initial setup</p>
             </div>
           </Card>
         </div>
