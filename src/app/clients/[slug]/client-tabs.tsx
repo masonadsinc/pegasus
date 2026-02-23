@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -235,6 +235,26 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
   const [chartMetrics, setChartMetrics] = useState<Set<string>>(new Set(['spend', 'results']))
   const [selectedAd, setSelectedAd] = useState<any>(null)
   const [adsView, setAdsView] = useState<'grid' | 'table'>('grid')
+  const [adSearch, setAdSearch] = useState('')
+  const [adSort, setAdSort] = useState<'spend' | 'cpr' | 'results' | 'ctr'>('spend')
+  const [adStatusFilter, setAdStatusFilter] = useState<'all' | 'active' | 'paused'>('all')
+
+  const filteredAds = useMemo(() => {
+    let list = [...ads]
+    if (adSearch) {
+      const q = adSearch.toLowerCase()
+      list = list.filter(a => a.ad_name.toLowerCase().includes(q) || a.campaign_name.toLowerCase().includes(q) || (a.creative_body && a.creative_body.toLowerCase().includes(q)))
+    }
+    if (adStatusFilter === 'active') list = list.filter(a => a.effective_status === 'ACTIVE')
+    if (adStatusFilter === 'paused') list = list.filter(a => a.effective_status !== 'ACTIVE')
+    list.sort((a, b) => {
+      if (adSort === 'cpr') return (a.cpr || Infinity) - (b.cpr || Infinity)
+      if (adSort === 'results') return b.results - a.results
+      if (adSort === 'ctr') return b.ctr - a.ctr
+      return b.spend - a.spend
+    })
+    return list
+  }, [ads, adSearch, adSort, adStatusFilter])
 
   const toggleMetric = (m: string) => {
     setChartMetrics(prev => {
@@ -428,21 +448,46 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
       {/* ═══════════════════ ADS ═══════════════════ */}
       <TabsContent value="ads">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[14px] font-semibold">All Ads · {ads.length}</h3>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setAdsView('grid')} className={`p-1.5 rounded-md ${adsView === 'grid' ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
-              </button>
-              <button onClick={() => setAdsView('table')} className={`p-1.5 rounded-md ${adsView === 'table' ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="0.5"/><rect x="1" y="7" width="14" height="2" rx="0.5"/><rect x="1" y="12" width="14" height="2" rx="0.5"/></svg>
-              </button>
+          {/* Controls */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9d9da8]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M13 13l4 4" /></svg>
+                <input value={adSearch} onChange={e => setAdSearch(e.target.value)} placeholder="Search ads..." className="pl-8 pr-3 py-1.5 text-[12px] bg-white border border-[#e8e8ec] rounded-lg w-[200px] focus:outline-none focus:border-[#2563eb] placeholder-[#9d9da8]" />
+              </div>
+              <div className="flex items-center gap-1 bg-white border border-[#e8e8ec] rounded-lg p-0.5">
+                {(['all', 'active', 'paused'] as const).map(f => (
+                  <button key={f} onClick={() => setAdStatusFilter(f)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${adStatusFilter === f ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
+                    {f === 'all' ? 'All' : f === 'active' ? 'Active' : 'Paused'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="text-[#9d9da8]">Sort:</span>
+                {(['spend', 'cpr', 'results', 'ctr'] as const).map(s => (
+                  <button key={s} onClick={() => setAdSort(s)} className={`font-medium transition-colors ${adSort === s ? 'text-[#111113]' : 'text-[#c4c4cc] hover:text-[#6b6b76]'}`}>
+                    {s.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setAdsView('grid')} className={`p-1.5 rounded-md ${adsView === 'grid' ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+                </button>
+                <button onClick={() => setAdsView('table')} className={`p-1.5 rounded-md ${adsView === 'table' ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="0.5"/><rect x="1" y="7" width="14" height="2" rx="0.5"/><rect x="1" y="12" width="14" height="2" rx="0.5"/></svg>
+                </button>
+              </div>
             </div>
           </div>
 
+          <p className="text-[12px] text-[#9d9da8]">{filteredAds.length} of {ads.length} ads</p>
+
           {adsView === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {ads.map(ad => {
+              {filteredAds.map(ad => {
                 const imageUrl = ad.creative_url || ad.creative_thumbnail_url
                 return (
                   <Card key={ad.platform_ad_id} className="overflow-hidden cursor-pointer hover:shadow-md hover:border-[#c4c4cc] transition-all" onClick={() => setSelectedAd(ad)}>
@@ -487,7 +532,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                   }, align: 'right' },
                   { key: 'ctr', label: 'CTR', format: (v: number) => <span className="text-[#6b6b76]">{formatPercent(v)}</span>, align: 'right' },
                 ]}
-                data={ads}
+                data={filteredAds}
               />
             </Card>
           )}

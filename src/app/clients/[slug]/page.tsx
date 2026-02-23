@@ -2,7 +2,9 @@ import { getClientBySlug, getClientInsights, getCampaignBreakdown, getAdBreakdow
 import { formatCurrency, formatNumber, formatPercent, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { Badge } from '@/components/ui/badge'
+import { DateRangePicker } from '@/components/date-range-picker'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import { ClientTabs } from './client-tabs'
 
 export const revalidate = 300
@@ -40,8 +42,9 @@ function KpiCard({ label, value, target, sub, status, icon, progressPct }: {
   )
 }
 
-export default async function ClientDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ClientDetailPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ days?: string }> }) {
   const { slug } = await params
+  const sp = await searchParams
   let client
   try { client = await getClientBySlug(slug) } catch { notFound() }
   if (!client) notFound()
@@ -53,7 +56,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ s
 
   const pat = activeAccount.primary_action_type
   const isEcom = isEcomActionType(pat)
-  const days = 30
+  const days = [7, 14, 30, 60, 90].includes(Number(sp.days)) ? Number(sp.days) : 30
 
   const [daily, campaigns, ads, ageGender, placement, device, region] = await Promise.all([
     getClientInsights(activeAccount.id, days, pat),
@@ -109,7 +112,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ s
             <h1 className="text-xl font-bold text-[#111113]">{client.name}</h1>
             <div className="flex items-center gap-2">
               <Badge variant="success">Active</Badge>
-              <span className="text-[12px] text-[#9d9da8] bg-white border border-[#e8e8ec] rounded-lg px-3 py-1.5">Last {days} days</span>
+              <Suspense fallback={<span className="text-[12px] text-[#9d9da8] bg-white border border-[#e8e8ec] rounded-lg px-3 py-1.5">Last {days} days</span>}>
+                <DateRangePicker />
+              </Suspense>
             </div>
           </div>
 
