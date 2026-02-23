@@ -283,7 +283,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
   const [chartMetrics, setChartMetrics] = useState<Set<string>>(new Set(['spend', 'results']))
   const [selectedAd, setSelectedAd] = useState<any>(null)
-  const [adsView, setAdsView] = useState<'grid' | 'table'>('grid')
+  const [adsView, setAdsView] = useState<'grid' | 'table'>('table')
   const [adSearch, setAdSearch] = useState('')
   const [adSort, setAdSort] = useState<'spend' | 'cpr' | 'results' | 'ctr'>('spend')
   const [adStatusFilter, setAdStatusFilter] = useState<'all' | 'active' | 'paused'>('all')
