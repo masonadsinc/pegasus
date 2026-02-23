@@ -200,7 +200,10 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
             {/* Creative Copy */}
             {(ad.creative_headline || ad.creative_body || ad.creative_cta) && (
               <div className="border border-[#e8e8ec] rounded-xl p-4 space-y-2">
-                <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Ad Copy</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Ad Copy</p>
+                  <button onClick={(e) => { e.stopPropagation(); const text = [ad.creative_headline, ad.creative_body].filter(Boolean).join('\n\n'); navigator.clipboard.writeText(text); const btn = e.currentTarget; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = 'Copy' }, 1500) }} className="text-[10px] text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">Copy</button>
+                </div>
                 {ad.creative_headline && <p className="text-[14px] font-semibold text-[#111113]">{ad.creative_headline}</p>}
                 {ad.creative_body && <p className="text-[13px] text-[#6b6b76] whitespace-pre-line leading-relaxed">{ad.creative_body}</p>}
                 {ad.creative_cta && (
