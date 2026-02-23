@@ -1177,47 +1177,6 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             {bestDay && <StatBox label="Best Day" value={new Date(bestDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} sub={`${formatCurrency(bestDay.spend / bestDay.results)} CPR · ${bestDay.results} ${resultLabel.toLowerCase()}`} highlight={true} />}
           </div>
 
-          {/* Activity Heatmap */}
-          <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-3">Activity Heatmap</h3>
-            <div className="flex flex-wrap gap-[3px]">
-              {daily.map(d => {
-                const intensity = d.spend / maxDailySpend
-                const hasResults = d.results > 0
-                const cpr = d.results > 0 ? d.spend / d.results : 0
-                const isOver = targetCpl && cpr > targetCpl
-                const bg = d.spend === 0 ? '#f4f4f6' : isOver ? `rgba(220, 38, 38, ${0.3 + intensity * 0.7})` : hasResults ? `rgba(22, 163, 74, ${0.2 + intensity * 0.8})` : `rgba(37, 99, 235, ${0.2 + intensity * 0.6})`
-                const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-                const ctrVal = d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0
-                return (
-                  <div key={d.date} className="relative group">
-                    <div className="w-[18px] h-[18px] rounded-[2px] cursor-default" style={{ backgroundColor: bg }} />
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
-                      <div className="bg-[#111113] text-white rounded px-3 py-2 text-[11px] whitespace-nowrap shadow-lg">
-                        <p className="font-medium mb-1">{dateLabel}</p>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
-                          <span className="text-[#9d9da8]">Spend</span><span className="text-right tabular-nums">{formatCurrency(d.spend)}</span>
-                          <span className="text-[#9d9da8]">{resultLabel}</span><span className="text-right tabular-nums">{d.results}</span>
-                          <span className="text-[#9d9da8]">CPR</span><span className={`text-right tabular-nums ${isOver ? 'text-[#fca5a5]' : hasResults ? 'text-[#86efac]' : ''}`}>{cpr > 0 ? formatCurrency(cpr) : '—'}</span>
-                          <span className="text-[#9d9da8]">Impressions</span><span className="text-right tabular-nums">{formatNumber(d.impressions)}</span>
-                          <span className="text-[#9d9da8]">Clicks</span><span className="text-right tabular-nums">{formatNumber(d.clicks)}</span>
-                          <span className="text-[#9d9da8]">CTR</span><span className="text-right tabular-nums">{ctrVal > 0 ? formatPercent(ctrVal) : '—'}</span>
-                        </div>
-                      </div>
-                      <div className="w-2 h-2 bg-[#111113] rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1" />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="flex items-center gap-4 mt-3 text-[10px] text-[#9d9da8]">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#16a34a]" /> On target</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#dc2626]" /> Over target</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#2563eb]" /> Spend, no results</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#f4f4f6]" /> No spend</span>
-            </div>
-          </Card>
-
           <Card>
             <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
               <h3 className="text-[14px] font-semibold">Daily Breakdown</h3>
