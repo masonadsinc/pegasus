@@ -353,8 +353,8 @@ export async function getBreakdownData(accountId: string, breakdownType: string,
   const dateStr = daysAgo.toISOString().split('T')[0]
 
   const { data, error } = await supabaseAdmin
-    .from('insight_breakdowns')
-    .select('dimension_value, spend, impressions, clicks, leads, purchases, schedules')
+    .from('ad_breakdowns')
+    .select('dimension_1, dimension_2, spend, impressions, clicks, leads, purchases, purchase_value')
     .eq('ad_account_id', accountId)
     .eq('breakdown_type', breakdownType)
     .gte('date', dateStr)
@@ -363,8 +363,9 @@ export async function getBreakdownData(accountId: string, breakdownType: string,
 
   const map = new Map<string, BreakdownRow>()
   for (const r of data || []) {
-    const key = r.dimension_value
-    const { results } = deriveResults(r, primaryActionType)
+    // Combine dimension_1 and dimension_2 for display (e.g. "25-34 male")
+    const key = [r.dimension_1, r.dimension_2].filter(Boolean).join(' · ') || 'Unknown'
+    const { results } = deriveResults({ ...r, schedules: 0 }, primaryActionType)
     const existing = map.get(key) || { dimension_value: key, spend: 0, impressions: 0, clicks: 0, results: 0, cpr: 0, ctr: 0 }
     existing.spend += parseFloat(r.spend) || 0
     existing.impressions += r.impressions || 0
