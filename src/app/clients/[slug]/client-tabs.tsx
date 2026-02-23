@@ -405,6 +405,43 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             </div>
           </Card>
 
+          {/* Top Performing Headlines */}
+          {(() => {
+            const adsWithHeadline = ads.filter(a => a.creative_headline && a.spend > 0 && a.results > 0)
+            if (adsWithHeadline.length < 2) return null
+            // Group by headline
+            const headlineMap = new Map<string, { spend: number; results: number; count: number }>()
+            for (const a of adsWithHeadline) {
+              const h = a.creative_headline!
+              const existing = headlineMap.get(h) || { spend: 0, results: 0, count: 0 }
+              existing.spend += a.spend; existing.results += a.results; existing.count++
+              headlineMap.set(h, existing)
+            }
+            const headlines = Array.from(headlineMap.entries())
+              .map(([headline, data]) => ({ headline, ...data, cpr: data.results > 0 ? data.spend / data.results : 0 }))
+              .filter(h => h.results >= 2)
+              .sort((a, b) => a.cpr - b.cpr)
+              .slice(0, 5)
+            if (headlines.length < 2) return null
+            return (
+              <Card className="p-5">
+                <h3 className="text-[14px] font-semibold mb-3">Top Headlines by CPR</h3>
+                <div className="space-y-2.5">
+                  {headlines.map((h, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i === 0 ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#f4f4f6] text-[#9d9da8]'}`}>{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium truncate">&ldquo;{h.headline}&rdquo;</p>
+                        <p className="text-[10px] text-[#9d9da8]">{h.count} ad{h.count > 1 ? 's' : ''} · {h.results} {resultLabel.toLowerCase()}</p>
+                      </div>
+                      <span className={`text-[12px] font-bold tabular-nums ${targetCpl && h.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(h.cpr)}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )
+          })()}
+
           {/* Creative Performance: Image vs Video */}
           {(() => {
             const videoAds = ads.filter(a => a.creative_video_url && a.spend > 0)
