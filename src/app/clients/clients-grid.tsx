@@ -58,9 +58,9 @@ function DotHeatmap({ daily }: { daily: Account['daily'] }) {
     const day = daily[daily.length - 30 + i]
     if (!day || day.spend === 0) dots.push('bg-[#e8e8ec]')
     else if (day.results > 0) dots.push('bg-[#16a34a]')
-    else dots.push('bg-[#dc2626]')
+    else dots.push('bg-[#f59e0b]')
   }
-  return <div className="flex gap-[3px]">{dots.map((c, i) => <div key={i} className={`w-[7px] h-[7px] rounded-full ${c}`} />)}</div>
+  return <div className="flex gap-[3px]">{dots.map((c, i) => <div key={i} className={`w-[7px] h-[7px] rounded-[2px] ${c} transition-transform hover:scale-150`} />)}</div>
 }
 
 function DaysOnTarget({ daily, targetCpl, targetRoas, isEcom }: { daily: Account['daily']; targetCpl: number | null; targetRoas: number | null; isEcom: boolean }) {

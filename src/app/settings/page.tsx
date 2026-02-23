@@ -50,7 +50,7 @@ export default async function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map(c => (
               <Link key={c.href} href={c.href}>
-                <Card className="p-5 hover:bg-[#fafafb] transition-colors cursor-pointer h-full">
+                <Card className="p-5 card-hover cursor-pointer h-full">
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="text-[14px] font-semibold text-[#111113]">{c.title}</h3>
