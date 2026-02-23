@@ -21,6 +21,9 @@ const OBJECTIVES = [
   { value: 'awareness', label: 'Awareness' },
 ]
 
+const inputClass = "w-full px-3 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb] transition-colors"
+const labelClass = "text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1 block"
+
 export function AccountEditor({ account }: { account: any }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -37,12 +40,10 @@ export function AccountEditor({ account }: { account: any }) {
     const form = new FormData(e.currentTarget)
     const body: any = Object.fromEntries(form.entries())
 
-    // Handle custom action type
     if (body.primary_action_type === 'custom') {
       body.primary_action_type = customAction
     }
 
-    // Clean up empty values
     if (body.target_cpl === '') delete body.target_cpl
     if (body.target_roas === '') delete body.target_roas
 
@@ -62,27 +63,25 @@ export function AccountEditor({ account }: { account: any }) {
     setSaving(false)
   }
 
-  const inputClass = "w-full px-3 py-2 rounded bg-zinc-800 border border-zinc-700 text-sm focus:outline-none focus:border-zinc-500"
-
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-medium text-sm">{account.name}</h3>
-          <p className="text-xs text-zinc-500">act_{account.platform_account_id} · {account.platform}</p>
+          <h3 className="text-[13px] font-medium text-[#111113]">{account.name}</h3>
+          <p className="text-[11px] text-[#9d9da8]">act_{account.platform_account_id}</p>
         </div>
-        <span className={`w-2 h-2 rounded-full ${account.is_active ? 'bg-emerald-500' : 'bg-zinc-500'}`} />
+        <span className={`w-2 h-2 rounded-full ${account.is_active ? 'bg-[#16a34a]' : 'bg-[#9d9da8]'}`} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">Objective</label>
+          <label className={labelClass}>Objective</label>
           <select name="objective" defaultValue={account.objective || ''} className={inputClass}>
             {OBJECTIVES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">Primary Action Type</label>
+          <label className={labelClass}>Action Type</label>
           <select
             name="primary_action_type"
             value={selectedAction}
@@ -97,7 +96,7 @@ export function AccountEditor({ account }: { account: any }) {
 
       {selectedAction === 'custom' && (
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">Custom Action Type</label>
+          <label className={labelClass}>Custom Action Type</label>
           <input
             value={customAction}
             onChange={(e) => setCustomAction(e.target.value)}
@@ -109,28 +108,28 @@ export function AccountEditor({ account }: { account: any }) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">Target CPL ($)</label>
+          <label className={labelClass}>Target CPL ($)</label>
           <input name="target_cpl" type="number" step="0.01" defaultValue={account.target_cpl || ''} className={inputClass} />
         </div>
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">Target ROAS (x)</label>
+          <label className={labelClass}>Target ROAS (x)</label>
           <input name="target_roas" type="number" step="0.01" defaultValue={account.target_roas || ''} className={inputClass} />
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-[12px] text-[#6b6b76]">
           <input name="is_active" type="checkbox" defaultChecked={account.is_active} className="rounded" />
           Active
         </label>
         <div className="flex-1" />
-        <button type="submit" disabled={saving} className="px-4 py-2 rounded bg-white text-zinc-900 text-sm font-semibold hover:bg-zinc-200 disabled:opacity-50 transition-colors">
-          {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save'}
+        <button type="submit" disabled={saving} className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors">
+          {saving ? 'Saving...' : saved ? 'Saved' : 'Save'}
         </button>
       </div>
 
       {account.last_synced_at && (
-        <p className="text-xs text-zinc-600">Last synced: {new Date(account.last_synced_at).toLocaleString()}</p>
+        <p className="text-[11px] text-[#9d9da8]">Last synced: {new Date(account.last_synced_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>
       )}
     </form>
   )

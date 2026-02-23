@@ -4,34 +4,27 @@ import { getUser } from '@/lib/auth'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest) {
   try {
     const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { id } = await params
     const body = await req.json()
-
-    const allowed = ['objective', 'primary_action_type', 'target_cpl', 'target_roas', 'is_active', 'name']
+    const allowed = ['name', 'logo_url', 'primary_color']
     const update: any = {}
     for (const key of allowed) {
-      if (key in body) {
-        if (key === 'target_cpl' || key === 'target_roas') {
-          update[key] = body[key] === '' || body[key] === null ? null : parseFloat(body[key])
-        } else if (key === 'is_active') {
-          update[key] = body[key] === 'on' || body[key] === true
-        } else {
-          update[key] = body[key] === '' ? null : body[key]
-        }
-      }
+      if (key in body) update[key] = body[key] === '' ? null : body[key]
+    }
+
+    if (update.name) {
+      update.slug = update.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     }
 
     const { data, error } = await supabaseAdmin
-      .from('ad_accounts')
+      .from('organizations')
       .update(update)
-      .eq('id', id)
-      .eq('org_id', ORG_ID)
-      .select('*, clients!inner(id, name)')
+      .eq('id', ORG_ID)
+      .select()
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -41,12 +34,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       actor_type: 'user',
       actor_id: user.id,
       actor_name: user.email,
-      action: 'updated account settings',
-      target_type: 'ad_account',
-      target_id: id,
-      target_name: data.name,
+      action: 'updated agency settings',
+      target_type: 'organization',
       details: `Updated: ${Object.keys(update).join(', ')}`,
-      client_id: (data.clients as any)?.id || null,
     })
 
     return NextResponse.json(data)

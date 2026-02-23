@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-const inputClass = "w-full px-4 py-2.5 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] focus:outline-none focus:border-[#2563eb] transition-colors"
+const inputClass = "w-full px-4 py-2.5 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb] transition-colors"
 
 export function TeamActions() {
   const [showForm, setShowForm] = useState(false)
@@ -28,7 +28,7 @@ export function TeamActions() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false) }}>
       <div className="bg-white border border-[#e8e8ec] rounded-md p-6 w-full max-w-sm shadow-xl">
         <h2 className="text-[15px] font-semibold text-[#111113] mb-4">Invite Team Member</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -39,7 +39,7 @@ export function TeamActions() {
             <option value="operator">Operator</option>
             <option value="viewer">Viewer</option>
           </select>
-          <input name="password" type="password" placeholder="Temporary password *" required className={inputClass} />
+          <input name="password" type="password" placeholder="Temporary password *" required minLength={8} className={inputClass} />
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded bg-[#f4f4f6] text-[13px] font-medium hover:bg-[#e8e8ec] transition-colors">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors">
@@ -48,6 +48,59 @@ export function TeamActions() {
           </div>
         </form>
       </div>
+    </div>
+  )
+}
+
+export function MemberActions({ member }: { member: { id: string; role: string; display_name: string | null; email: string } }) {
+  const [role, setRole] = useState(member.role)
+  const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
+
+  async function handleRoleChange(newRole: string) {
+    setSaving(true)
+    setRole(newRole)
+    await fetch(`/api/team/${member.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    })
+    setSaving(false)
+  }
+
+  async function handleRemove() {
+    if (!confirm(`Remove ${member.display_name || member.email} from the team?`)) return
+    setRemoving(true)
+    const res = await fetch(`/api/team/${member.id}`, { method: 'DELETE' })
+    if (res.ok) window.location.reload()
+    else {
+      const err = await res.json()
+      alert(err.error || 'Failed to remove')
+      setRemoving(false)
+    }
+  }
+
+  if (member.role === 'owner') return null
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={role}
+        onChange={(e) => handleRoleChange(e.target.value)}
+        disabled={saving}
+        className="px-2 py-1 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[11px] text-[#6b6b76] focus:outline-none focus:border-[#2563eb]"
+      >
+        <option value="admin">Admin</option>
+        <option value="operator">Operator</option>
+        <option value="viewer">Viewer</option>
+      </select>
+      <button
+        onClick={handleRemove}
+        disabled={removing}
+        className="px-2 py-1 rounded border border-[#fecaca] text-[#dc2626] text-[11px] hover:bg-[#fef2f2] disabled:opacity-50 transition-colors"
+      >
+        {removing ? '...' : 'Remove'}
+      </button>
     </div>
   )
 }
