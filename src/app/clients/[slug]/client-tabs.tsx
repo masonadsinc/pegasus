@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { formatCurrency, formatNumber, formatPercent, formatCompact, wowChange, wowChangeCPL, grade } from '@/lib/utils'
 import {
   AreaChart, Area, BarChart, Bar,
@@ -102,6 +103,94 @@ function DataTable({ columns, data }: { columns: { key: string; label: string; f
   )
 }
 
+/* ── Ad Image ───────────────────────────────────── */
+function AdImage({ src, alt, className = '' }: { src?: string | null; alt: string; className?: string }) {
+  const [error, setError] = useState(false)
+  if (!src || error) {
+    return (
+      <div className={`bg-[#f4f4f6] flex items-center justify-center text-[#c4c4cc] ${className}`}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
+        </svg>
+      </div>
+    )
+  }
+  return <img src={src} alt={alt} className={`object-cover ${className}`} onError={() => setError(true)} loading="lazy" />
+}
+
+/* ── Ad Detail Modal ────────────────────────────── */
+function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
+  ad: any; open: boolean; onClose: () => void; resultLabel: string; targetCpl: number | null
+}) {
+  if (!ad) return null
+  const imageUrl = ad.creative_url || ad.creative_thumbnail_url
+  const ctaMap: Record<string, string> = {
+    LEARN_MORE: 'Learn More', SIGN_UP: 'Sign Up', SHOP_NOW: 'Shop Now', BOOK_TRAVEL: 'Book Now',
+    CONTACT_US: 'Contact Us', DOWNLOAD: 'Download', GET_OFFER: 'Get Offer', GET_QUOTE: 'Get Quote',
+    SUBSCRIBE: 'Subscribe', WATCH_MORE: 'Watch More', APPLY_NOW: 'Apply Now', ORDER_NOW: 'Order Now',
+    CALL_NOW: 'Call Now', SEND_MESSAGE: 'Send Message', WHATSAPP_MESSAGE: 'WhatsApp',
+  }
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        {/* Creative */}
+        {ad.creative_video_url ? (
+          <video src={ad.creative_video_url} controls className="w-full max-h-[360px] object-contain bg-black rounded-t-2xl" />
+        ) : (
+          <AdImage src={imageUrl} alt={ad.ad_name} className="w-full h-[320px] rounded-t-2xl" />
+        )}
+
+        <div className="p-5 space-y-4">
+          {/* Header */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <DialogTitle>{ad.ad_name}</DialogTitle>
+              <GradeBadge cpr={ad.cpr} target={targetCpl} />
+              {ad.effective_status && (
+                <Badge variant={ad.effective_status === 'ACTIVE' ? 'success' : 'danger'}>
+                  {ad.effective_status.toLowerCase().replace(/_/g, ' ')}
+                </Badge>
+              )}
+            </div>
+            <DialogDescription>{ad.campaign_name}</DialogDescription>
+          </div>
+
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Spend', value: formatCurrency(ad.spend) },
+              { label: resultLabel, value: formatNumber(ad.results) },
+              { label: 'CPR', value: ad.cpr > 0 ? formatCurrency(ad.cpr) : '—', highlight: targetCpl && ad.cpr > targetCpl ? 'text-[#dc2626]' : ad.cpr > 0 ? 'text-[#16a34a]' : '' },
+              { label: 'Impressions', value: formatNumber(ad.impressions) },
+              { label: 'Clicks', value: formatNumber(ad.clicks) },
+              { label: 'CTR', value: formatPercent(ad.ctr) },
+            ].map(m => (
+              <div key={m.label} className="bg-[#f8f8fa] rounded-lg p-3">
+                <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">{m.label}</p>
+                <p className={`text-[15px] font-bold tabular-nums ${m.highlight || ''}`}>{m.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Creative Copy */}
+          {(ad.creative_headline || ad.creative_body || ad.creative_cta) && (
+            <div className="border border-[#e8e8ec] rounded-xl p-4 space-y-2">
+              <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Ad Copy</p>
+              {ad.creative_headline && <p className="text-[14px] font-semibold text-[#111113]">{ad.creative_headline}</p>}
+              {ad.creative_body && <p className="text-[13px] text-[#6b6b76] whitespace-pre-line leading-relaxed">{ad.creative_body}</p>}
+              {ad.creative_cta && (
+                <span className="inline-block mt-1 px-3 py-1.5 bg-[#2563eb] text-white text-[11px] font-medium rounded-lg">
+                  {ctaMap[ad.creative_cta] || ad.creative_cta.replace(/_/g, ' ')}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 const tooltipStyle = {
   contentStyle: { background: '#fff', border: '1px solid #e8e8ec', borderRadius: '10px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' },
   labelStyle: { color: '#9d9da8' },
@@ -119,6 +208,8 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
   }))
 
   const [chartMetrics, setChartMetrics] = useState<Set<string>>(new Set(['spend', 'results']))
+  const [selectedAd, setSelectedAd] = useState<any>(null)
+  const [adsView, setAdsView] = useState<'grid' | 'table'>('grid')
 
   const toggleMetric = (m: string) => {
     setChartMetrics(prev => {
@@ -170,6 +261,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
   const platformColors = ['#2563eb', '#dc2626', '#f59e0b', '#16a34a', '#8b5cf6']
 
   return (
+    <>
     <Tabs defaultValue="overview">
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -243,8 +335,9 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                 <h3 className="text-[14px] font-semibold text-[#16a34a] mb-3">Top Performers</h3>
                 <div className="space-y-3">
                   {topAds.map((ad, i) => (
-                    <div key={ad.platform_ad_id} className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-[#dcfce7] text-[#16a34a] text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
+                    <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded-lg p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
+                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded-lg flex-shrink-0" />
+                      <span className="w-5 h-5 rounded-full bg-[#dcfce7] text-[#16a34a] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
                         <p className="text-[11px] text-[#9d9da8]">{formatCurrency(ad.spend)} spent · {ad.results} {ad.result_label}</p>
@@ -260,8 +353,9 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                 <h3 className="text-[14px] font-semibold text-[#dc2626] mb-3">Underperformers</h3>
                 <div className="space-y-3">
                   {bottomAds.map((ad, i) => (
-                    <div key={ad.platform_ad_id} className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-[#fef2f2] text-[#dc2626] text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
+                    <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded-lg p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
+                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded-lg flex-shrink-0" />
+                      <span className="w-5 h-5 rounded-full bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
                         <p className="text-[11px] text-[#9d9da8]">{formatCurrency(ad.spend)} spent · {ad.results} {ad.result_label}</p>
@@ -308,27 +402,74 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
 
       {/* ═══════════════════ ADS ═══════════════════ */}
       <TabsContent value="ads">
-        <Card>
-          <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <h3 className="text-[14px] font-semibold">All Ads · {ads.length}</h3>
-            <span className="text-[12px] text-[#9d9da8]">Sort: Spend (High to Low)</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setAdsView('grid')} className={`p-1.5 rounded-md ${adsView === 'grid' ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+              </button>
+              <button onClick={() => setAdsView('table')} className={`p-1.5 rounded-md ${adsView === 'table' ? 'bg-[#111113] text-white' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="0.5"/><rect x="1" y="7" width="14" height="2" rx="0.5"/><rect x="1" y="12" width="14" height="2" rx="0.5"/></svg>
+              </button>
+            </div>
           </div>
-          <DataTable
-            columns={[
-              { key: 'ad_name', label: 'Ad', format: (v) => <span className="font-medium">{v}</span> },
-              { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
-              { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
-              { key: 'cpr', label: 'CPR', format: (v: number) => {
-                if (v === 0) return <span className="text-[#c4c4cc]">—</span>
-                const isOver = targetCpl ? v > targetCpl : false
-                return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
-              }, align: 'right' },
-              { key: 'ctr', label: 'CTR', format: (v: number) => <span className="text-[#6b6b76]">{formatPercent(v)}</span>, align: 'right' },
-              { key: '_grade', label: 'Grade', format: (_, row) => <GradeBadge cpr={row.cpr} target={targetCpl} />, align: 'center' },
-            ]}
-            data={ads}
-          />
-        </Card>
+
+          {adsView === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {ads.map(ad => {
+                const imageUrl = ad.creative_url || ad.creative_thumbnail_url
+                return (
+                  <Card key={ad.platform_ad_id} className="overflow-hidden cursor-pointer hover:shadow-md hover:border-[#c4c4cc] transition-all" onClick={() => setSelectedAd(ad)}>
+                    <AdImage src={imageUrl} alt={ad.ad_name} className="w-full h-[180px]" />
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="text-[13px] font-medium truncate flex-1">{ad.ad_name}</p>
+                        <GradeBadge cpr={ad.cpr} target={targetCpl} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                        <div>
+                          <span className="text-[#9d9da8]">Spend</span>
+                          <p className="font-semibold tabular-nums">{formatCurrency(ad.spend)}</p>
+                        </div>
+                        <div>
+                          <span className="text-[#9d9da8]">{resultLabel}</span>
+                          <p className="font-semibold tabular-nums">{ad.results}</p>
+                        </div>
+                        <div>
+                          <span className="text-[#9d9da8]">CPR</span>
+                          <p className={`font-semibold tabular-nums ${ad.cpr > 0 ? (targetCpl && ad.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]') : 'text-[#c4c4cc]'}`}>
+                            {ad.cpr > 0 ? formatCurrency(ad.cpr) : '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          ) : (
+            <Card>
+              <DataTable
+                columns={[
+                  { key: '_img', label: '', format: (_, row) => <AdImage src={row.creative_url || row.creative_thumbnail_url} alt={row.ad_name} className="w-10 h-10 rounded-md" /> },
+                  { key: 'ad_name', label: 'Ad', format: (v, row) => <button className="font-medium text-left hover:text-[#2563eb] transition-colors" onClick={() => setSelectedAd(row)}>{v}</button> },
+                  { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
+                  { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
+                  { key: 'cpr', label: 'CPR', format: (v: number) => {
+                    if (v === 0) return <span className="text-[#c4c4cc]">—</span>
+                    const isOver = targetCpl ? v > targetCpl : false
+                    return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
+                  }, align: 'right' },
+                  { key: 'ctr', label: 'CTR', format: (v: number) => <span className="text-[#6b6b76]">{formatPercent(v)}</span>, align: 'right' },
+                  { key: '_grade', label: 'Grade', format: (_, row) => <GradeBadge cpr={row.cpr} target={targetCpl} />, align: 'center' },
+                ]}
+                data={ads}
+              />
+            </Card>
+          )}
+        </div>
+
       </TabsContent>
 
       {/* ═══════════════════ CAMPAIGNS ═══════════════════ */}
@@ -872,5 +1013,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
         </div>
       </TabsContent>
     </Tabs>
+    <AdDetailModal ad={selectedAd} open={!!selectedAd} onClose={() => setSelectedAd(null)} resultLabel={resultLabel} targetCpl={targetCpl} />
+    </>
   )
 }

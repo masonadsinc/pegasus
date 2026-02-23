@@ -64,6 +64,13 @@ export interface AdRow {
   cpr: number
   ctr: number
   landing_page_views: number
+  creative_url: string | null
+  creative_thumbnail_url: string | null
+  creative_video_url: string | null
+  creative_body: string | null
+  creative_headline: string | null
+  creative_cta: string | null
+  effective_status: string | null
 }
 
 export interface BreakdownRow {
@@ -290,9 +297,11 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
   if (error) throw error
 
   // Get ad + campaign names
-  const { data: ads } = await supabaseAdmin.from('ads').select('platform_ad_id, name').eq('ad_account_id', accountId)
+  const { data: ads } = await supabaseAdmin.from('ads').select('platform_ad_id, name, creative_url, creative_thumbnail_url, creative_video_url, creative_body, creative_headline, creative_cta, effective_status').eq('ad_account_id', accountId)
   const { data: campaigns } = await supabaseAdmin.from('campaigns').select('platform_campaign_id, name').eq('ad_account_id', accountId)
 
+  const adMap = new Map<string, any>()
+  for (const a of ads || []) adMap.set(a.platform_ad_id, a)
   const adNames = new Map<string, string>()
   for (const a of ads || []) adNames.set(a.platform_ad_id, a.name || 'Unknown')
   const campNames = new Map<string, string>()
@@ -304,12 +313,20 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
     const key = r.platform_ad_id
     if (!key) continue
     const { results } = deriveResults(r, primaryActionType)
+    const adInfo = adMap.get(r.platform_ad_id)
     const existing = map.get(key) || {
       platform_ad_id: r.platform_ad_id,
       ad_name: adNames.get(r.platform_ad_id) || r.platform_ad_id,
       platform_campaign_id: r.platform_campaign_id,
       campaign_name: campNames.get(r.platform_campaign_id) || r.platform_campaign_id,
       spend: 0, impressions: 0, clicks: 0, results: 0, result_label, cpr: 0, ctr: 0, landing_page_views: 0,
+      creative_url: adInfo?.creative_url || null,
+      creative_thumbnail_url: adInfo?.creative_thumbnail_url || null,
+      creative_video_url: adInfo?.creative_video_url || null,
+      creative_body: adInfo?.creative_body || null,
+      creative_headline: adInfo?.creative_headline || null,
+      creative_cta: adInfo?.creative_cta || null,
+      effective_status: adInfo?.effective_status || null,
     }
     existing.spend += parseFloat(r.spend) || 0
     existing.impressions += r.impressions || 0
