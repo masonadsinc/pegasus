@@ -467,14 +467,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
   return (
     <>
-    {/* Data freshness */}
-    {freshnessLabel && (
-      <div className="flex items-center gap-2 mb-3 text-[11px] text-[#9d9da8]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" />
-        <span>{freshnessLabel}</span>
-        <span className="ml-auto text-[10px] text-[#c4c4cc]">Press ? for shortcuts</span>
-      </div>
-    )}
+    {/* Spacer */}
 
     {/* Sticky KPI Header */}
     {showStickyKpi && (
