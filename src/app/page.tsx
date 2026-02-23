@@ -1,5 +1,5 @@
 import { getDashboardData } from '@/lib/queries'
-import { formatCurrency, formatNumber, isEcomActionType } from '@/lib/utils'
+import { formatCurrency, formatNumber, formatPercent, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -33,14 +33,14 @@ function WowBadge({ current, previous, invert = false }: { current: number; prev
 
 export default async function Dashboard() {
   const accounts = await getDashboardData(ORG_ID, 14)
-
   const activeAccounts = accounts.filter(a => a.spend > 0)
 
-  // This week vs last week (last 7 days vs prior 7 days)
   const twSpend = accounts.reduce((s, a) => s + a.daily.slice(-7).reduce((ds, d) => ds + d.spend, 0), 0)
   const lwSpend = accounts.reduce((s, a) => s + a.daily.slice(0, 7).reduce((ds, d) => ds + d.spend, 0), 0)
   const twResults = accounts.reduce((s, a) => s + a.daily.slice(-7).reduce((ds, d) => ds + d.results, 0), 0)
   const lwResults = accounts.reduce((s, a) => s + a.daily.slice(0, 7).reduce((ds, d) => ds + d.results, 0), 0)
+  const totalImpressions = activeAccounts.reduce((s, a) => s + a.impressions, 0)
+  const totalClicks = activeAccounts.reduce((s, a) => s + a.clicks, 0)
 
   const nonEcom = activeAccounts.filter(a => !isEcomActionType(a.primary_action_type))
   const nonEcomTwSpend = nonEcom.reduce((s, a) => s + a.daily.slice(-7).reduce((ds, d) => ds + d.spend, 0), 0)
@@ -49,18 +49,14 @@ export default async function Dashboard() {
   const nonEcomLwResults = nonEcom.reduce((s, a) => s + a.daily.slice(0, 7).reduce((ds, d) => ds + d.results, 0), 0)
   const twCPR = nonEcomTwResults > 0 ? nonEcomTwSpend / nonEcomTwResults : 0
   const lwCPR = nonEcomLwResults > 0 ? nonEcomLwSpend / nonEcomLwResults : 0
-
-  // Avg daily spend
   const avgDailySpend = twSpend / 7
 
-  // Alerts: accounts over target by 25%+
   const alerts = activeAccounts.filter(a => {
     if (!a.target_cpl) return false
     const cpr = a.results > 0 ? a.spend / a.results : 0
     return cpr > 0 && cpr > a.target_cpl * 1.25
   })
 
-  // On-target count
   const withTarget = activeAccounts.filter(a => a.target_cpl)
   const onTarget = withTarget.filter(a => {
     const cpr = a.results > 0 ? a.spend / a.results : 0
@@ -72,7 +68,6 @@ export default async function Dashboard() {
       <Nav current="dashboard" />
       <PageWrapper>
         <div className="p-6 lg:p-8 max-w-[1440px] mx-auto">
-          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-[22px] font-semibold text-[#111113] tracking-tight">Health Tracker</h2>
@@ -147,60 +142,88 @@ export default async function Dashboard() {
             </Card>
           )}
 
-          {/* Account Table */}
+          {/* Full Comparison Table */}
           <Card>
             <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
               <h3 className="text-[14px] font-semibold text-[#111113]">All Accounts</h3>
               <span className="text-[12px] text-[#9d9da8]">{activeAccounts.length} active of {accounts.length}</span>
             </div>
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-[12px]">
                 <thead>
                   <tr className="border-b border-[#e8e8ec] bg-[#fafafb]">
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Client</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Results</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">vs Target</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider w-[120px]">7d Trend</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-left uppercase tracking-wider sticky left-0 bg-[#fafafb] z-10 min-w-[150px]">Client</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Results</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Target</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">vs Target</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Impr</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Clicks</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPC</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPM</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Conv Rate</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider w-[100px]">7d Trend</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {activeAccounts.map((a, idx) => {
+                  {activeAccounts.sort((a, b) => b.spend - a.spend).map((a, idx) => {
                     const tw7 = a.daily.slice(-7)
                     const twSpendAcct = tw7.reduce((s, d) => s + d.spend, 0)
                     const twResultsAcct = tw7.reduce((s, d) => s + d.results, 0)
                     const cpr = twResultsAcct > 0 ? twSpendAcct / twResultsAcct : 0
                     const isOver = a.target_cpl ? cpr > a.target_cpl : false
                     const ctr = a.impressions > 0 ? (a.clicks / a.impressions) * 100 : 0
-                    const targetPct = a.target_cpl && cpr > 0 ? ((cpr / a.target_cpl - 1) * 100) : null
+                    const cpc = a.clicks > 0 ? a.spend / a.clicks : 0
+                    const cpm = a.impressions > 0 ? (a.spend / a.impressions) * 1000 : 0
+                    const convRate = a.clicks > 0 ? (a.results / a.clicks) * 100 : 0
+                    const vsTgt = a.target_cpl && cpr > 0 ? ((cpr / a.target_cpl - 1) * 100) : null
                     return (
                       <tr key={a.ad_account_id} className={`border-b border-[#f4f4f6] hover:bg-[#f8f9fc] transition-colors group ${isOver ? 'bg-[#fef2f2]/40' : idx % 2 === 1 ? 'bg-[#fafafb]/50' : ''}`}>
-                        <td className="py-3 px-5">
-                          <Link href={`/clients/${a.client_slug}`} className="font-medium text-[#111113] group-hover:text-[#2563eb] transition-colors">{a.client_name}</Link>
-                          <p className="text-[11px] text-[#9d9da8] mt-0.5">{a.result_label}</p>
+                        <td className="py-3 px-4 sticky left-0 bg-white z-10">
+                          <Link href={`/clients/${a.client_slug}`} className="font-medium text-[#111113] group-hover:text-[#2563eb] transition-colors text-[12px]">{a.client_name}</Link>
+                          <p className="text-[10px] text-[#9d9da8]">{a.result_label}</p>
                         </td>
-                        <td className="py-3 px-5 text-right tabular-nums font-medium">{formatCurrency(twSpendAcct)}</td>
-                        <td className="py-3 px-5 text-right tabular-nums text-[#6b6b76]">{formatNumber(twResultsAcct)}</td>
-                        <td className={`py-3 px-5 text-right tabular-nums font-semibold ${isOver ? 'text-[#dc2626]' : cpr > 0 ? 'text-[#16a34a]' : 'text-[#9d9da8]'}`}>
+                        <td className="py-3 px-4 text-right tabular-nums font-medium">{formatCurrency(twSpendAcct)}</td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{formatNumber(twResultsAcct)}</td>
+                        <td className={`py-3 px-4 text-right tabular-nums font-semibold ${isOver ? 'text-[#dc2626]' : cpr > 0 ? 'text-[#16a34a]' : 'text-[#9d9da8]'}`}>
                           {cpr > 0 ? formatCurrency(cpr) : '—'}
                         </td>
-                        <td className="py-3 px-5 text-right">
-                          {targetPct !== null ? (
-                            <span className={`text-[11px] font-medium ${targetPct > 0 ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>
-                              {targetPct > 0 ? '+' : ''}{targetPct.toFixed(0)}%
-                            </span>
-                          ) : <span className="text-[#c4c4cc]">—</span>}
+                        <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{a.target_cpl ? formatCurrency(a.target_cpl) : '—'}</td>
+                        <td className={`py-3 px-4 text-right tabular-nums font-medium ${vsTgt !== null ? (vsTgt > 0 ? 'text-[#dc2626]' : 'text-[#16a34a]') : 'text-[#9d9da8]'}`}>
+                          {vsTgt !== null ? `${vsTgt > 0 ? '+' : ''}${vsTgt.toFixed(0)}%` : '—'}
                         </td>
-                        <td className="py-3 px-5 text-right tabular-nums text-[#9d9da8]">{ctr > 0 ? `${ctr.toFixed(2)}%` : '—'}</td>
-                        <td className="py-3 px-5">
+                        <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{formatNumber(a.impressions)}</td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{formatNumber(a.clicks)}</td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{ctr > 0 ? formatPercent(ctr) : '—'}</td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{cpc > 0 ? formatCurrency(cpc) : '—'}</td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{cpm > 0 ? formatCurrency(cpm) : '—'}</td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{convRate > 0 ? formatPercent(convRate) : '—'}</td>
+                        <td className="py-3 px-4">
                           <MiniBar data={tw7.map(d => d.spend)} />
                         </td>
                       </tr>
                     )
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-[#e8e8ec] bg-[#fafafb] font-semibold text-[12px]">
+                    <td className="py-3 px-4 sticky left-0 bg-[#fafafb] z-10">Totals ({activeAccounts.length})</td>
+                    <td className="py-3 px-4 text-right tabular-nums">{formatCurrency(twSpend)}</td>
+                    <td className="py-3 px-4 text-right tabular-nums">{formatNumber(twResults)}</td>
+                    <td className="py-3 px-4 text-right tabular-nums">{twResults > 0 ? formatCurrency(twSpend / twResults) : '—'}</td>
+                    <td className="py-3 px-4 text-right text-[#9d9da8]">—</td>
+                    <td className="py-3 px-4 text-right text-[#9d9da8]">—</td>
+                    <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{formatNumber(totalImpressions)}</td>
+                    <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{formatNumber(totalClicks)}</td>
+                    <td className="py-3 px-4 text-right tabular-nums">{totalImpressions > 0 ? formatPercent((totalClicks / totalImpressions) * 100) : '—'}</td>
+                    <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{totalClicks > 0 ? formatCurrency(twSpend / totalClicks) : '—'}</td>
+                    <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{totalImpressions > 0 ? formatCurrency((twSpend / totalImpressions) * 1000) : '—'}</td>
+                    <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{totalClicks > 0 ? formatPercent((twResults / totalClicks) * 100) : '—'}</td>
+                    <td className="py-3 px-4"></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </Card>

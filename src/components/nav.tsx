@@ -45,13 +45,13 @@ function IconSettings({ className }: { className?: string }) {
   )
 }
 
-export function Nav({ current }: { current: 'dashboard' | 'clients' | 'compare' | 'reports' | 'insights' | 'settings' }) {
+export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'insights' | 'settings' }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const links = [
     { href: '/', label: 'Health Tracker', icon: IconGrid, key: 'dashboard' as const },
     { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
-    { href: '/compare', label: 'Compare', icon: IconReport, key: 'compare' as const },
+    { href: '#', label: 'Reports', icon: IconReport, key: 'reports' as const },
     { href: '#', label: 'Insights', icon: IconInsights, key: 'insights' as const },
   ]
 
