@@ -405,6 +405,53 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             </div>
           </Card>
 
+          {/* Creative Performance: Image vs Video */}
+          {(() => {
+            const videoAds = ads.filter(a => a.creative_video_url && a.spend > 0)
+            const imageAds = ads.filter(a => !a.creative_video_url && a.spend > 0)
+            const videoSpend = videoAds.reduce((s, a) => s + a.spend, 0)
+            const videoResults = videoAds.reduce((s, a) => s + a.results, 0)
+            const imageSpend = imageAds.reduce((s, a) => s + a.spend, 0)
+            const imageResults = imageAds.reduce((s, a) => s + a.results, 0)
+            const videoCpr = videoResults > 0 ? videoSpend / videoResults : 0
+            const imageCpr = imageResults > 0 ? imageSpend / imageResults : 0
+            if (videoAds.length === 0 && imageAds.length === 0) return null
+            const totalCreativeSpend = videoSpend + imageSpend
+            return (
+              <Card className="p-5">
+                <h3 className="text-[14px] font-semibold mb-3">Creative Type Performance</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-[#f8f8fa] rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
+                      <span className="text-[12px] font-semibold">Images</span>
+                      <span className="text-[10px] text-[#9d9da8]">{imageAds.length} ads</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(imageSpend)}</p></div>
+                      <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{imageResults}</p></div>
+                      <div><span className="text-[#9d9da8]">CPR</span><p className={`font-semibold ${imageCpr > 0 ? (targetCpl && imageCpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]') : ''}`}>{imageCpr > 0 ? formatCurrency(imageCpr) : '—'}</p></div>
+                    </div>
+                    {totalCreativeSpend > 0 && <div className="mt-2 h-1.5 bg-[#e8e8ec] rounded-full"><div className="h-full bg-[#2563eb] rounded-full" style={{ width: `${(imageSpend / totalCreativeSpend) * 100}%` }} /></div>}
+                  </div>
+                  <div className="bg-[#f8f8fa] rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                      <span className="text-[12px] font-semibold">Videos</span>
+                      <span className="text-[10px] text-[#9d9da8]">{videoAds.length} ads</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(videoSpend)}</p></div>
+                      <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{videoResults}</p></div>
+                      <div><span className="text-[#9d9da8]">CPR</span><p className={`font-semibold ${videoCpr > 0 ? (targetCpl && videoCpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]') : ''}`}>{videoCpr > 0 ? formatCurrency(videoCpr) : '—'}</p></div>
+                    </div>
+                    {totalCreativeSpend > 0 && <div className="mt-2 h-1.5 bg-[#e8e8ec] rounded-full"><div className="h-full bg-[#8b5cf6] rounded-full" style={{ width: `${(videoSpend / totalCreativeSpend) * 100}%` }} /></div>}
+                  </div>
+                </div>
+              </Card>
+            )
+          })()}
+
           {/* Quick Insights */}
           {(() => {
             const totalSpendPeriod = daily.reduce((s, d) => s + d.spend, 0)
