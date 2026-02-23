@@ -27,43 +27,53 @@ interface ClientTabsProps {
   totalSpend: number
 }
 
-function StatBox({ label, value, sub, change, sparkData }: {
-  label: string; value: string; sub?: string; change?: { label: string; positive: boolean }; sparkData?: number[]
-}) {
-  const max = Math.max(...(sparkData || []), 1)
+/* ── Sparkline SVG ──────────────────────────────── */
+function Spark({ data, color = '#2563eb', height = 32, width = 100 }: { data: number[]; color?: string; height?: number; width?: number }) {
+  if (data.length < 2) return null
+  const max = Math.max(...data, 1)
+  const min = Math.min(...data, 0)
+  const range = max - min || 1
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - ((v - min) / range) * (height - 4) - 2}`)
   return (
-    <Card className="p-4">
+    <svg width={width} height={height} className="mt-2">
+      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+/* ── Stat Box with sparkline & WoW ──────────────── */
+function StatBox({ label, value, sub, change, sparkData, sparkColor, icon, highlight }: {
+  label: string; value: string; sub?: string; change?: { label: string; positive: boolean }; sparkData?: number[]; sparkColor?: string; icon?: string; highlight?: boolean
+}) {
+  return (
+    <Card className={`p-4 ${highlight ? 'border-[#f59e0b] border-2' : ''}`}>
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">{label}</p>
-          <p className="text-xl font-bold tabular-nums text-[#111113]">{value}</p>
-          {sub && <p className="text-[11px] text-[#9d9da8] mt-0.5">{sub}</p>}
-          {change && change.label !== '—' && (
-            <p className={`text-[11px] font-medium mt-1 ${change.positive ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
-              {change.label} vs last week
-            </p>
-          )}
-        </div>
+        <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</p>
+        {icon && <span className="text-[11px] text-[#9d9da8]">{icon}</span>}
       </div>
-      {sparkData && sparkData.length > 0 && (
-        <div className="mt-2 flex items-end gap-[2px] h-[24px]">
-          {sparkData.map((v, i) => (
-            <div key={i} className="flex-1 bg-[#2563eb]/20 rounded-sm" style={{ height: `${Math.max((v / max) * 100, 4)}%` }} />
-          ))}
-        </div>
-      )}
+      <p className="text-xl font-bold tabular-nums text-[#111113] mt-1">{value}</p>
+      <div className="flex items-center gap-2 mt-0.5">
+        {sub && <span className="text-[11px] text-[#9d9da8]">{sub}</span>}
+        {change && change.label !== '—' && (
+          <span className={`text-[11px] font-medium ${change.positive ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+            {change.label}
+          </span>
+        )}
+      </div>
+      {sparkData && <Spark data={sparkData} color={sparkColor || '#2563eb'} />}
     </Card>
   )
 }
 
-function DataTable({ columns, data }: { columns: { key: string; label: string; format?: (v: any, row?: any) => string | React.ReactNode; align?: string }[]; data: any[] }) {
+/* ── Data Table ─────────────────────────────────── */
+function DataTable({ columns, data }: { columns: { key: string; label: string; format?: (v: any, row?: any) => string | React.ReactNode; align?: string; width?: string }[]; data: any[] }) {
   return (
     <div className="overflow-x-auto custom-scrollbar">
       <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-[#e8e8ec]">
             {columns.map(col => (
-              <th key={col.key} className={`py-3 px-4 text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+              <th key={col.key} className={`py-3 px-4 text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : 'text-left'}`} style={col.width ? { width: col.width } : undefined}>
                 {col.label}
               </th>
             ))}
@@ -71,7 +81,7 @@ function DataTable({ columns, data }: { columns: { key: string; label: string; f
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <tr key={i} className="border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors">
+            <tr key={i} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${row._highlight ? 'bg-[#fffbeb]' : ''}`}>
               {columns.map(col => (
                 <td key={col.key} className={`py-2.5 px-4 tabular-nums ${col.align === 'right' ? 'text-right' : ''}`}>
                   {col.format ? col.format(row[col.key], row) : row[col.key]}
@@ -90,6 +100,7 @@ const tooltipStyle = {
   labelStyle: { color: '#9d9da8' },
 }
 
+/* ── Main Tabs ──────────────────────────────────── */
 export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend }: ClientTabsProps) {
   const chartData = daily.map(d => ({
     date: new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -105,6 +116,13 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
   const twSum = (key: string) => tw.reduce((s, d) => s + (d[key] || 0), 0)
   const lwSum = (key: string) => lw.reduce((s, d) => s + (d[key] || 0), 0)
 
+  // Best day
+  const daysWithResults = daily.filter(d => d.results > 0)
+  const bestDay = [...daysWithResults].sort((a, b) => (a.spend / a.results) - (b.spend / b.results))[0]
+
+  // Max spend for inline bars
+  const maxDailySpend = Math.max(...daily.map(d => d.spend), 1)
+
   return (
     <Tabs defaultValue="overview">
       <TabsList>
@@ -117,7 +135,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
         {region.length > 0 && <TabsTrigger value="geographic">Geographic</TabsTrigger>}
       </TabsList>
 
-      {/* OVERVIEW */}
+      {/* ═══════════ OVERVIEW ═══════════ */}
       <TabsContent value="overview">
         <div className="space-y-5">
           {/* Performance Trend */}
@@ -147,14 +165,14 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
             </ResponsiveContainer>
           </Card>
 
-          {/* Stat Boxes */}
+          {/* 6 Stat Boxes */}
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-            <StatBox label="Spend" value={formatCurrency(twSum('spend'))} sparkData={tw.map(d => d.spend)} change={wowChange(twSum('spend'), lwSum('spend'))} />
-            <StatBox label={resultLabel} value={formatNumber(twSum('results'))} sparkData={tw.map(d => d.results)} change={wowChange(twSum('results'), lwSum('results'))} />
+            <StatBox label="Spend" value={formatCurrency(twSum('spend'))} icon="$" sparkData={tw.map(d => d.spend)} change={wowChange(twSum('spend'), lwSum('spend'))} />
+            <StatBox label={resultLabel} value={formatNumber(twSum('results'))} sparkData={tw.map(d => d.results)} sparkColor="#16a34a" change={wowChange(twSum('results'), lwSum('results'))} />
             <StatBox label="CPR" value={twSum('results') > 0 ? formatCurrency(twSum('spend') / twSum('results')) : '—'} change={wowChangeCPL(twSum('results') > 0 ? twSum('spend')/twSum('results') : 0, lwSum('results') > 0 ? lwSum('spend')/lwSum('results') : 0)} />
             <StatBox label="Impressions" value={formatNumber(twSum('impressions'))} sparkData={tw.map(d => d.impressions)} change={wowChange(twSum('impressions'), lwSum('impressions'))} />
             <StatBox label="Clicks" value={formatNumber(twSum('clicks'))} sparkData={tw.map(d => d.clicks)} change={wowChange(twSum('clicks'), lwSum('clicks'))} />
-            <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} />
+            <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} change={wowChange(twSum('impressions') > 0 ? (twSum('clicks') / twSum('impressions')) * 100 : 0, lwSum('impressions') > 0 ? (lwSum('clicks') / lwSum('impressions')) * 100 : 0)} />
           </div>
 
           {/* Top / Bottom */}
@@ -195,21 +213,21 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
             )}
           </div>
 
-          {/* Funnel */}
+          {/* Funnel Health */}
           <Card className="p-5">
             <h3 className="text-[14px] font-semibold mb-4">Funnel Health</h3>
-            <div className="flex items-center justify-around mb-4">
+            <div className="flex items-center justify-around mb-5">
               {funnelSteps.map((step, i) => (
                 <div key={step.label} className="flex items-center gap-6">
                   <div className="text-center">
                     <p className="text-[22px] font-bold tabular-nums">{formatNumber(step.value)}</p>
                     <p className="text-[11px] text-[#9d9da8]">{step.label}</p>
+                    {step.rate !== undefined && i > 0 && (
+                      <p className="text-[11px] text-[#16a34a] font-medium mt-0.5">{step.rateLabel}: {step.rate.toFixed(2)}%</p>
+                    )}
                   </div>
-                  {step.rate !== undefined && i > 0 && (
-                    <div className="text-center">
-                      <p className="text-[11px] text-[#9d9da8]">{step.rateLabel}</p>
-                      <p className="text-[13px] font-medium">{step.rate.toFixed(2)}%</p>
-                    </div>
+                  {i < funnelSteps.length - 1 && (
+                    <svg className="w-4 h-4 text-[#d4d4d8]" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>
                   )}
                 </div>
               ))}
@@ -233,7 +251,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
         </div>
       </TabsContent>
 
-      {/* ADS */}
+      {/* ═══════════ ADS ═══════════ */}
       <TabsContent value="ads">
         <Card>
           <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
@@ -257,7 +275,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
         </Card>
       </TabsContent>
 
-      {/* CAMPAIGNS */}
+      {/* ═══════════ CAMPAIGNS ═══════════ */}
       <TabsContent value="campaigns">
         <div className="space-y-5">
           <Card className="p-5">
@@ -283,9 +301,11 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {campaigns.map(c => (
               <Card key={c.platform_campaign_id} className="p-4">
-                <h4 className="text-[13px] font-semibold truncate mb-1">{c.campaign_name}</h4>
-                <Badge variant="success">Active</Badge>
-                <div className="grid grid-cols-2 gap-2 text-[12px] mt-3">
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="text-[13px] font-semibold truncate max-w-[200px]">{c.campaign_name}</h4>
+                  <Badge variant="success">Active</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[12px]">
                   <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(c.spend)}</p></div>
                   <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{c.results}</p></div>
                   <div><span className="text-[#9d9da8]">CPR</span><p className="font-semibold">{c.cpr > 0 ? formatCurrency(c.cpr) : '—'}</p></div>
@@ -297,46 +317,105 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
         </div>
       </TabsContent>
 
-      {/* DAILY */}
+      {/* ═══════════ DAILY ═══════════ */}
       <TabsContent value="daily">
         <div className="space-y-5">
-          <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-3">Daily Results</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f2" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9d9da8' }} axisLine={{ stroke: '#e8e8ec' }} tickLine={false} interval={Math.floor(chartData.length / 10)} />
-                <YAxis tick={{ fontSize: 11, fill: '#9d9da8' }} axisLine={false} tickLine={false} />
-                <Tooltip {...tooltipStyle} />
-                <Bar dataKey="results" fill="#2563eb" radius={[3, 3, 0, 0]} name={resultLabel} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
-
-          <Card>
-            <div className="px-5 py-4 border-b border-[#e8e8ec]">
-              <h3 className="text-[14px] font-semibold">Daily Breakdown</h3>
-            </div>
-            <DataTable
-              columns={[
-                { key: 'date', label: 'Date', format: (v) => new Date(v + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) },
-                { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
-                { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
-                { key: 'cpr', label: 'CPR', format: (_: any, row: any) => {
-                  if (!row.results) return <span className="text-[#c4c4cc]">—</span>
-                  const val = row.spend / row.results
-                  const isOver = targetCpl ? val > targetCpl : false
-                  return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(val)}</span>
-                }, align: 'right' },
-                { key: 'ctr', label: 'CTR', format: (_: any, row: any) => row.impressions > 0 ? formatPercent((row.clicks / row.impressions) * 100) : '—', align: 'right' },
-              ]}
-              data={[...daily].reverse()}
+          {/* 4 Stat boxes with sparklines */}
+          <div className="grid grid-cols-4 gap-4">
+            <StatBox
+              label="Total Spend"
+              value={formatCurrency(daily.reduce((s, d) => s + d.spend, 0))}
+              sub={`~${formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / (daily.length || 1))}/day`}
+              icon="$"
+              sparkData={daily.map(d => d.spend)}
+              change={wowChange(twSum('spend'), lwSum('spend'))}
             />
+            <StatBox
+              label={`Total ${resultLabel}`}
+              value={formatNumber(daily.reduce((s, d) => s + d.results, 0))}
+              sub={`~${(daily.reduce((s, d) => s + d.results, 0) / (daily.length || 1)).toFixed(1)}/day`}
+              sparkData={daily.map(d => d.results)}
+              sparkColor="#16a34a"
+              change={wowChange(twSum('results'), lwSum('results'))}
+            />
+            <StatBox
+              label="Avg CPR"
+              value={daily.reduce((s, d) => s + d.results, 0) > 0 ? formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / daily.reduce((s, d) => s + d.results, 0)) : '—'}
+              sub={`Over ${daily.length} days`}
+              sparkData={daily.map(d => d.results > 0 ? d.spend / d.results : 0)}
+              sparkColor="#f59e0b"
+            />
+            {bestDay && (
+              <StatBox
+                label="Best Day"
+                value={new Date(bestDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                sub={`${formatCurrency(bestDay.spend / bestDay.results)} CPR · ${bestDay.results} ${resultLabel.toLowerCase()}`}
+                highlight={true}
+              />
+            )}
+          </div>
+
+          {/* Daily Breakdown with inline bars */}
+          <Card>
+            <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
+              <h3 className="text-[14px] font-semibold">Daily Breakdown</h3>
+              <span className="text-[12px] text-[#9d9da8]">{daily.length} days</span>
+            </div>
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-[#e8e8ec]">
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Date</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider" style={{ width: '40%' }}></th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">{resultLabel}</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...daily].reverse().map((d, i) => {
+                    const cpr = d.results > 0 ? d.spend / d.results : 0
+                    const isOver = targetCpl ? cpr > targetCpl : false
+                    const isBest = bestDay && d.date === bestDay.date
+                    const ctrVal = d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0
+                    const barPct = (d.spend / maxDailySpend) * 100
+
+                    return (
+                      <tr key={d.date} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${isBest ? 'bg-[#fffbeb]' : ''}`}>
+                        <td className="py-2.5 px-4">
+                          <span className="text-[#111113]">{new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                          {isBest && <span className="ml-1.5 inline-block w-3 h-3 text-[#f59e0b]"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4v3H4a1 1 0 00-.82 1.57l7 10a1 1 0 001.64 0l7-10A1 1 0 0018 7h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1z" /></svg></span>}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          {/* Inline spend bar */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-[6px] bg-[#f4f4f6] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${barPct}%`, backgroundColor: d.results > 0 ? '#2563eb' : '#94a3b8' }} />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-right tabular-nums font-medium">{formatCurrency(d.spend)}</td>
+                        <td className="py-2.5 px-4 text-right tabular-nums">{d.results}</td>
+                        <td className="py-2.5 px-4 text-right tabular-nums">
+                          {cpr > 0 ? (
+                            <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(cpr)}</span>
+                          ) : (
+                            <span className="text-[#c4c4cc]">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 text-right tabular-nums text-[#6b6b76]">{ctrVal > 0 ? formatPercent(ctrVal) : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       </TabsContent>
 
-      {/* AUDIENCE */}
+      {/* ═══════════ AUDIENCE ═══════════ */}
       {ageGender.length > 0 && (
         <TabsContent value="audience">
           <div className="space-y-5">
@@ -382,7 +461,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
         </TabsContent>
       )}
 
-      {/* PLACEMENTS */}
+      {/* ═══════════ PLACEMENTS ═══════════ */}
       {placement.length > 0 && (
         <TabsContent value="placements">
           <Card>
@@ -404,7 +483,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
         </TabsContent>
       )}
 
-      {/* GEOGRAPHIC */}
+      {/* ═══════════ GEOGRAPHIC ═══════════ */}
       {region.length > 0 && (
         <TabsContent value="geographic">
           <Card>
