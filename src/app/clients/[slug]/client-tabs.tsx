@@ -133,64 +133,67 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
-        {/* Creative */}
-        {ad.creative_video_url ? (
-          <video src={ad.creative_video_url} controls className="w-full max-h-[500px] object-contain bg-black rounded-t-2xl" />
-        ) : imageUrl ? (
-          <img src={imageUrl} alt={ad.ad_name} className="w-full rounded-t-2xl block" style={{ maxHeight: '70vh', objectFit: 'contain', backgroundColor: '#f4f4f6' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
-        ) : (
-          <div className="w-full h-[200px] bg-[#f4f4f6] flex items-center justify-center text-[#c4c4cc] rounded-t-2xl">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
-            </svg>
-          </div>
-        )}
-
-        <div className="p-5 space-y-4">
-          {/* Header */}
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <DialogTitle>{ad.ad_name}</DialogTitle>
-              <GradeBadge cpr={ad.cpr} target={targetCpl} />
-              {ad.effective_status && (
-                <Badge variant={ad.effective_status === 'ACTIVE' ? 'success' : 'danger'}>
-                  {ad.effective_status.toLowerCase().replace(/_/g, ' ')}
-                </Badge>
-              )}
-            </div>
-            <DialogDescription>{ad.campaign_name}</DialogDescription>
+        <div className="flex flex-col md:flex-row min-h-[400px]">
+          {/* Left: Creative */}
+          <div className="md:w-[45%] flex-shrink-0 bg-[#f4f4f6] flex items-center justify-center rounded-t-2xl md:rounded-t-none md:rounded-l-2xl overflow-hidden">
+            {ad.creative_video_url ? (
+              <video src={ad.creative_video_url} controls className="w-full h-full object-contain" />
+            ) : imageUrl ? (
+              <img src={imageUrl} alt={ad.ad_name} className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
+            ) : (
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c4c4cc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
+              </svg>
+            )}
           </div>
 
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Spend', value: formatCurrency(ad.spend) },
-              { label: resultLabel, value: formatNumber(ad.results) },
-              { label: 'CPR', value: ad.cpr > 0 ? formatCurrency(ad.cpr) : '—', highlight: targetCpl && ad.cpr > targetCpl ? 'text-[#dc2626]' : ad.cpr > 0 ? 'text-[#16a34a]' : '' },
-              { label: 'Impressions', value: formatNumber(ad.impressions) },
-              { label: 'Clicks', value: formatNumber(ad.clicks) },
-              { label: 'CTR', value: formatPercent(ad.ctr) },
-            ].map(m => (
-              <div key={m.label} className="bg-[#f8f8fa] rounded-lg p-3">
-                <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">{m.label}</p>
-                <p className={`text-[15px] font-bold tabular-nums ${m.highlight || ''}`}>{m.value}</p>
+          {/* Right: Details */}
+          <div className="md:w-[55%] p-5 space-y-4 overflow-y-auto max-h-[80vh]">
+            {/* Header */}
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <DialogTitle>{ad.ad_name}</DialogTitle>
+                <GradeBadge cpr={ad.cpr} target={targetCpl} />
+                {ad.effective_status && (
+                  <Badge variant={ad.effective_status === 'ACTIVE' ? 'success' : 'danger'}>
+                    {ad.effective_status.toLowerCase().replace(/_/g, ' ')}
+                  </Badge>
+                )}
               </div>
-            ))}
-          </div>
-
-          {/* Creative Copy */}
-          {(ad.creative_headline || ad.creative_body || ad.creative_cta) && (
-            <div className="border border-[#e8e8ec] rounded-xl p-4 space-y-2">
-              <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Ad Copy</p>
-              {ad.creative_headline && <p className="text-[14px] font-semibold text-[#111113]">{ad.creative_headline}</p>}
-              {ad.creative_body && <p className="text-[13px] text-[#6b6b76] whitespace-pre-line leading-relaxed">{ad.creative_body}</p>}
-              {ad.creative_cta && (
-                <span className="inline-block mt-1 px-3 py-1.5 bg-[#2563eb] text-white text-[11px] font-medium rounded-lg">
-                  {ctaMap[ad.creative_cta] || ad.creative_cta.replace(/_/g, ' ')}
-                </span>
-              )}
+              <DialogDescription>{ad.campaign_name}</DialogDescription>
             </div>
-          )}
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: 'Spend', value: formatCurrency(ad.spend) },
+                { label: resultLabel, value: formatNumber(ad.results) },
+                { label: 'CPR', value: ad.cpr > 0 ? formatCurrency(ad.cpr) : '—', highlight: targetCpl && ad.cpr > targetCpl ? 'text-[#dc2626]' : ad.cpr > 0 ? 'text-[#16a34a]' : '' },
+                { label: 'CTR', value: formatPercent(ad.ctr) },
+                { label: 'Impressions', value: formatNumber(ad.impressions) },
+                { label: 'Clicks', value: formatNumber(ad.clicks) },
+              ].map(m => (
+                <div key={m.label} className="bg-[#f8f8fa] rounded-lg p-2.5">
+                  <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">{m.label}</p>
+                  <p className={`text-[14px] font-bold tabular-nums ${m.highlight || ''}`}>{m.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Creative Copy */}
+            {(ad.creative_headline || ad.creative_body || ad.creative_cta) && (
+              <div className="border border-[#e8e8ec] rounded-xl p-4 space-y-2">
+                <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Ad Copy</p>
+                {ad.creative_headline && <p className="text-[14px] font-semibold text-[#111113]">{ad.creative_headline}</p>}
+                {ad.creative_body && <p className="text-[13px] text-[#6b6b76] whitespace-pre-line leading-relaxed">{ad.creative_body}</p>}
+                {ad.creative_cta && (
+                  <span className="inline-block mt-1 px-3 py-1.5 bg-[#2563eb] text-white text-[11px] font-medium rounded-lg">
+                    {ctaMap[ad.creative_cta] || ad.creative_cta.replace(/_/g, ' ')}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
