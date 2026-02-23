@@ -381,6 +381,56 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} />
           </div>
 
+          {/* Spend Heatmap Calendar */}
+          <Card className="p-5">
+            <h3 className="text-[14px] font-semibold mb-3">Daily Activity</h3>
+            <div className="flex flex-wrap gap-[3px]">
+              {daily.map(d => {
+                const intensity = d.spend / maxDailySpend
+                const hasResults = d.results > 0
+                const cpr = d.results > 0 ? d.spend / d.results : 0
+                const isOver = targetCpl && cpr > targetCpl
+                const bg = d.spend === 0 ? '#f4f4f6' : isOver ? `rgba(220, 38, 38, ${0.3 + intensity * 0.7})` : hasResults ? `rgba(22, 163, 74, ${0.2 + intensity * 0.8})` : `rgba(37, 99, 235, ${0.2 + intensity * 0.6})`
+                const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                return (
+                  <div key={d.date} className="w-[18px] h-[18px] rounded-[3px] cursor-default" style={{ backgroundColor: bg }} title={`${dateLabel}: ${formatCurrency(d.spend)} · ${d.results} ${resultLabel.toLowerCase()}`} />
+                )
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-[10px] text-[#9d9da8]">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#16a34a]" /> On target</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#dc2626]" /> Over target</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#2563eb]" /> Spend, no results</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#f4f4f6]" /> No spend</span>
+            </div>
+          </Card>
+
+          {/* Quick Insights */}
+          {(() => {
+            const totalSpendPeriod = daily.reduce((s, d) => s + d.spend, 0)
+            const totalResultsPeriod = daily.reduce((s, d) => s + d.results, 0)
+            const avgDailySpend = totalSpendPeriod / (daily.length || 1)
+            const daysOverTarget = targetCpl ? daily.filter(d => d.results > 0 && (d.spend / d.results) > targetCpl).length : 0
+            const zeroDays = daily.filter(d => d.results === 0 && d.spend > 0).length
+            const bestCprDay = [...daysWithResults].sort((a, b) => (a.spend / a.results) - (b.spend / b.results))[0]
+            const worstCprDay = [...daysWithResults].sort((a, b) => (b.spend / b.results) - (a.spend / a.results))[0]
+            const insights: string[] = []
+            if (zeroDays > 3) insights.push(`⚠️ ${zeroDays} days with spend but zero results`)
+            if (daysOverTarget > daily.length * 0.5 && targetCpl) insights.push(`🔴 Over target on ${daysOverTarget} of ${daily.length} days`)
+            if (bestCprDay && totalResultsPeriod > 10) {
+              const bestDayName = new Date(bestCprDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
+              insights.push(`🏆 Best day: ${bestDayName} at ${formatCurrency(bestCprDay.spend / bestCprDay.results)} CPR`)
+            }
+            if (insights.length === 0) return null
+            return (
+              <Card className="p-4 border-[#e8e8ec]">
+                <div className="space-y-1.5">
+                  {insights.map((ins, i) => <p key={i} className="text-[12px] text-[#6b6b76]">{ins}</p>)}
+                </div>
+              </Card>
+            )
+          })()}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {topAds.length > 0 && (
               <Card className="p-5">
