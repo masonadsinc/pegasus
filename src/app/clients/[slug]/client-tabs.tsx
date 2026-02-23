@@ -954,86 +954,87 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       {ageGender.length > 0 && (
         <TabsContent value="audience">
           <div className="space-y-5">
-            {/* Demographics Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-[14px] font-semibold">Demographics Overview</h3>
-                </div>
-                <p className="text-[11px] text-[#9d9da8]">{ageGender.length} segments</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-3 text-[12px]">
-                  <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-bold text-[16px]">{formatCompact(audienceTotal.spend)}</p></div>
-                  <div><span className="text-[#9d9da8]">Conversions</span><p className="font-bold text-[16px]">{audienceTotal.results}</p></div>
-                  <div><span className="text-[#9d9da8]">Overall CPR</span><p className="font-semibold">{audienceTotal.results > 0 ? formatCurrency(audienceTotal.spend / audienceTotal.results) : '—'} {targetCpl && audienceTotal.results > 0 ? <span className={`text-[11px] ${(audienceTotal.spend / audienceTotal.results) > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>({targetCpl ? `${(((audienceTotal.spend / audienceTotal.results) / targetCpl - 1) * 100).toFixed(0)}% vs target` : ''})</span> : ''}</p></div>
-                  <div><span className="text-[#9d9da8]">Target CPR</span><p className="font-semibold">{targetCpl ? formatCurrency(targetCpl) : '—'}</p></div>
-                </div>
-                {bestAudienceSegment && (
-                  <div className="mt-3 pt-3 border-t border-[#e8e8ec]">
-                    <p className="text-[11px] text-[#9d9da8]">Best Performer</p>
-                    <p className="text-[13px] font-semibold text-[#16a34a]">{bestAudienceSegment.dimension_value}</p>
-                    <p className="text-[12px] text-[#9d9da8]">{formatCurrency(bestAudienceSegment.cpr)} CPR</p>
-                  </div>
-                )}
+            {/* KPI Strip */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <Card className="p-4">
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Segments</p>
+                <p className="text-[20px] font-semibold tabular-nums mt-1">{ageGender.length}</p>
               </Card>
+              <Card className="p-4">
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Total Spend</p>
+                <p className="text-[20px] font-semibold tabular-nums mt-1">{formatCurrency(audienceTotal.spend)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{resultLabel}</p>
+                <p className="text-[20px] font-semibold tabular-nums mt-1">{formatNumber(audienceTotal.results)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Overall CPR</p>
+                <p className={`text-[20px] font-semibold tabular-nums mt-1 ${targetCpl && audienceTotal.results > 0 && (audienceTotal.spend / audienceTotal.results) > targetCpl ? 'text-[#dc2626]' : ''}`}>{audienceTotal.results > 0 ? formatCurrency(audienceTotal.spend / audienceTotal.results) : '—'}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Best Segment</p>
+                <p className="text-[14px] font-semibold text-[#16a34a] mt-1">{bestAudienceSegment?.dimension_value || '—'}</p>
+                <p className="text-[11px] text-[#9d9da8]">{bestAudienceSegment ? `${formatCurrency(bestAudienceSegment.cpr)} CPR` : ''}</p>
+              </Card>
+            </div>
 
-              {/* Spend by Age Group — horizontal bars */}
+            {/* Spend by Segment + Device — 2 col */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-3">Spend by Segment</h3>
-                <div className="space-y-2">
-                  {ageGender.slice(0, 8).map(seg => {
+                <h3 className="text-[14px] font-semibold mb-4">Spend by Segment</h3>
+                <div className="space-y-2.5">
+                  {ageGender.slice(0, 10).map(seg => {
                     const maxSeg = ageGender[0]?.spend || 1
                     return (
-                      <div key={seg.dimension_value}>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[11px] truncate max-w-[50%]">{seg.dimension_value}</span>
-                          <span className="text-[11px] text-[#9d9da8] tabular-nums">{seg.results} {resultLabel.toLowerCase()} · {formatCurrency(seg.spend)}</span>
-                        </div>
-                        <div className="h-4 bg-[#f4f4f6] rounded overflow-hidden">
+                      <div key={seg.dimension_value} className="flex items-center gap-3">
+                        <span className="text-[11px] font-medium w-[100px] truncate text-[#6b6b76]">{seg.dimension_value}</span>
+                        <div className="flex-1 h-5 bg-[#f4f4f6] rounded overflow-hidden">
                           <div className="h-full rounded" style={{ width: `${(seg.spend / maxSeg) * 100}%`, backgroundColor: seg.dimension_value?.includes('female') ? '#dc2626' : seg.dimension_value?.includes('male') ? '#2563eb' : '#f59e0b' }} />
                         </div>
+                        <span className="text-[11px] tabular-nums text-right w-[60px] font-medium">{formatCurrency(seg.spend)}</span>
+                        <span className="text-[11px] tabular-nums text-right w-[70px] text-[#9d9da8]">{seg.results} {resultLabel.toLowerCase()}</span>
                       </div>
                     )
                   })}
                 </div>
               </Card>
 
-              {/* Device Performance */}
-              <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-3">Device Performance</h3>
-                <div className="space-y-3">
-                  {device.map(d => (
-                    <div key={d.dimension_value} className="p-3 rounded bg-[#f8f8fa] border border-[#e8e8ec]">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-[#2563eb]" />
-                        <span className="text-[13px] font-medium">{d.dimension_value}</span>
-                      </div>
-                      <p className="text-[18px] font-bold tabular-nums">{formatCurrency(d.spend)}</p>
-                      <p className="text-[11px] text-[#9d9da8]">{d.results} {resultLabel.toLowerCase()} · CPR: {d.cpr > 0 ? formatCurrency(d.cpr) : '—'}</p>
-                      <p className="text-[11px] text-[#9d9da8]">{totalSpend > 0 ? ((d.spend / totalSpend) * 100).toFixed(1) : 0}% of spend</p>
-                    </div>
-                  ))}
+              {/* Device Performance — table style */}
+              <Card>
+                <div className="px-5 py-4 border-b border-[#e8e8ec]">
+                  <h3 className="text-[14px] font-semibold">Device Performance</h3>
                 </div>
+                <DataTable
+                  columns={[
+                    { key: 'dimension_value', label: 'Device', format: (v) => <span className="font-medium">{v}</span> },
+                    { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
+                    { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
+                    { key: 'cpr', label: 'CPR', format: (v: number) => v > 0 ? <span className={targetCpl && v > targetCpl ? 'text-[#dc2626] font-semibold' : 'text-[#16a34a] font-semibold'}>{formatCurrency(v)}</span> : <span className="text-[#c4c4cc]">—</span>, align: 'right' },
+                    { key: '_pct', label: '% Spend', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
+                  ]}
+                  data={device}
+                  pageSize={20}
+                />
               </Card>
             </div>
 
-            {/* Performance Ranking */}
+            {/* Performance Ranking — Best vs Worst */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {topAudienceSegments.length > 0 && (
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold text-[#16a34a] mb-3">Best Performers</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-[14px] font-semibold mb-3">Best Performers</h3>
+                  <div className="space-y-2">
                     {topAudienceSegments.map((seg, i) => (
-                      <div key={seg.dimension_value} className="flex items-center gap-3 p-3 rounded bg-[#f0fdf4] border border-[#bbf7d0]">
-                        <span className="w-6 h-6 rounded-full bg-[#16a34a] text-white text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
+                      <div key={seg.dimension_value} className="flex items-center gap-3 py-2.5 border-b border-[#f4f4f6] last:border-0">
+                        <span className="w-5 h-5 rounded bg-[#f0fdf4] text-[#16a34a] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-[13px] font-medium">{seg.dimension_value}</p>
-                          </div>
-                          <p className="text-[11px] text-[#6b6b76]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
+                          <p className="text-[13px] font-medium">{seg.dimension_value}</p>
+                          <p className="text-[11px] text-[#9d9da8]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[14px] font-bold tabular-nums">{formatCurrency(seg.cpr)}</p>
-                          {targetCpl && <p className="text-[11px] text-[#16a34a]">{(((seg.cpr / targetCpl) - 1) * 100).toFixed(0)}% vs target</p>}
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[13px] font-semibold tabular-nums text-[#16a34a]">{formatCurrency(seg.cpr)}</p>
+                          {targetCpl && <p className="text-[10px] text-[#16a34a]">{(((seg.cpr / targetCpl) - 1) * 100).toFixed(0)}% vs target</p>}
                         </div>
                       </div>
                     ))}
@@ -1042,23 +1043,21 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               )}
               {worstAudienceSegments.length > 0 && (
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold text-[#dc2626] mb-3">Needs Attention</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-[14px] font-semibold mb-3">Needs Attention</h3>
+                  <div className="space-y-2">
                     {worstAudienceSegments.map((seg, i) => {
                       const potentialSavings = targetCpl && seg.cpr > targetCpl ? (seg.cpr - targetCpl) * seg.results : 0
                       return (
-                        <div key={seg.dimension_value} className="flex items-center gap-3 p-3 rounded bg-[#fef2f2] border border-[#fecaca]">
-                          <span className="w-6 h-6 rounded-full bg-[#dc2626] text-white text-[11px] font-bold flex items-center justify-center">{i + 1}</span>
+                        <div key={seg.dimension_value} className="flex items-center gap-3 py-2.5 border-b border-[#f4f4f6] last:border-0">
+                          <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-[13px] font-medium">{seg.dimension_value}</p>
-                            </div>
-                            <p className="text-[11px] text-[#6b6b76]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
-                            {potentialSavings > 0 && <p className="text-[11px] text-[#dc2626]">Potential savings: {formatCurrency(potentialSavings)}</p>}
+                            <p className="text-[13px] font-medium">{seg.dimension_value}</p>
+                            <p className="text-[11px] text-[#9d9da8]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
+                            {potentialSavings > 0 && <p className="text-[10px] text-[#dc2626]">Potential savings: {formatCurrency(potentialSavings)}</p>}
                           </div>
-                          <div className="text-right">
-                            <p className="text-[14px] font-bold tabular-nums">{formatCurrency(seg.cpr)}</p>
-                            {targetCpl && <p className="text-[11px] text-[#dc2626]">+{(((seg.cpr / targetCpl) - 1) * 100).toFixed(0)}% vs target</p>}
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-[13px] font-semibold tabular-nums text-[#dc2626]">{formatCurrency(seg.cpr)}</p>
+                            {targetCpl && <p className="text-[10px] text-[#dc2626]">+{(((seg.cpr / targetCpl) - 1) * 100).toFixed(0)}% vs target</p>}
                           </div>
                         </div>
                       )
@@ -1068,10 +1067,10 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               )}
             </div>
 
-            {/* Detailed Breakdown Table */}
+            {/* Full Breakdown Table */}
             <Card>
               <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                <h3 className="text-[14px] font-semibold">Detailed Breakdown</h3>
+                <h3 className="text-[14px] font-semibold">All Segments</h3>
               </div>
               <DataTable
                 columns={[
@@ -1081,13 +1080,12 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                   { key: 'clicks', label: 'Clicks', format: (v) => formatNumber(v), align: 'right' },
                   { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
                   { key: 'ctr', label: 'CTR', format: (v: number) => formatPercent(v), align: 'right' },
-                  { key: 'cpr', label: 'CPR', format: (v: number, row: any) => {
+                  { key: 'cpr', label: 'CPR', format: (v: number) => {
                     if (v === 0) return <span className="text-[#c4c4cc]">—</span>
                     const isOver = targetCpl ? v > targetCpl : false
-                    const pctVsTarget = targetCpl ? ` (${v > targetCpl ? '+' : ''}${(((v / targetCpl) - 1) * 100).toFixed(0)}%)` : ''
-                    return <><span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>{pctVsTarget && <span className={`text-[10px] ml-1 ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{pctVsTarget}</span>}</>
+                    return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
                   }, align: 'right' },
-                  { key: '_pct', label: '% Total', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
+                  { key: '_pct', label: '% Spend', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
                 ]}
                 data={ageGender}
               />
