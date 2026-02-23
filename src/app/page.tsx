@@ -120,17 +120,6 @@ function StatusLabel({ status }: { status: HealthStatus }) {
   )
 }
 
-function MiniBar({ data, color = '#2563eb' }: { data: number[]; color?: string }) {
-  const max = Math.max(...data, 1)
-  return (
-    <div className="flex items-end gap-[2px] h-[28px]">
-      {data.map((v, i) => (
-        <div key={i} className="flex-1 rounded-[1px] transition-all duration-200" style={{ height: `${Math.max((v / max) * 100, 6)}%`, backgroundColor: color, opacity: i === data.length - 1 ? 0.85 : 0.3 }} />
-      ))}
-    </div>
-  )
-}
-
 function HealthBar({ score }: { score: number }) {
   const color = score >= 70 ? '#16a34a' : score >= 40 ? '#f59e0b' : '#dc2626'
   return (
@@ -339,7 +328,6 @@ export default async function Dashboard() {
                     <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
                     <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPC</th>
                     <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Conv Rate</th>
-                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider w-[100px]">7d Trend</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -375,9 +363,6 @@ export default async function Dashboard() {
                         <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{h.ctr > 0 ? formatPercent(h.ctr) : '—'}</td>
                         <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{h.cpc > 0 ? formatCurrency(h.cpc) : '—'}</td>
                         <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{h.convRate > 0 ? formatPercent(h.convRate) : '—'}</td>
-                        <td className="py-3 px-4">
-                          <MiniBar data={h.tw7.map((d: any) => d.spend)} />
-                        </td>
                       </tr>
                     )
                   })}
@@ -394,7 +379,6 @@ export default async function Dashboard() {
                     <td className="py-3 px-4 text-right tabular-nums">{totalImpressions > 0 ? formatPercent((totalClicks / totalImpressions) * 100) : '—'}</td>
                     <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{totalClicks > 0 ? formatCurrency(totalTwSpend / totalClicks) : '—'}</td>
                     <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{totalClicks > 0 ? formatPercent((totalTwResults / totalClicks) * 100) : '—'}</td>
-                    <td className="py-3 px-4"></td>
                   </tr>
                 </tfoot>
               </table>
