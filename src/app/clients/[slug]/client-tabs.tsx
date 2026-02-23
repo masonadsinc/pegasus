@@ -957,7 +957,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         <TabsContent value="audience">
           <div className="space-y-5">
             {/* Demographics Overview */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <Card className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-[14px] font-semibold">Demographics Overview</h3>
@@ -1249,7 +1249,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
           <TabsContent value="geographic">
             <div className="space-y-5">
               {/* Overview row */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card className="p-5">
                   <h3 className="text-[14px] font-semibold mb-2">Geographic Overview</h3>
                   <p className="text-[11px] text-[#9d9da8] mb-3">{region.length} states active</p>

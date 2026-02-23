@@ -139,7 +139,7 @@ export default async function ClientDetailPage({ params, searchParams }: { param
           </div>
 
           {/* KPIs */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {isEcom ? (
               <>
                 <KpiCard label="ROAS" value={`${roas.toFixed(2)}x`} target={activeAccount.target_roas ? `Target: ${activeAccount.target_roas}x` : undefined} status={roasOnTarget} icon="$" />
