@@ -495,8 +495,9 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
           {/* Creative Performance: Image vs Video */}
           {(() => {
-            const videoAds = ads.filter(a => a.creative_video_url && a.spend > 0)
-            const imageAds = ads.filter(a => !a.creative_video_url && a.spend > 0)
+            const isVideoAd = (a: any) => a.creative_video_url || a.creative_url?.includes('/t15.5256-10/') || a.creative_url?.includes('/t15.13418-10/')
+            const videoAds = ads.filter(a => isVideoAd(a) && a.spend > 0)
+            const imageAds = ads.filter(a => !isVideoAd(a) && a.spend > 0)
             const videoSpend = videoAds.reduce((s, a) => s + a.spend, 0)
             const videoResults = videoAds.reduce((s, a) => s + a.results, 0)
             const imageSpend = imageAds.reduce((s, a) => s + a.spend, 0)
