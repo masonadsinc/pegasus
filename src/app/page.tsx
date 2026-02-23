@@ -13,7 +13,7 @@ function MiniBar({ data, color = '#2563eb' }: { data: number[]; color?: string }
   return (
     <div className="flex items-end gap-[2px] h-[28px]">
       {data.map((v, i) => (
-        <div key={i} className="flex-1 rounded-sm" style={{ height: `${Math.max((v / max) * 100, 6)}%`, backgroundColor: color, opacity: 0.5 }} />
+        <div key={i} className="flex-1 rounded-sm transition-all duration-200 hover:opacity-90" style={{ height: `${Math.max((v / max) * 100, 6)}%`, backgroundColor: color, opacity: i === data.length - 1 ? 0.8 : 0.35 }} />
       ))}
     </div>
   )
@@ -83,37 +83,52 @@ export default async function Dashboard() {
 
           {/* KPI Row */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <Card className="p-5">
-              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Weekly Spend</p>
+            <Card className="p-5 card-hover border-l-[3px] border-l-[#2563eb]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-6 h-6 rounded-lg bg-[#eff6ff] flex items-center justify-center text-[11px]">💰</span>
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Weekly Spend</p>
+              </div>
               <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatCurrency(twSpend)}</p>
               <div className="flex items-center gap-2">
                 <p className="text-[12px] text-[#9d9da8]">{formatCurrency(twSpend / 7)}/day</p>
                 <WowBadge current={twSpend} previous={lwSpend} />
               </div>
             </Card>
-            <Card className="p-5">
-              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Weekly Results</p>
+            <Card className="p-5 card-hover border-l-[3px] border-l-[#16a34a]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-6 h-6 rounded-lg bg-[#f0fdf4] flex items-center justify-center text-[11px]">🎯</span>
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Weekly Results</p>
+              </div>
               <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatNumber(twResults)}</p>
               <div className="flex items-center gap-2">
                 <p className="text-[12px] text-[#9d9da8]">{(twResults / 7).toFixed(0)}/day</p>
                 <WowBadge current={twResults} previous={lwResults} />
               </div>
             </Card>
-            <Card className="p-5">
-              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Blended CPR</p>
+            <Card className="p-5 card-hover border-l-[3px] border-l-[#ea580c]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-6 h-6 rounded-lg bg-[#fff7ed] flex items-center justify-center text-[11px]">📊</span>
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Blended CPR</p>
+              </div>
               <p className="text-[28px] font-bold tabular-nums text-[#111113]">{twCPR > 0 ? formatCurrency(twCPR) : '—'}</p>
               <div className="flex items-center gap-2">
                 <p className="text-[12px] text-[#9d9da8]">Non-ecom</p>
                 <WowBadge current={twCPR} previous={lwCPR} invert />
               </div>
             </Card>
-            <Card className="p-5">
-              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Today&apos;s Spend</p>
+            <Card className="p-5 card-hover border-l-[3px] border-l-[#8b5cf6]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-6 h-6 rounded-lg bg-[#f5f3ff] flex items-center justify-center text-[11px]">⚡</span>
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Today&apos;s Spend</p>
+              </div>
               <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatCurrency(todaySpend)}</p>
               <p className="text-[12px] text-[#9d9da8]">So far today</p>
             </Card>
-            <Card className="p-5">
-              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Active Accounts</p>
+            <Card className="p-5 card-hover border-l-[3px] border-l-[#111113]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-6 h-6 rounded-lg bg-[#f4f4f6] flex items-center justify-center text-[11px]">👥</span>
+                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Active Accounts</p>
+              </div>
               <p className="text-[28px] font-bold tabular-nums text-[#111113]">{activeAccounts.length}</p>
               <p className="text-[12px] text-[#9d9da8]">{accounts.length} total</p>
             </Card>
@@ -173,7 +188,7 @@ export default async function Dashboard() {
                     const ctr = a.impressions > 0 ? (a.clicks / a.impressions) * 100 : 0
                     const targetPct = a.target_cpl && cpr > 0 ? ((cpr / a.target_cpl - 1) * 100) : null
                     return (
-                      <tr key={a.ad_account_id} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors group ${isOver ? 'bg-[#fef2f2]/30' : ''}`}>
+                      <tr key={a.ad_account_id} className={`border-b border-[#f4f4f6] hover:bg-[#f0f4ff] transition-colors group ${isOver ? 'bg-[#fef2f2]/30' : ''}`}>
                         <td className="py-3 px-5">
                           <Link href={`/clients/${a.client_slug}`} className="font-medium text-[#111113] group-hover:text-[#2563eb] transition-colors">{a.client_name}</Link>
                           <p className="text-[11px] text-[#9d9da8] mt-0.5">{a.result_label}</p>

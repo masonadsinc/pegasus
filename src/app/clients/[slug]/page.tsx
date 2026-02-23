@@ -13,10 +13,14 @@ function KpiCard({ label, value, target, sub, status, icon, progressPct }: {
   label: string; value: string; target?: string; sub?: string; status?: boolean; icon?: string; progressPct?: number
 }) {
   return (
-    <div className="rounded-xl bg-white border border-[#e8e8ec] p-5 relative overflow-hidden">
+    <div className={`rounded-xl bg-white border border-[#e8e8ec] p-5 relative overflow-hidden card-hover ${
+      status === true ? 'border-l-[3px] border-l-[#16a34a]' :
+      status === false ? 'border-l-[3px] border-l-[#dc2626]' :
+      ''
+    }`}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          {icon && <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+          {icon && <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] ${
             status === true ? 'bg-[#dcfce7] text-[#16a34a]' :
             status === false ? 'bg-[#fef2f2] text-[#dc2626]' :
             'bg-[#eff6ff] text-[#2563eb]'

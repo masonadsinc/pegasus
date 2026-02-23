@@ -98,7 +98,7 @@ function DataTable({ columns, data, pageSize = 50, emptyMessage = 'No data avail
               <tr><td colSpan={columns.length} className="py-12 text-center text-[#9d9da8] text-[13px]">{emptyMessage}</td></tr>
             )}
             {pageData.map((row, i) => (
-              <tr key={i} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${row._highlight ? 'bg-[#fffbeb]' : ''}`}>
+              <tr key={i} className={`border-b border-[#f4f4f6] hover:bg-[#f0f4ff] transition-colors ${row._highlight ? 'bg-[#fffbeb]' : i % 2 === 1 ? 'bg-[#fafafb]' : ''}`}>
                 {columns.map(col => (
                   <td key={col.key} className={`py-2.5 px-4 tabular-nums ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : ''}`}>
                     {col.format ? col.format(row[col.key], row) : row[col.key]}

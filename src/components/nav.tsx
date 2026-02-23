@@ -57,8 +57,16 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
 
   const sidebarContent = (
     <>
-      <div className="px-5 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-[#111113] tracking-tight">Ads.Inc</h1>
+      <div className="px-5 py-4 flex items-center justify-between border-b border-[#f4f4f6]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#991b1b] flex items-center justify-center shadow-sm shadow-red-500/20">
+            <span className="text-white text-[13px] font-bold">A</span>
+          </div>
+          <div>
+            <h1 className="text-[14px] font-bold text-[#111113] tracking-tight leading-none">Ads.Inc</h1>
+            <p className="text-[10px] text-[#9d9da8] leading-none mt-0.5">Command Center</p>
+          </div>
+        </div>
         <button className="lg:hidden p-1 rounded-md hover:bg-[#f4f4f6]" onClick={() => setMobileOpen(false)}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9d9da8" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
         </button>
@@ -201,15 +209,22 @@ function GlobalSearch() {
 
 export function TopBar() {
   return (
-    <div className="h-12 border-b border-[#e8e8ec] bg-white flex items-center justify-between px-6">
+    <div className="h-12 border-b border-[#e8e8ec] bg-white/80 backdrop-blur-sm flex items-center justify-between px-6">
       <div className="flex items-center gap-3">
         <GlobalSearch />
       </div>
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#dc2626] to-[#b91c1c] flex items-center justify-center shadow-sm">
-          <span className="text-white text-[11px] font-semibold">M</span>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f0fdf4] border border-[#dcfce7]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] animate-pulse" />
+          <span className="text-[11px] font-medium text-[#16a34a]">Live</span>
         </div>
-        <span className="text-[13px] font-medium text-[#6b6b76]">Mason</span>
+        <div className="w-px h-5 bg-[#e8e8ec]" />
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#dc2626] to-[#b91c1c] flex items-center justify-center shadow-sm shadow-red-500/20 ring-2 ring-white">
+            <span className="text-white text-[11px] font-semibold">M</span>
+          </div>
+          <span className="text-[13px] font-medium text-[#6b6b76]">Mason</span>
+        </div>
       </div>
     </div>
   )
