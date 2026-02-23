@@ -145,11 +145,22 @@ function AdImage({ src, alt, className = '' }: { src?: string | null; alt: strin
 }
 
 /* ── Ad Detail Modal ────────────────────────────── */
-function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
-  ad: any; open: boolean; onClose: () => void; resultLabel: string; targetCpl: number | null
+function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNext }: {
+  ad: any; open: boolean; onClose: () => void; resultLabel: string; targetCpl: number | null; onPrev?: () => void; onNext?: () => void
 }) {
   const [fbUrl, setFbUrl] = useState<string | null>(null)
   const [fbLoading, setFbLoading] = useState(false)
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && onPrev) { e.preventDefault(); onPrev() }
+      if (e.key === 'ArrowRight' && onNext) { e.preventDefault(); onNext() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onPrev, onNext])
 
   useEffect(() => {
     if (!ad?.platform_ad_id || !open) { setFbUrl(null); return }
@@ -174,7 +185,10 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
       <DialogContent>
         <div className="flex flex-col md:flex-row min-h-[400px]">
           {/* Left: Creative */}
-          <div className="md:w-[45%] flex-shrink-0 bg-[#f4f4f6] flex items-center justify-center rounded-t-2xl md:rounded-t-none md:rounded-l-2xl overflow-hidden">
+          <div className="md:w-[45%] flex-shrink-0 bg-[#f4f4f6] flex items-center justify-center rounded-t-2xl md:rounded-t-none md:rounded-l-2xl overflow-hidden relative group/creative">
+            {/* Prev/Next overlays */}
+            {onPrev && <button onClick={(e) => { e.stopPropagation(); onPrev() }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/creative:opacity-100 transition-opacity z-10"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 4l-4 4 4 4" /></svg></button>}
+            {onNext && <button onClick={(e) => { e.stopPropagation(); onNext() }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/creative:opacity-100 transition-opacity z-10"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 4l4 4-4 4" /></svg></button>}
             {ad.creative_video_url ? (
               <video src={ad.creative_video_url} controls className="w-full h-full object-contain" />
             ) : imageUrl ? (
@@ -253,8 +267,10 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
 }
 
 const tooltipStyle = {
-  contentStyle: { background: '#fff', border: '1px solid #e8e8ec', borderRadius: '10px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' },
-  labelStyle: { color: '#9d9da8' },
+  contentStyle: { background: '#111113', border: 'none', borderRadius: '10px', fontSize: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', color: '#fff', padding: '8px 12px' },
+  labelStyle: { color: '#9d9da8', marginBottom: '4px' },
+  itemStyle: { color: '#fff', padding: '1px 0' },
+  cursor: { stroke: '#9d9da8', strokeDasharray: '3 3' },
 }
 
 /* ── MAIN TABS ──────────────────────────────────── */
@@ -1371,7 +1387,23 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         </div>
       </TabsContent>
     </Tabs>
-    <AdDetailModal ad={selectedAd} open={!!selectedAd} onClose={() => setSelectedAd(null)} resultLabel={resultLabel} targetCpl={targetCpl} />
+    <AdDetailModal
+      ad={selectedAd}
+      open={!!selectedAd}
+      onClose={() => setSelectedAd(null)}
+      resultLabel={resultLabel}
+      targetCpl={targetCpl}
+      onPrev={selectedAd ? (() => {
+        const list = filteredAds.length > 0 ? filteredAds : ads
+        const idx = list.findIndex(a => a.platform_ad_id === selectedAd.platform_ad_id)
+        if (idx > 0) setSelectedAd(list[idx - 1])
+      }) : undefined}
+      onNext={selectedAd ? (() => {
+        const list = filteredAds.length > 0 ? filteredAds : ads
+        const idx = list.findIndex(a => a.platform_ad_id === selectedAd.platform_ad_id)
+        if (idx < list.length - 1) setSelectedAd(list[idx + 1])
+      }) : undefined}
+    />
     </>
   )
 }
