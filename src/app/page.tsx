@@ -1,5 +1,6 @@
 import { getDashboardData } from '@/lib/queries'
-import { formatCurrency, formatNumber, cplStatus, roasStatus, statusDot } from '@/lib/utils'
+import { formatCurrency, formatNumber, cplStatus, roasStatus, statusDot, isEcomActionType } from '@/lib/utils'
+import { Nav } from '@/components/nav'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
@@ -40,7 +41,7 @@ function AccountRow({ account }: { account: any }) {
     : account.target_cpl ? formatCurrency(account.target_cpl) : '—'
 
   return (
-    <a href={`/client/${account.client_slug}`} className="flex items-center gap-3 py-3 px-4 rounded-xl bg-zinc-900 border border-zinc-800 active:bg-zinc-800 transition-colors">
+    <a href={`/clients/${account.client_slug}`} className="flex items-center gap-3 py-3 px-4 rounded-xl bg-zinc-900 border border-zinc-800 active:bg-zinc-800 transition-colors">
       <StatusIndicator status={status} />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{account.client_name}</p>
@@ -86,10 +87,10 @@ export default async function Dashboard() {
 
   return (
     <main className="min-h-screen pb-8">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800 px-4 py-3">
+      <Nav current="dashboard" />
+      <div className="px-4 py-3">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
-          <h1 className="text-lg font-bold">🐎 Command</h1>
+          <div />
           <div className="flex items-center gap-2 text-xs">
             {redAccounts.length > 0 && <span className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">{redAccounts.length} red</span>}
             {yellowAccounts.length > 0 && <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">{yellowAccounts.length} yellow</span>}
