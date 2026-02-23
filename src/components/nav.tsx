@@ -45,14 +45,22 @@ function IconSettings({ className }: { className?: string }) {
   )
 }
 
-export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'insights' | 'settings' }) {
+function IconCompare({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 3v14M6 7H3v6h3m4-6h7v6h-7" />
+    </svg>
+  )
+}
+
+export function Nav({ current }: { current: 'dashboard' | 'clients' | 'compare' | 'reports' | 'insights' | 'settings' }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const links = [
     { href: '/', label: 'Health Tracker', icon: IconGrid, key: 'dashboard' as const },
     { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
+    { href: '/compare', label: 'Compare', icon: IconCompare, key: 'compare' as const },
     { href: '#', label: 'Reports', icon: IconReport, key: 'reports' as const },
-    { href: '#', label: 'Insights', icon: IconInsights, key: 'insights' as const },
   ]
 
   const sidebarContent = (
