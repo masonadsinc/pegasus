@@ -6,6 +6,7 @@ export interface AccountSummary {
   account_name: string
   ad_account_id: string
   objective: string
+  primary_action_type: string | null
   target_cpl: number | null
   target_roas: number | null
   spend: number
@@ -14,8 +15,12 @@ export interface AccountSummary {
   leads: number
   purchases: number
   purchase_value: number
+  schedules: number
   landing_page_views: number
   inline_link_clicks: number
+  // Derived: the "result" count based on primary_action_type
+  results: number
+  result_label: string
 }
 
 export async function getDashboardData(orgId: string, days: number = 7) {
@@ -39,7 +44,8 @@ export async function getDashboardData(orgId: string, days: number = 7) {
       purchases,
       purchase_value,
       schedules,
-      reach
+      reach,
+      ad_account_id
     `)
     .eq('org_id', orgId)
     .eq('level', 'ad')
@@ -56,6 +62,7 @@ export async function getDashboardData(orgId: string, days: number = 7) {
       name,
       platform_account_id,
       objective,
+      primary_action_type,
       target_cpl,
       target_roas,
       clients!inner(name, slug, status)
@@ -86,6 +93,7 @@ export async function getDashboardData(orgId: string, days: number = 7) {
       account_name: account.name,
       ad_account_id: row.ad_account_id,
       objective: account.objective,
+      primary_action_type: account.primary_action_type,
       target_cpl: account.target_cpl,
       target_roas: account.target_roas,
       spend: 0,
@@ -94,8 +102,11 @@ export async function getDashboardData(orgId: string, days: number = 7) {
       leads: 0,
       purchases: 0,
       purchase_value: 0,
+      schedules: 0,
       landing_page_views: 0,
       inline_link_clicks: 0,
+      results: 0,
+      result_label: 'leads',
     }
 
     existing.spend += parseFloat(row.spend) || 0
@@ -104,10 +115,27 @@ export async function getDashboardData(orgId: string, days: number = 7) {
     existing.leads += row.leads || 0
     existing.purchases += row.purchases || 0
     existing.purchase_value += parseFloat(row.purchase_value) || 0
+    existing.schedules += row.schedules || 0
     existing.landing_page_views += row.landing_page_views || 0
     existing.inline_link_clicks += row.inline_link_clicks || 0
 
     accountTotals.set(key, existing)
+  }
+
+  // Derive results count and label based on primary_action_type
+  for (const acct of accountTotals.values()) {
+    const pat = acct.primary_action_type || ''
+    if (pat === 'schedule_total') {
+      acct.results = acct.schedules
+      acct.result_label = 'schedules'
+    } else if (['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'].includes(pat)) {
+      acct.results = acct.purchases
+      acct.result_label = 'purchases'
+    } else {
+      // lead, offsite_conversion.fb_pixel_custom, offsite_conversion.fb_pixel_lead, etc.
+      acct.results = acct.leads
+      acct.result_label = pat === 'offsite_conversion.fb_pixel_custom' ? 'conversions' : 'leads'
+    }
   }
 
   return Array.from(accountTotals.values()).sort((a, b) => b.spend - a.spend)

@@ -20,34 +20,31 @@ function StatusIndicator({ status }: { status: 'green' | 'yellow' | 'red' }) {
 }
 
 function AccountRow({ account }: { account: any }) {
-  const cpl = account.leads > 0 ? account.spend / account.leads : 0
+  const isEcom = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'].includes(account.primary_action_type || '')
+  const cpr = account.results > 0 ? account.spend / account.results : 0
   const roas = account.spend > 0 ? account.purchase_value / account.spend : 0
-  const isEcom = account.objective === 'purchases'
   
   let status: 'green' | 'yellow' | 'red' = 'green'
   if (isEcom && account.target_roas) {
     status = roasStatus(roas, account.target_roas)
   } else if (account.target_cpl) {
-    status = cplStatus(cpl, account.target_cpl)
+    status = cplStatus(cpr, account.target_cpl)
   }
 
   const primaryMetric = isEcom
     ? `${roas.toFixed(1)}x`
-    : cpl > 0 ? formatCurrency(cpl) : '—'
+    : cpr > 0 ? formatCurrency(cpr) : '—'
   
   const target = isEcom
     ? account.target_roas ? `${account.target_roas}x` : '—'
     : account.target_cpl ? formatCurrency(account.target_cpl) : '—'
-
-  const conversions = isEcom ? account.purchases : account.leads
-  const convLabel = isEcom ? 'purch' : account.objective === 'schedule' ? 'sched' : 'leads'
 
   return (
     <a href={`/client/${account.client_slug}`} className="flex items-center gap-3 py-3 px-4 rounded-xl bg-zinc-900 border border-zinc-800 active:bg-zinc-800 transition-colors">
       <StatusIndicator status={status} />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{account.client_name}</p>
-        <p className="text-xs text-zinc-500">{formatNumber(conversions)} {convLabel} · {formatNumber(account.impressions)} imps</p>
+        <p className="text-xs text-zinc-500">{formatNumber(account.results)} {account.result_label} · {formatNumber(account.impressions)} imps</p>
       </div>
       <div className="text-right shrink-0">
         <p className="text-sm font-semibold">{formatCurrency(account.spend)}</p>
@@ -61,28 +58,30 @@ export default async function Dashboard() {
   const accounts = await getDashboardData(ORG_ID, 7)
 
   const totalSpend = accounts.reduce((s, a) => s + a.spend, 0)
-  const totalLeads = accounts.reduce((s, a) => s + a.leads, 0)
+  const totalResults = accounts.reduce((s, a) => s + a.results, 0)
   const totalPurchases = accounts.reduce((s, a) => s + a.purchases, 0)
   const totalImpressions = accounts.reduce((s, a) => s + a.impressions, 0)
   const totalPurchaseValue = accounts.reduce((s, a) => s + a.purchase_value, 0)
   
-  const leadAccounts = accounts.filter(a => a.objective !== 'purchases')
-  const totalLeadSpend = leadAccounts.reduce((s, a) => s + a.spend, 0)
-  const blendedCPL = totalLeads > 0 ? totalLeadSpend / totalLeads : 0
+  const isEcomAccount = (a: any) => ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'].includes(a.primary_action_type || '')
+  const nonEcomAccounts = accounts.filter(a => !isEcomAccount(a))
+  const totalNonEcomSpend = nonEcomAccounts.reduce((s, a) => s + a.spend, 0)
+  const totalNonEcomResults = nonEcomAccounts.reduce((s, a) => s + a.results, 0)
+  const blendedCPR = totalNonEcomResults > 0 ? totalNonEcomSpend / totalNonEcomResults : 0
 
   const activeAccounts = accounts.filter(a => a.spend > 0)
   const redAccounts = activeAccounts.filter(a => {
-    const cpl = a.leads > 0 ? a.spend / a.leads : 999
-    if (a.objective === 'purchases') return a.target_roas ? (a.purchase_value / a.spend) < a.target_roas * 0.7 : false
-    return a.target_cpl ? cpl > a.target_cpl * 1.3 : false
+    const cpr = a.results > 0 ? a.spend / a.results : 999
+    if (isEcomAccount(a)) return a.target_roas ? (a.purchase_value / a.spend) < a.target_roas * 0.7 : false
+    return a.target_cpl ? cpr > a.target_cpl * 1.3 : false
   })
   const yellowAccounts = activeAccounts.filter(a => {
-    const cpl = a.leads > 0 ? a.spend / a.leads : 0
-    if (a.objective === 'purchases') {
+    const cpr = a.results > 0 ? a.spend / a.results : 0
+    if (isEcomAccount(a)) {
       const r = a.spend > 0 ? a.purchase_value / a.spend : 0
       return a.target_roas ? r < a.target_roas && r >= a.target_roas * 0.7 : false
     }
-    return a.target_cpl ? cpl > a.target_cpl && cpl <= a.target_cpl * 1.3 : false
+    return a.target_cpl ? cpr > a.target_cpl && cpr <= a.target_cpl * 1.3 : false
   })
 
   return (
@@ -103,8 +102,8 @@ export default async function Dashboard() {
         {/* KPI Grid - 2x2 on mobile */}
         <div className="grid grid-cols-2 gap-3 mt-4">
           <KpiCard label="Spend" value={formatCurrency(totalSpend)} subtext={`${formatCurrency(totalSpend / 7)}/day`} />
-          <KpiCard label="Leads" value={formatNumber(totalLeads)} subtext={`${(totalLeads / 7).toFixed(0)}/day`} />
-          <KpiCard label="Blended CPL" value={blendedCPL > 0 ? formatCurrency(blendedCPL) : '—'} />
+          <KpiCard label="Results" value={formatNumber(totalResults)} subtext={`${(totalResults / 7).toFixed(0)}/day`} />
+          <KpiCard label="Blended CPR" value={blendedCPR > 0 ? formatCurrency(blendedCPR) : '—'} />
           <KpiCard label="Purchases" value={formatNumber(totalPurchases)} subtext={totalPurchaseValue > 0 ? formatCurrency(totalPurchaseValue) : undefined} />
         </div>
 
