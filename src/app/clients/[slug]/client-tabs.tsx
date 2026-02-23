@@ -288,14 +288,24 @@ const tooltipStyle = {
 
 /* ── MAIN TABS ──────────────────────────────────── */
 export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
-  const chartData = daily.map(d => ({
-    date: new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    spend: Math.round(d.spend * 100) / 100,
-    results: d.results,
-    cpr: d.results > 0 ? Math.round((d.spend / d.results) * 100) / 100 : 0,
-    impressions: d.impressions,
-    clicks: d.clicks,
-  }))
+  const chartData = daily.map((d, i) => {
+    // 7-day moving average
+    const maWindow = daily.slice(Math.max(0, i - 6), i + 1)
+    const maSpend = maWindow.reduce((s, p) => s + p.spend, 0) / maWindow.length
+    const maResults = maWindow.reduce((s, p) => s + p.results, 0) / maWindow.length
+    const maCpr = maWindow.reduce((s, p) => s + p.results, 0) > 0 ? maWindow.reduce((s, p) => s + p.spend, 0) / maWindow.reduce((s, p) => s + p.results, 0) : 0
+    return {
+      date: new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      spend: Math.round(d.spend * 100) / 100,
+      results: d.results,
+      cpr: d.results > 0 ? Math.round((d.spend / d.results) * 100) / 100 : 0,
+      impressions: d.impressions,
+      clicks: d.clicks,
+      ma_spend: Math.round(maSpend * 100) / 100,
+      ma_results: Math.round(maResults * 100) / 100,
+      ma_cpr: Math.round(maCpr * 100) / 100,
+    }
+  })
 
   const [chartMetrics, setChartMetrics] = useState<Set<string>>(new Set(['spend', 'results']))
   const [selectedAd, setSelectedAd] = useState<any>(null)
@@ -376,8 +386,59 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
   const platformData = Object.entries(platformSpend).sort((a, b) => b[1] - a[1]).map(([name, spend]) => ({ name, spend }))
   const platformColors = ['#2563eb', '#dc2626', '#f59e0b', '#16a34a', '#8b5cf6']
 
+  // Anomaly detection: flag days with significant deviations
+  const anomalies = useMemo(() => {
+    const flags: Record<string, string[]> = {}
+    if (daily.length < 7) return flags
+    for (let i = 7; i < daily.length; i++) {
+      const d = daily[i]
+      const prev7 = daily.slice(i - 7, i)
+      const avgSpend = prev7.reduce((s, p) => s + p.spend, 0) / 7
+      const avgResults = prev7.reduce((s, p) => s + p.results, 0) / 7
+      const avgCpr = prev7.filter(p => p.results > 0).length > 0 ? prev7.reduce((s, p) => s + p.spend, 0) / prev7.reduce((s, p) => s + p.results, 0) : 0
+      const notes: string[] = []
+      if (avgSpend > 0 && d.spend > avgSpend * 1.5) notes.push(`Spend ${((d.spend / avgSpend - 1) * 100).toFixed(0)}% above avg`)
+      if (avgSpend > 0 && d.spend < avgSpend * 0.5 && d.spend > 0) notes.push(`Spend ${((1 - d.spend / avgSpend) * 100).toFixed(0)}% below avg`)
+      if (d.results === 0 && d.spend > 50 && avgResults > 1) notes.push('Zero results with spend')
+      const dayCpr = d.results > 0 ? d.spend / d.results : 0
+      if (dayCpr > 0 && avgCpr > 0 && dayCpr > avgCpr * 2) notes.push(`CPR ${((dayCpr / avgCpr - 1) * 100).toFixed(0)}% above avg`)
+      if (dayCpr > 0 && avgCpr > 0 && dayCpr < avgCpr * 0.5) notes.push(`CPR ${((1 - dayCpr / avgCpr) * 100).toFixed(0)}% below avg`)
+      if (notes.length) flags[d.date] = notes
+    }
+    return flags
+  }, [daily])
+
+  // Pacing: project end of month spend
+  const pacingData = useMemo(() => {
+    const now = new Date()
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const dayOfMonth = now.getDate() - 1 // yesterday
+    const monthDays = daily.filter(d => {
+      const dd = new Date(d.date + 'T12:00:00')
+      return dd.getMonth() === now.getMonth() && dd.getFullYear() === now.getFullYear()
+    })
+    const monthSpend = monthDays.reduce((s, d) => s + d.spend, 0)
+    const monthResults = monthDays.reduce((s, d) => s + d.results, 0)
+    const avgDaily = dayOfMonth > 0 ? monthSpend / dayOfMonth : 0
+    const projected = avgDaily * daysInMonth
+    const projectedResults = dayOfMonth > 0 ? (monthResults / dayOfMonth) * daysInMonth : 0
+    return { monthSpend, monthResults, avgDaily, projected, projectedResults, dayOfMonth, daysInMonth, daysRemaining: daysInMonth - dayOfMonth }
+  }, [daily])
+
+  // Data freshness
+  const lastDate = daily.length > 0 ? daily[daily.length - 1].date : null
+  const freshnessLabel = lastDate ? `Data through ${new Date(lastDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''
+
   return (
     <>
+    {/* Data freshness */}
+    {freshnessLabel && (
+      <div className="flex items-center gap-2 mb-3 text-[11px] text-[#9d9da8]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" />
+        <span>{freshnessLabel}</span>
+      </div>
+    )}
+
     <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== 'ads') setCampaignFilter(null) }}>
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -433,6 +494,9 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 {chartMetrics.has('impressions') && <Area yAxisId="right" type="monotone" dataKey="impressions" stroke="#8b5cf6" fill="url(#grad_impressions)" name="Impressions" strokeWidth={2} />}
                 {chartMetrics.has('clicks') && <Area yAxisId="right" type="monotone" dataKey="clicks" stroke="#06b6d4" fill="url(#grad_clicks)" name="Clicks" strokeWidth={2} />}
                 {chartMetrics.has('ctr') && <Area yAxisId="right" type="monotone" dataKey="ctr" stroke="#ec4899" fill="url(#grad_ctr)" name="CTR (%)" strokeWidth={2} />}
+                {chartMetrics.has('spend') && daily.length >= 14 && <Area yAxisId="left" type="monotone" dataKey="ma_spend" stroke="#2563eb" fill="none" name="Spend 7d MA" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />}
+                {chartMetrics.has('results') && daily.length >= 14 && <Area yAxisId="right" type="monotone" dataKey="ma_results" stroke="#16a34a" fill="none" name={`${resultLabel} 7d MA`} strokeWidth={1.5} strokeDasharray="4 3" dot={false} />}
+                {chartMetrics.has('cpr') && daily.length >= 14 && <Area yAxisId="left" type="monotone" dataKey="ma_cpr" stroke="#f59e0b" fill="none" name="CPR 7d MA" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />}
               </AreaChart>
             </ResponsiveContainer>
           </Card>
@@ -600,6 +664,167 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
           return (
             <div className="space-y-5">
+              {/* Monthly Pacing */}
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[14px] font-semibold">Monthly Pacing</h3>
+                  <span className="text-[11px] text-[#9d9da8]">Day {pacingData.dayOfMonth} of {pacingData.daysInMonth}</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div>
+                    <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Month Spend</p>
+                    <p className="text-[18px] font-semibold tabular-nums mt-0.5">{formatCurrency(pacingData.monthSpend)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Projected Spend</p>
+                    <p className="text-[18px] font-semibold tabular-nums mt-0.5">{formatCurrency(pacingData.projected)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Avg/Day</p>
+                    <p className="text-[18px] font-semibold tabular-nums mt-0.5">{formatCurrency(pacingData.avgDaily)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Month {resultLabel}</p>
+                    <p className="text-[18px] font-semibold tabular-nums mt-0.5">{formatNumber(pacingData.monthResults)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Proj. {resultLabel}</p>
+                    <p className="text-[18px] font-semibold tabular-nums mt-0.5">{formatNumber(Math.round(pacingData.projectedResults))}</p>
+                  </div>
+                </div>
+                <div className="mt-3 h-2 bg-[#f4f4f6] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#2563eb] rounded-full transition-all" style={{ width: `${Math.min((pacingData.dayOfMonth / pacingData.daysInMonth) * 100, 100)}%` }} />
+                </div>
+                <div className="flex justify-between mt-1 text-[10px] text-[#9d9da8]">
+                  <span>{((pacingData.dayOfMonth / pacingData.daysInMonth) * 100).toFixed(0)}% through month</span>
+                  <span>{pacingData.daysRemaining} days remaining</span>
+                </div>
+              </Card>
+
+              {/* Scatter Plot: Spend vs CPR per Ad */}
+              {(() => {
+                const scatterAds = ads.filter(a => a.spend > 10 && a.results > 0).map(a => ({
+                  name: a.ad_name,
+                  spend: a.spend,
+                  cpr: a.cpr,
+                  results: a.results,
+                  campaign: a.campaign_name,
+                }))
+                if (scatterAds.length < 3) return null
+                const maxSpend = Math.max(...scatterAds.map(a => a.spend))
+                const maxCpr = Math.max(...scatterAds.map(a => a.cpr))
+                return (
+                  <Card className="p-5">
+                    <h3 className="text-[14px] font-semibold mb-1">Ad Efficiency Map</h3>
+                    <p className="text-[11px] text-[#9d9da8] mb-4">Each dot is an ad. Bottom-right = high spend, low CPR (ideal).</p>
+                    <div className="relative" style={{ height: 300 }}>
+                      {/* Y axis label */}
+                      <div className="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-[9px] text-[#9d9da8] tabular-nums">
+                        <span>{formatCurrency(maxCpr)}</span>
+                        <span>{formatCurrency(maxCpr / 2)}</span>
+                        <span>$0</span>
+                      </div>
+                      {/* X axis label */}
+                      <div className="absolute left-10 right-0 bottom-0 h-4 flex justify-between text-[9px] text-[#9d9da8] tabular-nums">
+                        <span>$0</span>
+                        <span>{formatCurrency(maxSpend / 2)}</span>
+                        <span>{formatCurrency(maxSpend)}</span>
+                      </div>
+                      {/* Grid */}
+                      <div className="absolute left-10 right-0 top-0 bottom-8 border-l border-b border-[#e8e8ec]">
+                        <div className="absolute inset-0 border-t border-r border-[#f4f4f6]" />
+                        {/* Target line */}
+                        {targetCpl && targetCpl < maxCpr && (
+                          <div className="absolute left-0 right-0 border-t border-dashed border-[#dc2626]/30" style={{ top: `${(1 - targetCpl / maxCpr) * 100}%` }}>
+                            <span className="absolute right-0 -top-3 text-[9px] text-[#dc2626]">Target {formatCurrency(targetCpl)}</span>
+                          </div>
+                        )}
+                        {/* Dots */}
+                        {scatterAds.map((a, i) => {
+                          const x = (a.spend / maxSpend) * 100
+                          const y = (1 - a.cpr / maxCpr) * 100
+                          const isOver = targetCpl ? a.cpr > targetCpl : false
+                          const size = Math.max(6, Math.min(16, (a.results / Math.max(...scatterAds.map(s => s.results))) * 16))
+                          return (
+                            <div key={i} className="absolute group" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
+                              <div className={`rounded-full ${isOver ? 'bg-[#dc2626]' : 'bg-[#2563eb]'} opacity-70 hover:opacity-100 transition-opacity cursor-default`} style={{ width: size, height: size }} />
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                                <div className="bg-[#111113] text-white rounded px-2.5 py-1.5 text-[10px] whitespace-nowrap shadow-lg">
+                                  <p className="font-medium mb-0.5 max-w-[200px] truncate">{a.name}</p>
+                                  <p className="text-[#9d9da8]">{a.campaign?.slice(0, 30)}</p>
+                                  <p>Spend: {formatCurrency(a.spend)} · {a.results} {resultLabel.toLowerCase()}</p>
+                                  <p className={isOver ? 'text-[#fca5a5]' : 'text-[#86efac]'}>CPR: {formatCurrency(a.cpr)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {/* Axis labels */}
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] text-[#9d9da8]">Spend →</div>
+                      <div className="absolute top-1/2 -left-1 -translate-y-1/2 -rotate-90 text-[9px] text-[#9d9da8]">CPR →</div>
+                    </div>
+                    <div className="flex items-center gap-4 mt-4 text-[10px] text-[#9d9da8]">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#2563eb]" /> On/under target</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#dc2626]" /> Over target</span>
+                      <span>Dot size = result volume</span>
+                    </div>
+                  </Card>
+                )
+              })()}
+
+              {/* Period Comparison */}
+              {daily.length >= 14 && (() => {
+                const halfLen = Math.floor(daily.length / 2)
+                const p1 = daily.slice(0, halfLen)
+                const p2 = daily.slice(halfLen)
+                const p1Start = new Date(p1[0].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                const p1End = new Date(p1[p1.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                const p2Start = new Date(p2[0].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                const p2End = new Date(p2[p2.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                const metrics = [
+                  { label: 'Spend', p1: p1.reduce((s, d) => s + d.spend, 0), p2: p2.reduce((s, d) => s + d.spend, 0), fmt: formatCurrency },
+                  { label: resultLabel, p1: p1.reduce((s, d) => s + d.results, 0), p2: p2.reduce((s, d) => s + d.results, 0), fmt: formatNumber },
+                  { label: 'CPR', p1: p1.reduce((s, d) => s + d.results, 0) > 0 ? p1.reduce((s, d) => s + d.spend, 0) / p1.reduce((s, d) => s + d.results, 0) : 0, p2: p2.reduce((s, d) => s + d.results, 0) > 0 ? p2.reduce((s, d) => s + d.spend, 0) / p2.reduce((s, d) => s + d.results, 0) : 0, fmt: formatCurrency, invert: true },
+                  { label: 'Impressions', p1: p1.reduce((s, d) => s + d.impressions, 0), p2: p2.reduce((s, d) => s + d.impressions, 0), fmt: formatNumber },
+                  { label: 'Clicks', p1: p1.reduce((s, d) => s + d.clicks, 0), p2: p2.reduce((s, d) => s + d.clicks, 0), fmt: formatNumber },
+                  { label: 'CTR', p1: p1.reduce((s, d) => s + d.impressions, 0) > 0 ? (p1.reduce((s, d) => s + d.clicks, 0) / p1.reduce((s, d) => s + d.impressions, 0)) * 100 : 0, p2: p2.reduce((s, d) => s + d.impressions, 0) > 0 ? (p2.reduce((s, d) => s + d.clicks, 0) / p2.reduce((s, d) => s + d.impressions, 0)) * 100 : 0, fmt: formatPercent },
+                ]
+                return (
+                  <Card className="p-5">
+                    <h3 className="text-[14px] font-semibold mb-4">Period Comparison</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr className="border-b border-[#e8e8ec]">
+                            <th className="py-2 px-3 text-left text-[10px] text-[#9d9da8] uppercase tracking-wider">Metric</th>
+                            <th className="py-2 px-3 text-right text-[10px] text-[#9d9da8] uppercase tracking-wider">{p1Start} – {p1End}</th>
+                            <th className="py-2 px-3 text-right text-[10px] text-[#9d9da8] uppercase tracking-wider">{p2Start} – {p2End}</th>
+                            <th className="py-2 px-3 text-right text-[10px] text-[#9d9da8] uppercase tracking-wider">Change</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {metrics.map(m => {
+                            const change = m.p1 > 0 ? ((m.p2 - m.p1) / m.p1) * 100 : 0
+                            const isGood = m.invert ? change < 0 : change > 0
+                            return (
+                              <tr key={m.label} className="border-b border-[#f4f4f6]">
+                                <td className="py-2.5 px-3 font-medium">{m.label}</td>
+                                <td className="py-2.5 px-3 text-right tabular-nums text-[#9d9da8]">{m.fmt(m.p1)}</td>
+                                <td className="py-2.5 px-3 text-right tabular-nums font-medium">{m.fmt(m.p2)}</td>
+                                <td className={`py-2.5 px-3 text-right tabular-nums font-semibold ${Math.abs(change) < 1 ? 'text-[#9d9da8]' : isGood ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+                                  {Math.abs(change) < 1 ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}%`}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                )
+              })()}
+
               {/* Funnel Metrics */}
               <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
                 <Card className="p-4">
@@ -1225,6 +1450,14 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                         <td className="py-2.5 px-4">
                           <span className={isWeekend ? 'text-[#9d9da8]' : ''}>{new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                           {isBest && <span className="ml-1.5 text-[9px] font-bold text-[#f59e0b]">BEST</span>}
+                          {anomalies[d.date] && (
+                            <span className="relative group ml-1">
+                              <span className="inline-block w-3.5 h-3.5 rounded bg-[#fef2f2] text-[#dc2626] text-[8px] font-bold text-center leading-[14px] cursor-default">!</span>
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 pointer-events-none bg-[#111113] text-white rounded px-2 py-1 text-[10px] whitespace-nowrap shadow-lg">
+                                {anomalies[d.date].join(' · ')}
+                              </span>
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-4"><div className="h-[6px] bg-[#f4f4f6] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(d.spend / maxDailySpend) * 100}%`, backgroundColor: d.results > 0 ? '#2563eb' : '#94a3b8' }} /></div></td>
                         <td className="py-2.5 px-4 text-right tabular-nums font-medium">{formatCurrency(d.spend)}</td>
