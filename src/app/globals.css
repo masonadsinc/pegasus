@@ -1,24 +1,11 @@
 @import "tailwindcss";
 
+/* Design tokens — used by body/selection, available for future theming */
 :root {
   --bg: #f8f8fa;
-  --card: #ffffff;
-  --card-border: #e8e8ec;
   --text: #111113;
-  --text-secondary: #6b6b76;
-  --text-tertiary: #9d9da8;
   --accent: #2563eb;
-  --green: #16a34a;
-  --green-bg: #f0fdf4;
-  --red: #dc2626;
-  --red-bg: #fef2f2;
-  --orange: #ea580c;
-  --orange-bg: #fff7ed;
-  --blue: #2563eb;
-  --blue-bg: #eff6ff;
   --border: #e8e8ec;
-  --hover: #f4f4f6;
-  --sidebar-active: #dc2626;
 }
 
 * { box-sizing: border-box; }

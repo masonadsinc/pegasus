@@ -1,10 +1,19 @@
 import { supabaseAdmin } from './supabase'
 
 // All data is through yesterday — today's data is incomplete
+// Uses PST/PDT (America/Los_Angeles) to match Meta's reporting timezone
 function getYesterday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
+  const now = new Date()
+  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+  pst.setDate(pst.getDate() - 1)
+  return pst.toISOString().split('T')[0]
+}
+
+function getDaysAgo(days: number): string {
+  const now = new Date()
+  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+  pst.setDate(pst.getDate() - days)
+  return pst.toISOString().split('T')[0]
 }
 
 export interface AccountSummary {
@@ -123,9 +132,7 @@ const ORG_ID = process.env.ADSINC_ORG_ID!
 // ─── Dashboard ────────────────────────────────────────────────
 
 export async function getDashboardData(orgId: string, days: number = 7): Promise<AccountSummary[]> {
-  const daysAgo = new Date()
-  daysAgo.setDate(daysAgo.getDate() - days)
-  const dateStr = daysAgo.toISOString().split('T')[0]
+  const dateStr = getDaysAgo(days)
 
   const { data: insights, error } = await supabaseAdmin
     .from('insights')
@@ -225,9 +232,7 @@ export async function getClientBySlug(slug: string) {
 }
 
 export async function getClientInsights(accountId: string, days: number = 30, primaryActionType: string | null = null) {
-  const daysAgo = new Date()
-  daysAgo.setDate(daysAgo.getDate() - days)
-  const dateStr = daysAgo.toISOString().split('T')[0]
+  const dateStr = getDaysAgo(days)
 
   const { data: daily, error } = await supabaseAdmin
     .from('insights')
@@ -236,6 +241,7 @@ export async function getClientInsights(accountId: string, days: number = 30, pr
     .eq('level', 'campaign')
     .gte('date', dateStr)
     .lte('date', getYesterday())
+    .limit(10000)
     .order('date')
 
   if (error) throw error
@@ -260,9 +266,7 @@ export async function getClientInsights(accountId: string, days: number = 30, pr
 }
 
 export async function getCampaignBreakdown(accountId: string, days: number = 30, primaryActionType: string | null = null): Promise<CampaignRow[]> {
-  const daysAgo = new Date()
-  daysAgo.setDate(daysAgo.getDate() - days)
-  const dateStr = daysAgo.toISOString().split('T')[0]
+  const dateStr = getDaysAgo(days)
 
   // Get insights at campaign level
   const { data, error } = await supabaseAdmin
@@ -272,6 +276,7 @@ export async function getCampaignBreakdown(accountId: string, days: number = 30,
     .eq('level', 'campaign')
     .gte('date', dateStr)
     .lte('date', getYesterday())
+    .limit(10000)
 
   if (error) throw error
 
@@ -310,9 +315,7 @@ export async function getCampaignBreakdown(accountId: string, days: number = 30,
 }
 
 export async function getAdSetBreakdown(accountId: string, days: number = 30, primaryActionType: string | null = null): Promise<AdSetRow[]> {
-  const daysAgo = new Date()
-  daysAgo.setDate(daysAgo.getDate() - days)
-  const dateStr = daysAgo.toISOString().split('T')[0]
+  const dateStr = getDaysAgo(days)
 
   // Get ad-level insights (we don't have adset-level insights, so we aggregate from ad level)
   const { data, error } = await supabaseAdmin
@@ -322,6 +325,7 @@ export async function getAdSetBreakdown(accountId: string, days: number = 30, pr
     .eq('level', 'ad')
     .gte('date', dateStr)
     .lte('date', getYesterday())
+    .limit(10000)
 
   if (error) throw error
 
@@ -379,9 +383,7 @@ export async function getAdSetBreakdown(accountId: string, days: number = 30, pr
 }
 
 export async function getAdBreakdown(accountId: string, days: number = 30, primaryActionType: string | null = null): Promise<AdRow[]> {
-  const daysAgo = new Date()
-  daysAgo.setDate(daysAgo.getDate() - days)
-  const dateStr = daysAgo.toISOString().split('T')[0]
+  const dateStr = getDaysAgo(days)
 
   const { data, error } = await supabaseAdmin
     .from('insights')
@@ -390,6 +392,7 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
     .eq('level', 'ad')
     .gte('date', dateStr)
     .lte('date', getYesterday())
+    .limit(10000)
 
   if (error) throw error
 
@@ -441,9 +444,7 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
 }
 
 export async function getBreakdownData(accountId: string, breakdownType: string, days: number = 30, primaryActionType: string | null = null): Promise<BreakdownRow[]> {
-  const daysAgo = new Date()
-  daysAgo.setDate(daysAgo.getDate() - days)
-  const dateStr = daysAgo.toISOString().split('T')[0]
+  const dateStr = getDaysAgo(days)
 
   const { data, error } = await supabaseAdmin
     .from('insight_breakdowns')
@@ -452,6 +453,7 @@ export async function getBreakdownData(accountId: string, breakdownType: string,
     .eq('breakdown_type', breakdownType)
     .gte('date', dateStr)
     .lte('date', getYesterday())
+    .limit(10000)
 
   if (error) throw error
 

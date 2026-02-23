@@ -10,8 +10,15 @@ export const revalidate = 300
 type HealthStatus = 'critical' | 'warning' | 'healthy' | 'no-data'
 
 function getHealthScore(account: any) {
-  const tw7 = account.daily.slice(-7)
-  const lw7 = account.daily.slice(0, 7)
+  // Split by date, not array position — handles accounts with < 14 days of data
+  const now = new Date()
+  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+  const yesterday = new Date(pst); yesterday.setDate(pst.getDate() - 1)
+  const sevenAgo = new Date(pst); sevenAgo.setDate(pst.getDate() - 7)
+  const yStr = yesterday.toISOString().split('T')[0]
+  const sStr = sevenAgo.toISOString().split('T')[0]
+  const tw7 = account.daily.filter((d: any) => d.date > sStr && d.date <= yStr)
+  const lw7 = account.daily.filter((d: any) => d.date <= sStr)
   const twSpend = tw7.reduce((s: number, d: any) => s + d.spend, 0)
   const twResults = tw7.reduce((s: number, d: any) => s + d.results, 0)
   const lwSpend = lw7.reduce((s: number, d: any) => s + d.spend, 0)
