@@ -99,22 +99,36 @@ export default async function ClientDetailPage({ params, searchParams }: { param
       <PageWrapper>
         <div className="p-6 max-w-[1200px] mx-auto">
           {/* Breadcrumb */}
-          <div className="text-[12px] text-[#9d9da8] mb-2">
-            <a href="/" className="hover:text-[#111113]">Dashboard</a>
-            <span className="mx-1.5">/</span>
-            <a href="/clients" className="hover:text-[#111113]">Clients</a>
-            <span className="mx-1.5">/</span>
-            <span className="text-[#111113]">{client.name}</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[12px] text-[#9d9da8]">
+              <a href="/" className="hover:text-[#111113]">Dashboard</a>
+              <span className="mx-1.5">/</span>
+              <a href="/clients" className="hover:text-[#111113]">Clients</a>
+              <span className="mx-1.5">/</span>
+              <span className="text-[#111113]">{client.name}</span>
+            </div>
+            {activeAccount.last_synced_at && (
+              <span className="text-[11px] text-[#9d9da8]">
+                Last synced: {new Date(activeAccount.last_synced_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+              </span>
+            )}
           </div>
 
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <h1 className="text-xl font-bold text-[#111113]">{client.name}</h1>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Badge variant="success">Active</Badge>
               <Suspense fallback={<span className="text-[12px] text-[#9d9da8] bg-white border border-[#e8e8ec] rounded-lg px-3 py-1.5">Last {days} days</span>}>
                 <DateRangePicker />
               </Suspense>
+              <a
+                href={`/api/export?account_id=${activeAccount.id}&type=ads&days=${days}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-[#6b6b76] bg-white border border-[#e8e8ec] rounded-lg hover:bg-[#f4f4f6] transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3M3 12h10" /></svg>
+                Export
+              </a>
             </div>
           </div>
 

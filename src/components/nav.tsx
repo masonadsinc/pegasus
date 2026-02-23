@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 function IconGrid({ className }: { className?: string }) {
@@ -124,20 +124,73 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
   )
 }
 
-export function TopBar() {
-  const now = new Date()
-  const timeStr = now.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'America/Los_Angeles' }) + ' PST'
+function GlobalSearch() {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<{ clients: any[]; ads: any[] } | null>(null)
+  const [open, setOpen] = useState(false)
 
+  useEffect(() => {
+    if (query.length < 2) { setResults(null); return }
+    const t = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(d => { setResults(d); setOpen(true) })
+        .catch(() => {})
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  return (
+    <div className="relative">
+      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9d9da8]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M13 13l4 4" /></svg>
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        onFocus={() => results && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
+        placeholder="Search clients & ads..."
+        className="pl-9 pr-4 py-1.5 text-[13px] bg-[#f4f4f6] border border-[#e8e8ec] rounded-lg w-[240px] focus:outline-none focus:border-[#2563eb] focus:w-[320px] transition-all placeholder-[#9d9da8]"
+      />
+      {open && results && (results.clients.length > 0 || results.ads.length > 0) && (
+        <div className="absolute top-full mt-1 left-0 w-[360px] bg-white border border-[#e8e8ec] rounded-xl shadow-lg overflow-hidden z-50">
+          {results.clients.length > 0 && (
+            <div className="p-2">
+              <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider px-2 mb-1">Clients</p>
+              {results.clients.map(c => (
+                <a key={c.slug} href={`/clients/${c.slug}`} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#f4f4f6] text-[13px] font-medium text-[#111113]">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#9d9da8" strokeWidth="1.5"><circle cx="10" cy="7" r="3" /><path d="M4 17v-1a6 6 0 0112 0v1" /></svg>
+                  {c.name}
+                </a>
+              ))}
+            </div>
+          )}
+          {results.ads.length > 0 && (
+            <div className="p-2 border-t border-[#f4f4f6]">
+              <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider px-2 mb-1">Ads</p>
+              {results.ads.map(a => (
+                <a key={a.id} href={a.clientSlug ? `/clients/${a.clientSlug}` : '#'} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#f4f4f6]">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#9d9da8" strokeWidth="1.5"><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M7 10h6" /></svg>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-medium text-[#111113] truncate">{a.name}</p>
+                    {a.headline && <p className="text-[11px] text-[#9d9da8] truncate">{a.headline}</p>}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function TopBar() {
   return (
     <div className="h-12 border-b border-[#e8e8ec] bg-white flex items-center justify-between px-6">
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9d9da8]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M13 13l4 4" /></svg>
-          <input placeholder="Search..." className="pl-9 pr-4 py-1.5 text-[13px] bg-[#f4f4f6] border border-[#e8e8ec] rounded-lg w-[200px] focus:outline-none focus:border-[#2563eb] placeholder-[#9d9da8]" />
-        </div>
+        <GlobalSearch />
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[12px] text-[#9d9da8] tabular-nums">{timeStr}</span>
         <div className="w-7 h-7 rounded-full bg-[#dc2626] flex items-center justify-center">
           <span className="text-white text-[11px] font-semibold">M</span>
         </div>
