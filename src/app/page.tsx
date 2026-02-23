@@ -2,6 +2,7 @@ import { getDashboardData } from '@/lib/queries'
 import { formatCurrency, formatNumber, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
@@ -18,42 +19,98 @@ function MiniBar({ data, color = '#2563eb' }: { data: number[]; color?: string }
   )
 }
 
-export default async function Dashboard() {
-  const accounts = await getDashboardData(ORG_ID, 7)
+function WowBadge({ current, previous, invert = false }: { current: number; previous: number; invert?: boolean }) {
+  if (!previous || !current) return null
+  const pct = ((current - previous) / previous) * 100
+  const isGood = invert ? pct < 0 : pct > 0
+  if (Math.abs(pct) < 1) return null
+  return (
+    <span className={`text-[11px] font-medium ${isGood ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+      {pct > 0 ? '↑' : '↓'} {Math.abs(pct).toFixed(0)}%
+    </span>
+  )
+}
 
-  const totalSpend = accounts.reduce((s, a) => s + a.spend, 0)
-  const totalResults = accounts.reduce((s, a) => s + a.results, 0)
+export default async function Dashboard() {
+  const accounts = await getDashboardData(ORG_ID, 14) // fetch 14 days for WoW
+
   const activeAccounts = accounts.filter(a => a.spend > 0)
 
+  // This week vs last week
+  const twSpend = accounts.reduce((s, a) => s + a.daily.slice(-7).reduce((ds, d) => ds + d.spend, 0), 0)
+  const lwSpend = accounts.reduce((s, a) => s + a.daily.slice(0, 7).reduce((ds, d) => ds + d.spend, 0), 0)
+  const twResults = accounts.reduce((s, a) => s + a.daily.slice(-7).reduce((ds, d) => ds + d.results, 0), 0)
+  const lwResults = accounts.reduce((s, a) => s + a.daily.slice(0, 7).reduce((ds, d) => ds + d.results, 0), 0)
+
   const nonEcom = activeAccounts.filter(a => !isEcomActionType(a.primary_action_type))
-  const nonEcomSpend = nonEcom.reduce((s, a) => s + a.spend, 0)
-  const nonEcomResults = nonEcom.reduce((s, a) => s + a.results, 0)
-  const blendedCPR = nonEcomResults > 0 ? nonEcomSpend / nonEcomResults : 0
+  const nonEcomTwSpend = nonEcom.reduce((s, a) => s + a.daily.slice(-7).reduce((ds, d) => ds + d.spend, 0), 0)
+  const nonEcomTwResults = nonEcom.reduce((s, a) => s + a.daily.slice(-7).reduce((ds, d) => ds + d.results, 0), 0)
+  const nonEcomLwSpend = nonEcom.reduce((s, a) => s + a.daily.slice(0, 7).reduce((ds, d) => ds + d.spend, 0), 0)
+  const nonEcomLwResults = nonEcom.reduce((s, a) => s + a.daily.slice(0, 7).reduce((ds, d) => ds + d.results, 0), 0)
+  const twCPR = nonEcomTwResults > 0 ? nonEcomTwSpend / nonEcomTwResults : 0
+  const lwCPR = nonEcomLwResults > 0 ? nonEcomLwSpend / nonEcomLwResults : 0
+
+  // Alerts: accounts over target
+  const alerts = activeAccounts.filter(a => {
+    if (!a.target_cpl) return false
+    const cpr = a.results > 0 ? a.spend / a.results : 0
+    return cpr > 0 && cpr > a.target_cpl * 1.25
+  })
+
+  // Today's spend (last day of data)
+  const todaySpend = accounts.reduce((s, a) => {
+    const last = a.daily[a.daily.length - 1]
+    return s + (last?.spend || 0)
+  }, 0)
 
   return (
     <>
       <Nav current="dashboard" />
       <PageWrapper>
         <div className="p-6 max-w-[1200px] mx-auto">
-          <h2 className="text-xl font-bold text-[#111113] mb-1">Health Tracker</h2>
-          <p className="text-[13px] text-[#9d9da8] mb-6">Agency overview — last 7 days</p>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-[#111113] mb-1">Health Tracker</h2>
+              <p className="text-[13px] text-[#9d9da8]">Agency overview — last 7 days vs prior 7</p>
+            </div>
+            {alerts.length > 0 && (
+              <div className="flex items-center gap-2 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2">
+                <span className="w-2 h-2 rounded-full bg-[#dc2626] animate-pulse" />
+                <span className="text-[12px] text-[#dc2626] font-medium">{alerts.length} account{alerts.length > 1 ? 's' : ''} over target</span>
+              </div>
+            )}
+          </div>
 
           {/* KPI Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <Card className="p-5">
-              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Total Spend</p>
-              <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatCurrency(totalSpend)}</p>
-              <p className="text-[12px] text-[#9d9da8]">{formatCurrency(totalSpend / 7)} / day</p>
+              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Weekly Spend</p>
+              <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatCurrency(twSpend)}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[12px] text-[#9d9da8]">{formatCurrency(twSpend / 7)}/day</p>
+                <WowBadge current={twSpend} previous={lwSpend} />
+              </div>
             </Card>
             <Card className="p-5">
-              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Total Results</p>
-              <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatNumber(totalResults)}</p>
-              <p className="text-[12px] text-[#9d9da8]">{(totalResults / 7).toFixed(0)} / day</p>
+              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Weekly Results</p>
+              <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatNumber(twResults)}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[12px] text-[#9d9da8]">{(twResults / 7).toFixed(0)}/day</p>
+                <WowBadge current={twResults} previous={lwResults} />
+              </div>
             </Card>
             <Card className="p-5">
               <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Blended CPR</p>
-              <p className="text-[28px] font-bold tabular-nums text-[#111113]">{blendedCPR > 0 ? formatCurrency(blendedCPR) : '—'}</p>
-              <p className="text-[12px] text-[#9d9da8]">Non-ecom accounts</p>
+              <p className="text-[28px] font-bold tabular-nums text-[#111113]">{twCPR > 0 ? formatCurrency(twCPR) : '—'}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[12px] text-[#9d9da8]">Non-ecom</p>
+                <WowBadge current={twCPR} previous={lwCPR} invert />
+              </div>
+            </Card>
+            <Card className="p-5">
+              <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Today&apos;s Spend</p>
+              <p className="text-[28px] font-bold tabular-nums text-[#111113]">{formatCurrency(todaySpend)}</p>
+              <p className="text-[12px] text-[#9d9da8]">So far today</p>
             </Card>
             <Card className="p-5">
               <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1">Active Accounts</p>
@@ -61,6 +118,31 @@ export default async function Dashboard() {
               <p className="text-[12px] text-[#9d9da8]">{accounts.length} total</p>
             </Card>
           </div>
+
+          {/* Alerts */}
+          {alerts.length > 0 && (
+            <Card className="p-4 mb-6 border-[#fecaca]">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full bg-[#dc2626]" />
+                <h3 className="text-[13px] font-semibold text-[#dc2626]">Accounts Over Target</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {alerts.map(a => {
+                  const cpr = a.results > 0 ? a.spend / a.results : 0
+                  const overPct = a.target_cpl ? ((cpr / a.target_cpl - 1) * 100).toFixed(0) : '?'
+                  return (
+                    <Link key={a.ad_account_id} href={`/clients/${a.client_slug}`} className="flex items-center justify-between p-2.5 rounded-lg bg-[#fef2f2] hover:bg-[#fee2e2] transition-colors">
+                      <span className="text-[12px] font-medium">{a.client_name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-bold text-[#dc2626] tabular-nums">{formatCurrency(cpr)}</span>
+                        <Badge variant="danger">+{overPct}%</Badge>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
 
           {/* Account Table */}
           <Card>
@@ -76,28 +158,41 @@ export default async function Dashboard() {
                     <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
                     <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Results</th>
                     <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Impressions</th>
-                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider w-[100px]">7d</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">vs Target</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
+                    <th className="py-3 px-5 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider w-[100px]">7d Trend</th>
                   </tr>
                 </thead>
                 <tbody>
                   {activeAccounts.map(a => {
-                    const cpr = a.results > 0 ? a.spend / a.results : 0
+                    const tw7 = a.daily.slice(-7)
+                    const twSpendAcct = tw7.reduce((s, d) => s + d.spend, 0)
+                    const twResultsAcct = tw7.reduce((s, d) => s + d.results, 0)
+                    const cpr = twResultsAcct > 0 ? twSpendAcct / twResultsAcct : 0
                     const isOver = a.target_cpl ? cpr > a.target_cpl : false
+                    const ctr = a.impressions > 0 ? (a.clicks / a.impressions) * 100 : 0
+                    const targetPct = a.target_cpl && cpr > 0 ? ((cpr / a.target_cpl - 1) * 100) : null
                     return (
-                      <tr key={a.ad_account_id} className="border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors">
+                      <tr key={a.ad_account_id} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${isOver ? 'bg-[#fef2f2]/30' : ''}`}>
                         <td className="py-3 px-5">
                           <Link href={`/clients/${a.client_slug}`} className="font-medium text-[#2563eb] hover:underline">{a.client_name}</Link>
                           <p className="text-[11px] text-[#9d9da8] mt-0.5">{a.result_label}</p>
                         </td>
-                        <td className="py-3 px-5 text-right tabular-nums font-medium">{formatCurrency(a.spend)}</td>
-                        <td className="py-3 px-5 text-right tabular-nums text-[#6b6b76]">{formatNumber(a.results)}</td>
+                        <td className="py-3 px-5 text-right tabular-nums font-medium">{formatCurrency(twSpendAcct)}</td>
+                        <td className="py-3 px-5 text-right tabular-nums text-[#6b6b76]">{formatNumber(twResultsAcct)}</td>
                         <td className={`py-3 px-5 text-right tabular-nums font-semibold ${isOver ? 'text-[#dc2626]' : cpr > 0 ? 'text-[#16a34a]' : 'text-[#9d9da8]'}`}>
                           {cpr > 0 ? formatCurrency(cpr) : '—'}
                         </td>
-                        <td className="py-3 px-5 text-right tabular-nums text-[#9d9da8]">{formatNumber(a.impressions)}</td>
+                        <td className="py-3 px-5 text-right">
+                          {targetPct !== null ? (
+                            <span className={`text-[11px] font-medium ${targetPct > 0 ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>
+                              {targetPct > 0 ? '+' : ''}{targetPct.toFixed(0)}%
+                            </span>
+                          ) : <span className="text-[#c4c4cc]">—</span>}
+                        </td>
+                        <td className="py-3 px-5 text-right tabular-nums text-[#9d9da8]">{ctr > 0 ? `${ctr.toFixed(2)}%` : '—'}</td>
                         <td className="py-3 px-5">
-                          <MiniBar data={a.daily.slice(-7).map(d => d.spend)} />
+                          <MiniBar data={tw7.map(d => d.spend)} />
                         </td>
                       </tr>
                     )
