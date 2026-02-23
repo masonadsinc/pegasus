@@ -381,13 +381,13 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       <TabsContent value="overview">
         <div className="space-y-5">
           <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
               <h3 className="text-[14px] font-semibold">Performance Trend</h3>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {metricButtons.map(m => (
                   <button key={m.key} onClick={() => toggleMetric(m.key)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                      chartMetrics.has(m.key) ? 'text-white' : 'text-[#9d9da8] bg-[#f4f4f6] hover:bg-[#e8e8ec]'
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                      chartMetrics.has(m.key) ? 'text-white shadow-sm' : 'text-[#9d9da8] bg-[#f4f4f6] hover:bg-[#e8e8ec]'
                     }`}
                     style={chartMetrics.has(m.key) ? { backgroundColor: m.color } : undefined}>
                     {m.label}
@@ -899,7 +899,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       {/* ═══════════════════ DAILY ═══════════════════ */}
       <TabsContent value="daily">
         <div className="space-y-5">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatBox label="Total Spend" value={formatCurrency(daily.reduce((s, d) => s + d.spend, 0))} sub={`~${formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / (daily.length || 1))}/day`} icon="$" sparkData={daily.map(d => d.spend)} change={wowChange(twSum('spend'), lwSum('spend'))} />
             <StatBox label={`Total ${resultLabel}`} value={formatNumber(daily.reduce((s, d) => s + d.results, 0))} sub={`~${(daily.reduce((s, d) => s + d.results, 0) / (daily.length || 1)).toFixed(1)}/day`} sparkData={daily.map(d => d.results)} sparkColor="#16a34a" change={wowChange(twSum('results'), lwSum('results'))} />
             <StatBox label="Avg CPR" value={totalResults > 0 ? formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / totalResults) : '—'} sub={`Over ${daily.length} days`} sparkData={daily.map(d => d.results > 0 ? d.spend / d.results : 0)} sparkColor="#f59e0b" />
@@ -929,9 +929,14 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                     const isOver = targetCpl ? cpr > targetCpl : false
                     const isBest = bestDay && d.date === bestDay.date
                     const ctrVal = d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0
+                    const dayOfWeek = new Date(d.date + 'T12:00:00').getDay()
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
                     return (
-                      <tr key={d.date} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] ${isBest ? 'bg-[#fffbeb]' : ''}`}>
-                        <td className="py-2.5 px-4">{new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</td>
+                      <tr key={d.date} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${isBest ? 'bg-[#fffbeb]' : isWeekend ? 'bg-[#fafafa]' : ''}`}>
+                        <td className="py-2.5 px-4">
+                          <span className={isWeekend ? 'text-[#9d9da8]' : ''}>{new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                          {isBest && <span className="ml-1.5 text-[9px] text-[#f59e0b]">★</span>}
+                        </td>
                         <td className="py-2.5 px-4"><div className="h-[6px] bg-[#f4f4f6] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(d.spend / maxDailySpend) * 100}%`, backgroundColor: d.results > 0 ? '#2563eb' : '#94a3b8' }} /></div></td>
                         <td className="py-2.5 px-4 text-right tabular-nums font-medium">{formatCurrency(d.spend)}</td>
                         <td className="py-2.5 px-4 text-right tabular-nums">{d.results}</td>
