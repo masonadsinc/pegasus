@@ -444,7 +444,10 @@ export async function getBreakdownData(accountId: string, breakdownType: string,
 
   const map = new Map<string, BreakdownRow>()
   for (const r of data || []) {
-    const key = [r.dimension_1, r.dimension_2].filter(Boolean).join(' · ') || 'Unknown'
+    // For region breakdowns: dimension_1=country, dimension_2=state — use state as display value
+    const key = breakdownType === 'region' && r.dimension_2
+      ? r.dimension_2
+      : [r.dimension_1, r.dimension_2].filter(Boolean).join(' · ') || 'Unknown'
     const { results } = deriveResults({ ...r, schedules: 0 }, primaryActionType)
     const existing = map.get(key) || { dimension_value: key, spend: 0, impressions: 0, clicks: 0, results: 0, cpr: 0, ctr: 0 }
     existing.spend += parseFloat(r.spend) || 0

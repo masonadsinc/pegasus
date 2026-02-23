@@ -1228,6 +1228,20 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         region.forEach(r => { geoTotal.spend += r.spend; geoTotal.impressions += r.impressions; geoTotal.clicks += r.clicks })
         const maxR = region[0]?.spend || 1
 
+        // State abbreviation map
+        const stateAbbr: Record<string, string> = {
+          'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA','Colorado':'CO',
+          'Connecticut':'CT','Delaware':'DE','Florida':'FL','Georgia':'GA','Hawaii':'HI','Idaho':'ID',
+          'Illinois':'IL','Indiana':'IN','Iowa':'IA','Kansas':'KS','Kentucky':'KY','Louisiana':'LA',
+          'Maine':'ME','Maryland':'MD','Massachusetts':'MA','Michigan':'MI','Minnesota':'MN','Mississippi':'MS',
+          'Missouri':'MO','Montana':'MT','Nebraska':'NE','Nevada':'NV','New Hampshire':'NH','New Jersey':'NJ',
+          'New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND','Ohio':'OH','Oklahoma':'OK',
+          'Oregon':'OR','Pennsylvania':'PA','Rhode Island':'RI','South Carolina':'SC','South Dakota':'SD',
+          'Tennessee':'TN','Texas':'TX','Utah':'UT','Vermont':'VT','Virginia':'VA','Washington':'WA',
+          'West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY','District of Columbia':'DC',
+        }
+        const getAbbr = (name: string) => stateAbbr[name] || name?.slice(0, 2).toUpperCase() || '??'
+
         // US region mapping
         const regionMap: Record<string, string[]> = {
           'Northeast': ['Connecticut','Maine','Massachusetts','New Hampshire','New Jersey','New York','Pennsylvania','Rhode Island','Vermont'],
@@ -1239,7 +1253,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         const regionGroups: Record<string, { spend: number; ctr: number; count: number }> = {}
         for (const [rg, states] of Object.entries(regionMap)) {
           let spend = 0, impr = 0, clicks = 0, count = 0
-          region.forEach(r => { if (states.some(s => r.dimension_value?.includes(s))) { spend += r.spend; impr += r.impressions; clicks += r.clicks; count++ } })
+          region.forEach(r => { if (states.some(s => r.dimension_value === s)) { spend += r.spend; impr += r.impressions; clicks += r.clicks; count++ } })
           if (count) regionGroups[rg] = { spend, ctr: impr > 0 ? (clicks / impr) * 100 : 0, count }
         }
 
@@ -1252,10 +1266,10 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                   <h3 className="text-[14px] font-semibold mb-2">Geographic Overview</h3>
                   <p className="text-[11px] text-[#9d9da8] mb-3">{region.length} states active</p>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
-                    <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-bold text-[16px]">{formatCompact(geoTotal.spend)}</p></div>
-                    <div><span className="text-[#9d9da8]">Impressions</span><p className="font-bold text-[16px]">{formatCompact(geoTotal.impressions)}</p></div>
-                    <div><span className="text-[#9d9da8]">Clicks</span><p className="font-bold text-[16px]">{formatCompact(geoTotal.clicks)}</p></div>
-                    <div><span className="text-[#9d9da8]">CTR</span><p className="font-bold text-[16px]">{geoTotal.impressions > 0 ? formatPercent((geoTotal.clicks / geoTotal.impressions) * 100) : '—'}</p></div>
+                    <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-semibold text-[16px]">{formatCompact(geoTotal.spend)}</p></div>
+                    <div><span className="text-[#9d9da8]">Impressions</span><p className="font-semibold text-[16px]">{formatCompact(geoTotal.impressions)}</p></div>
+                    <div><span className="text-[#9d9da8]">Clicks</span><p className="font-semibold text-[16px]">{formatCompact(geoTotal.clicks)}</p></div>
+                    <div><span className="text-[#9d9da8]">CTR</span><p className="font-semibold text-[16px]">{geoTotal.impressions > 0 ? formatPercent((geoTotal.clicks / geoTotal.impressions) * 100) : '—'}</p></div>
                   </div>
                 </Card>
 
@@ -1272,10 +1286,10 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </Card>
 
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">State Performance</h3>
+                  <h3 className="text-[14px] font-semibold mb-3">Top States</h3>
                   <div className="grid grid-cols-5 gap-1.5">
                     {region.slice(0, 15).map(r => {
-                      const abbr = r.dimension_value?.slice(0, 2).toUpperCase() || '??'
+                      const abbr = getAbbr(r.dimension_value)
                       const pct = totalSpend > 0 ? ((r.spend / totalSpend) * 100).toFixed(1) : '0'
                       return (
                         <div key={r.dimension_value} className="text-center p-1.5 rounded bg-[#f4f4f6]">
@@ -1294,11 +1308,11 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 <div className="space-y-2">
                   {region.slice(0, 10).map(r => (
                     <div key={r.dimension_value} className="flex items-center gap-3">
-                      <span className="text-[11px] font-medium w-6">{r.dimension_value?.slice(0, 2).toUpperCase()}</span>
+                      <span className="text-[11px] font-medium w-8 text-[#6b6b76]">{getAbbr(r.dimension_value)}</span>
                       <div className="flex-1 h-5 bg-[#f4f4f6] rounded overflow-hidden">
                         <div className="h-full bg-[#16a34a] rounded" style={{ width: `${(r.spend / maxR) * 100}%` }} />
                       </div>
-                      <span className="text-[11px] tabular-nums w-16 text-right">{formatCurrency(r.spend)}</span>
+                      <span className="text-[11px] tabular-nums w-16 text-right font-medium">{formatCurrency(r.spend)}</span>
                     </div>
                   ))}
                 </div>
@@ -1311,12 +1325,12 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </div>
                 <DataTable
                   columns={[
-                    { key: 'dimension_value', label: 'State', format: (v) => <><span className="font-medium text-[11px] text-[#9d9da8] mr-2">{v?.slice(0, 2).toUpperCase()}</span><span className="font-medium">{v}</span></> },
+                    { key: 'dimension_value', label: 'State', format: (v) => <div className="flex items-center gap-2"><span className="text-[11px] text-[#9d9da8] font-medium w-6">{getAbbr(v)}</span><span className="font-medium">{v}</span></div> },
                     { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
                     { key: 'impressions', label: 'Impressions', format: (v) => formatNumber(v), align: 'right' },
                     { key: 'clicks', label: 'Clicks', format: (v) => formatNumber(v), align: 'right' },
                     { key: 'ctr', label: 'CTR', format: (v: number) => formatPercent(v), align: 'right' },
-                    { key: '_pct', label: '% Total', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
+                    { key: '_pct', label: '% of Spend', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
                   ]}
                   data={region}
                 />
