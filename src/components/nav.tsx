@@ -60,7 +60,7 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'compare' 
     { href: '/', label: 'Health Tracker', icon: IconGrid, key: 'dashboard' as const },
     { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
     { href: '/compare', label: 'Compare', icon: IconCompare, key: 'compare' as const },
-    { href: '#', label: 'Reports', icon: IconReport, key: 'reports' as const },
+    { href: '/reports', label: 'Reports', icon: IconReport, key: 'reports' as const },
   ]
 
   const sidebarContent = (
