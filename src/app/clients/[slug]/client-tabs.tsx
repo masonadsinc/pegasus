@@ -14,6 +14,7 @@ import {
 interface ClientTabsProps {
   daily: any[]
   campaigns: any[]
+  adSets: any[]
   ads: any[]
   topAds: any[]
   bottomAds: any[]
@@ -222,7 +223,7 @@ const tooltipStyle = {
 }
 
 /* ── MAIN TABS ──────────────────────────────────── */
-export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
+export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
   const chartData = daily.map(d => ({
     date: new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     spend: Math.round(d.spend * 100) / 100,
@@ -240,6 +241,9 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
   const [adStatusFilter, setAdStatusFilter] = useState<'all' | 'active' | 'paused'>('all')
   const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [drillLevel, setDrillLevel] = useState<'campaigns' | 'adsets' | 'ads'>('campaigns')
+  const [drillCampaignId, setDrillCampaignId] = useState<string | null>(null)
+  const [drillAdSetId, setDrillAdSetId] = useState<string | null>(null)
 
   const filteredAds = useMemo(() => {
     let list = [...ads]
@@ -314,7 +318,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="ads">Ads ({ads.length})</TabsTrigger>
-        <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+        <TabsTrigger value="campaigns">Ads Manager</TabsTrigger>
         <TabsTrigger value="daily">Daily</TabsTrigger>
         {ageGender.length > 0 && <TabsTrigger value="audience">Audience</TabsTrigger>}
         {placement.length > 0 && <TabsTrigger value="placements">Placements</TabsTrigger>}
@@ -551,49 +555,159 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
 
       </TabsContent>
 
-      {/* ═══════════════════ CAMPAIGNS ═══════════════════ */}
+      {/* ═══════════════════ CAMPAIGNS (Ads Manager Drill-Down) ═══════════════════ */}
       <TabsContent value="campaigns">
-        <div className="space-y-5">
-          <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-3">Spend Distribution</h3>
-            <div className="space-y-3">
-              {campaigns.map(c => {
-                const pct = totalSpend > 0 ? (c.spend / totalSpend) * 100 : 0
-                return (
-                  <div key={c.platform_campaign_id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[12px] truncate max-w-[60%]">{c.campaign_name}</span>
-                      <span className="text-[12px] text-[#9d9da8] tabular-nums">{c.results} {resultLabel.toLowerCase()} · {formatCurrency(c.spend)}</span>
-                    </div>
-                    <div className="h-2 bg-[#f4f4f6] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#dc2626] rounded-full" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {campaigns.map(c => {
-              const adCount = ads.filter(a => a.platform_campaign_id === c.platform_campaign_id).length
-              return (
-                <Card key={c.platform_campaign_id} className="p-4 cursor-pointer hover:shadow-md hover:border-[#c4c4cc] transition-all" onClick={() => { setCampaignFilter(c.platform_campaign_id); setActiveTab('ads') }}>
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="text-[13px] font-semibold truncate max-w-[200px]">{c.campaign_name}</h4>
-                    <span className="text-[10px] text-[#9d9da8] bg-[#f4f4f6] rounded-full px-2 py-0.5">{adCount} ads</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[12px]">
-                    <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(c.spend)}</p></div>
-                    <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{c.results}</p></div>
-                    <div><span className="text-[#9d9da8]">CPR</span><p className="font-semibold">{c.cpr > 0 ? formatCurrency(c.cpr) : '—'}</p></div>
-                    <div><span className="text-[#9d9da8]">CTR</span><p className="font-semibold">{formatPercent(c.ctr)}</p></div>
-                  </div>
-                  <p className="text-[10px] text-[#2563eb] mt-2 font-medium">View ads →</p>
-                </Card>
-              )
-            })}
+        <div className="space-y-4">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 text-[12px]">
+            <button onClick={() => { setDrillLevel('campaigns'); setDrillCampaignId(null); setDrillAdSetId(null) }} className={`font-medium transition-colors ${drillLevel === 'campaigns' ? 'text-[#111113]' : 'text-[#2563eb] hover:underline'}`}>
+              Campaigns ({campaigns.length})
+            </button>
+            {drillCampaignId && (
+              <>
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="#9d9da8"><path d="M7 4l6 6-6 6" /></svg>
+                <button onClick={() => { setDrillLevel('adsets'); setDrillAdSetId(null) }} className={`font-medium truncate max-w-[200px] transition-colors ${drillLevel === 'adsets' ? 'text-[#111113]' : 'text-[#2563eb] hover:underline'}`}>
+                  {campaigns.find(c => c.platform_campaign_id === drillCampaignId)?.campaign_name || 'Ad Sets'}
+                </button>
+              </>
+            )}
+            {drillAdSetId && (
+              <>
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="#9d9da8"><path d="M7 4l6 6-6 6" /></svg>
+                <span className="font-medium text-[#111113] truncate max-w-[200px]">
+                  {adSets.find(a => a.platform_ad_set_id === drillAdSetId)?.ad_set_name || 'Ads'}
+                </span>
+              </>
+            )}
           </div>
+
+          {/* ── Campaign Level ── */}
+          {drillLevel === 'campaigns' && (
+            <Card>
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b border-[#e8e8ec]">
+                      <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Campaign</th>
+                      <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
+                      <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">{resultLabel}</th>
+                      <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
+                      <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
+                      <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Ad Sets</th>
+                      <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Ads</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {campaigns.map(c => {
+                      const campAdSets = adSets.filter(a => a.platform_campaign_id === c.platform_campaign_id)
+                      const campAds = ads.filter(a => a.platform_campaign_id === c.platform_campaign_id)
+                      const isOver = targetCpl && c.cpr > 0 ? c.cpr > targetCpl : false
+                      return (
+                        <tr key={c.platform_campaign_id} className="border-b border-[#f4f4f6] hover:bg-[#fafafb] cursor-pointer transition-colors" onClick={() => { setDrillLevel('adsets'); setDrillCampaignId(c.platform_campaign_id) }}>
+                          <td className="py-3 px-4">
+                            <p className="font-medium text-[#2563eb] hover:underline">{c.campaign_name}</p>
+                          </td>
+                          <td className="py-3 px-4 text-right tabular-nums font-medium">{formatCurrency(c.spend)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums">{formatNumber(c.results)}</td>
+                          <td className={`py-3 px-4 text-right tabular-nums font-semibold ${isOver ? 'text-[#dc2626]' : c.cpr > 0 ? 'text-[#16a34a]' : 'text-[#9d9da8]'}`}>
+                            {c.cpr > 0 ? formatCurrency(c.cpr) : '—'}
+                          </td>
+                          <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{formatPercent(c.ctr)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{campAdSets.length}</td>
+                          <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{campAds.length}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {/* ── Ad Set Level ── */}
+          {drillLevel === 'adsets' && drillCampaignId && (() => {
+            const campAdSets = adSets.filter(a => a.platform_campaign_id === drillCampaignId)
+            return (
+              <Card>
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="border-b border-[#e8e8ec]">
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Ad Set</th>
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Status</th>
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Budget</th>
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">{resultLabel}</th>
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
+                        <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Ads</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campAdSets.length === 0 && (
+                        <tr><td colSpan={8} className="py-8 text-center text-[#9d9da8] text-[13px]">No ad set data available</td></tr>
+                      )}
+                      {campAdSets.map(as => {
+                        const asAds = ads.filter(a => a.platform_campaign_id === drillCampaignId)
+                        const isOver = targetCpl && as.cpr > 0 ? as.cpr > targetCpl : false
+                        return (
+                          <tr key={as.platform_ad_set_id} className="border-b border-[#f4f4f6] hover:bg-[#fafafb] cursor-pointer transition-colors" onClick={() => { setDrillLevel('ads'); setDrillAdSetId(as.platform_ad_set_id) }}>
+                            <td className="py-3 px-4">
+                              <p className="font-medium text-[#2563eb] hover:underline">{as.ad_set_name}</p>
+                              {as.optimization_goal && <p className="text-[10px] text-[#9d9da8] mt-0.5">{as.optimization_goal.replace(/_/g, ' ').toLowerCase()}</p>}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant={as.status === 'ACTIVE' ? 'success' : 'neutral'}>
+                                {(as.status || 'unknown').toLowerCase()}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">
+                              {as.daily_budget ? `${formatCurrency(as.daily_budget)}/day` : '—'}
+                            </td>
+                            <td className="py-3 px-4 text-right tabular-nums font-medium">{formatCurrency(as.spend)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums">{formatNumber(as.results)}</td>
+                            <td className={`py-3 px-4 text-right tabular-nums font-semibold ${isOver ? 'text-[#dc2626]' : as.cpr > 0 ? 'text-[#16a34a]' : 'text-[#9d9da8]'}`}>
+                              {as.cpr > 0 ? formatCurrency(as.cpr) : '—'}
+                            </td>
+                            <td className="py-3 px-4 text-right tabular-nums text-[#6b6b76]">{formatPercent(as.ctr)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums text-[#9d9da8]">{asAds.length}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )
+          })()}
+
+          {/* ── Ad Level (within campaign drill-down) ── */}
+          {drillLevel === 'ads' && drillAdSetId && (() => {
+            // Filter ads that belong to this ad set — we need to match via the insights data
+            // Since ads don't directly store platform_ad_set_id, filter by campaign for now
+            const drillAds = ads.filter(a => a.platform_campaign_id === drillCampaignId)
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {drillAds.length === 0 && <p className="text-[13px] text-[#9d9da8] col-span-3 text-center py-8">No ads found</p>}
+                {drillAds.map(ad => {
+                  const imageUrl = ad.creative_url || ad.creative_thumbnail_url
+                  return (
+                    <Card key={ad.platform_ad_id} className="overflow-hidden cursor-pointer hover:shadow-md hover:border-[#c4c4cc] transition-all" onClick={() => setSelectedAd(ad)}>
+                      <AdImage src={imageUrl} alt={ad.ad_name} className="w-full h-[160px]" />
+                      <div className="p-3">
+                        <p className="text-[12px] font-medium truncate mb-2">{ad.ad_name}</p>
+                        <div className="grid grid-cols-3 gap-2 text-[11px]">
+                          <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold tabular-nums">{formatCurrency(ad.spend)}</p></div>
+                          <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold tabular-nums">{ad.results}</p></div>
+                          <div><span className="text-[#9d9da8]">CPR</span><p className={`font-semibold tabular-nums ${ad.cpr > 0 ? (targetCpl && ad.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]') : 'text-[#c4c4cc]'}`}>{ad.cpr > 0 ? formatCurrency(ad.cpr) : '—'}</p></div>
+                        </div>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       </TabsContent>
 

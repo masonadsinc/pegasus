@@ -1,4 +1,4 @@
-import { getClientBySlug, getClientInsights, getCampaignBreakdown, getAdBreakdown, getBreakdownData } from '@/lib/queries'
+import { getClientBySlug, getClientInsights, getCampaignBreakdown, getAdSetBreakdown, getAdBreakdown, getBreakdownData } from '@/lib/queries'
 import { formatCurrency, formatNumber, formatPercent, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { Badge } from '@/components/ui/badge'
@@ -58,9 +58,10 @@ export default async function ClientDetailPage({ params, searchParams }: { param
   const isEcom = isEcomActionType(pat)
   const days = [7, 14, 30, 60, 90].includes(Number(sp.days)) ? Number(sp.days) : 30
 
-  const [daily, campaigns, ads, ageGender, placement, device, region] = await Promise.all([
+  const [daily, campaigns, adSets, ads, ageGender, placement, device, region] = await Promise.all([
     getClientInsights(activeAccount.id, days, pat),
     getCampaignBreakdown(activeAccount.id, days, pat),
+    getAdSetBreakdown(activeAccount.id, days, pat),
     getAdBreakdown(activeAccount.id, days, pat),
     getBreakdownData(activeAccount.id, 'age_gender', days, pat),
     getBreakdownData(activeAccount.id, 'placement', days, pat),
@@ -155,6 +156,7 @@ export default async function ClientDetailPage({ params, searchParams }: { param
           <ClientTabs
             daily={daily}
             campaigns={campaigns}
+            adSets={adSets}
             ads={ads}
             topAds={topAds}
             bottomAds={bottomAds}

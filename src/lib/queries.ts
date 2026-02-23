@@ -73,6 +73,23 @@ export interface AdRow {
   effective_status: string | null
 }
 
+export interface AdSetRow {
+  platform_ad_set_id: string
+  ad_set_name: string
+  platform_campaign_id: string
+  campaign_name: string
+  status: string | null
+  daily_budget: number | null
+  optimization_goal: string | null
+  spend: number
+  impressions: number
+  clicks: number
+  results: number
+  result_label: string
+  cpr: number
+  ctr: number
+}
+
 export interface BreakdownRow {
   dimension_value: string
   spend: number
@@ -279,6 +296,74 @@ export async function getCampaignBreakdown(accountId: string, days: number = 30,
     ...c,
     cpr: c.results > 0 ? c.spend / c.results : 0,
     ctr: c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0,
+  })).sort((a, b) => b.spend - a.spend)
+}
+
+export async function getAdSetBreakdown(accountId: string, days: number = 30, primaryActionType: string | null = null): Promise<AdSetRow[]> {
+  const daysAgo = new Date()
+  daysAgo.setDate(daysAgo.getDate() - days)
+  const dateStr = daysAgo.toISOString().split('T')[0]
+
+  // Get ad-level insights (we don't have adset-level insights, so we aggregate from ad level)
+  const { data, error } = await supabaseAdmin
+    .from('insights')
+    .select('platform_ad_set_id, platform_campaign_id, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
+    .eq('ad_account_id', accountId)
+    .eq('level', 'ad')
+    .gte('date', dateStr)
+
+  if (error) throw error
+
+  // Get ad set metadata
+  const { data: adSets } = await supabaseAdmin
+    .from('ad_sets')
+    .select('platform_ad_set_id, name, status, daily_budget, optimization_goal, campaign_id')
+    .eq('ad_account_id', accountId)
+
+  // Get campaigns for names
+  const { data: campaigns } = await supabaseAdmin
+    .from('campaigns')
+    .select('id, platform_campaign_id, name')
+    .eq('ad_account_id', accountId)
+
+  const adSetMap = new Map<string, any>()
+  for (const a of adSets || []) adSetMap.set(a.platform_ad_set_id, a)
+  const campNameMap = new Map<string, string>()
+  const campIdToPlat = new Map<string, string>()
+  for (const c of campaigns || []) {
+    campNameMap.set(c.platform_campaign_id, c.name || 'Unknown')
+    campIdToPlat.set(c.id, c.platform_campaign_id)
+  }
+
+  const { result_label } = deriveResults({ leads: 0, purchases: 0, schedules: 0 }, primaryActionType)
+  const map = new Map<string, AdSetRow>()
+  for (const r of data || []) {
+    const key = r.platform_ad_set_id
+    if (!key) continue
+    const { results } = deriveResults(r, primaryActionType)
+    const meta = adSetMap.get(key)
+    const platCampId = r.platform_campaign_id || (meta?.campaign_id ? campIdToPlat.get(meta.campaign_id) : null) || ''
+    const existing = map.get(key) || {
+      platform_ad_set_id: key,
+      ad_set_name: meta?.name || key,
+      platform_campaign_id: platCampId,
+      campaign_name: campNameMap.get(platCampId) || platCampId,
+      status: meta?.status || null,
+      daily_budget: meta?.daily_budget ? parseFloat(meta.daily_budget) : null,
+      optimization_goal: meta?.optimization_goal || null,
+      spend: 0, impressions: 0, clicks: 0, results: 0, result_label, cpr: 0, ctr: 0,
+    }
+    existing.spend += parseFloat(r.spend) || 0
+    existing.impressions += r.impressions || 0
+    existing.clicks += r.clicks || 0
+    existing.results += results
+    map.set(key, existing)
+  }
+
+  return Array.from(map.values()).map(a => ({
+    ...a,
+    cpr: a.results > 0 ? a.spend / a.results : 0,
+    ctr: a.impressions > 0 ? (a.clicks / a.impressions) * 100 : 0,
   })).sort((a, b) => b.spend - a.spend)
 }
 
