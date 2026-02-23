@@ -1054,7 +1054,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </Card>
               </div>
 
-              {/* Campaign Rankings + Headlines */}
+              {/* Campaign Rankings + Wasted Spend (side by side) */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {campaignsWithData.length > 0 && (
                   <Card>
@@ -1076,20 +1076,31 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                   </Card>
                 )}
 
-                {headlines.length >= 2 && (
+                {(fatiguedAds.length > 0 || highCprAds.length > 0) && (
                   <Card>
-                    <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                      <h3 className="text-[13px] font-semibold">Headline Performance</h3>
+                    <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
+                      <h3 className="text-[13px] font-semibold">Wasted Spend Detection</h3>
+                      <span className="text-[11px] text-[#dc2626] font-medium">{formatCurrency(wastedSpend)} potential waste</span>
                     </div>
                     <div className="divide-y divide-[#f4f4f6]">
-                      {headlines.slice(0, 8).map((h, i) => (
-                        <div key={i} className="flex items-center gap-3 px-5 py-3">
-                          <span className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i < 3 ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[#f4f4f6] text-[#9d9da8]'}`}>{i + 1}</span>
+                      {fatiguedAds.slice(0, 5).map(a => (
+                        <div key={a.platform_ad_id} className="flex items-center gap-3 px-5 py-3">
+                          <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">!</span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-medium truncate">&ldquo;{h.headline}&rdquo;</p>
-                            <p className="text-[10px] text-[#9d9da8]">{h.count} ad{h.count > 1 ? 's' : ''} · {h.results} {resultLabel.toLowerCase()}</p>
+                            <p className="text-[12px] font-medium truncate">{a.ad_name}</p>
+                            <p className="text-[10px] text-[#dc2626]">Spent {formatCurrency(a.spend)} with 0 results</p>
                           </div>
-                          <span className={`text-[12px] font-semibold tabular-nums ${targetCpl && h.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(h.cpr)}</span>
+                          <span className="text-[12px] font-semibold tabular-nums text-[#dc2626]">{formatCurrency(a.spend)}</span>
+                        </div>
+                      ))}
+                      {highCprAds.slice(0, 5).map(a => (
+                        <div key={a.platform_ad_id} className="flex items-center gap-3 px-5 py-3">
+                          <span className="w-5 h-5 rounded bg-[#fff7ed] text-[#ea580c] text-[10px] font-bold flex items-center justify-center flex-shrink-0">!</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium truncate">{a.ad_name}</p>
+                            <p className="text-[10px] text-[#ea580c]">CPR {formatCurrency(a.cpr)} — {targetCpl ? `${((a.cpr / targetCpl - 1) * 100).toFixed(0)}% over target` : 'very high'}</p>
+                          </div>
+                          <span className="text-[12px] font-semibold tabular-nums text-[#ea580c]">{formatCurrency(a.spend)}</span>
                         </div>
                       ))}
                     </div>
@@ -1097,32 +1108,21 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 )}
               </div>
 
-              {/* Wasted Spend / Fatigue Detection */}
-              {(fatiguedAds.length > 0 || highCprAds.length > 0) && (
+              {/* Headline Performance */}
+              {headlines.length >= 2 && (
                 <Card>
-                  <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
-                    <h3 className="text-[13px] font-semibold">Wasted Spend Detection</h3>
-                    <span className="text-[11px] text-[#dc2626] font-medium">{formatCurrency(wastedSpend)} potential waste</span>
+                  <div className="px-5 py-4 border-b border-[#e8e8ec]">
+                    <h3 className="text-[13px] font-semibold">Headline Performance</h3>
                   </div>
                   <div className="divide-y divide-[#f4f4f6]">
-                    {fatiguedAds.slice(0, 5).map(a => (
-                      <div key={a.platform_ad_id} className="flex items-center gap-3 px-5 py-3">
-                        <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">!</span>
+                    {headlines.slice(0, 8).map((h, i) => (
+                      <div key={i} className="flex items-center gap-3 px-5 py-3">
+                        <span className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i < 3 ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[#f4f4f6] text-[#9d9da8]'}`}>{i + 1}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-medium truncate">{a.ad_name}</p>
-                          <p className="text-[10px] text-[#dc2626]">Spent {formatCurrency(a.spend)} with 0 results</p>
+                          <p className="text-[12px] font-medium truncate">&ldquo;{h.headline}&rdquo;</p>
+                          <p className="text-[10px] text-[#9d9da8]">{h.count} ad{h.count > 1 ? 's' : ''} · {h.results} {resultLabel.toLowerCase()}</p>
                         </div>
-                        <span className="text-[12px] font-semibold tabular-nums text-[#dc2626]">{formatCurrency(a.spend)}</span>
-                      </div>
-                    ))}
-                    {highCprAds.slice(0, 5).map(a => (
-                      <div key={a.platform_ad_id} className="flex items-center gap-3 px-5 py-3">
-                        <span className="w-5 h-5 rounded bg-[#fff7ed] text-[#ea580c] text-[10px] font-bold flex items-center justify-center flex-shrink-0">!</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-medium truncate">{a.ad_name}</p>
-                          <p className="text-[10px] text-[#ea580c]">CPR {formatCurrency(a.cpr)} — {targetCpl ? `${((a.cpr / targetCpl - 1) * 100).toFixed(0)}% over target` : 'very high'}</p>
-                        </div>
-                        <span className="text-[12px] font-semibold tabular-nums text-[#ea580c]">{formatCurrency(a.spend)}</span>
+                        <span className={`text-[12px] font-semibold tabular-nums ${targetCpl && h.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(h.cpr)}</span>
                       </div>
                     ))}
                   </div>
