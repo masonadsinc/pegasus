@@ -89,6 +89,8 @@ function deriveResults(row: any, primaryActionType: string | null): { results: n
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
+// ─── Dashboard ────────────────────────────────────────────────
+
 export async function getDashboardData(orgId: string, days: number = 7): Promise<AccountSummary[]> {
   const daysAgo = new Date()
   daysAgo.setDate(daysAgo.getDate() - days)
@@ -96,22 +98,7 @@ export async function getDashboardData(orgId: string, days: number = 7): Promise
 
   const { data: insights, error } = await supabaseAdmin
     .from('insights')
-    .select(`
-      ad_account_id,
-      date,
-      spend,
-      impressions,
-      clicks,
-      reach,
-      inline_link_clicks,
-      outbound_clicks,
-      landing_page_views,
-      leads,
-      purchases,
-      purchase_value,
-      schedules,
-      ad_account_id
-    `)
+    .select('ad_account_id, date, spend, impressions, clicks, reach, inline_link_clicks, landing_page_views, leads, purchases, purchase_value, schedules')
     .eq('org_id', orgId)
     .eq('level', 'campaign')
     .gte('date', dateStr)
@@ -121,47 +108,30 @@ export async function getDashboardData(orgId: string, days: number = 7): Promise
 
   const { data: accounts, error: accError } = await supabaseAdmin
     .from('ad_accounts')
-    .select(`
-      id,
-      name,
-      platform_account_id,
-      objective,
-      primary_action_type,
-      target_cpl,
-      target_roas,
-      clients!inner(name, slug, status)
-    `)
+    .select('id, name, platform_account_id, objective, primary_action_type, target_cpl, target_roas, clients!inner(name, slug, status)')
     .eq('org_id', orgId)
     .eq('is_active', true)
 
   if (accError) throw accError
 
   const accountMap = new Map<string, any>()
-  for (const a of accounts || []) {
-    accountMap.set(a.id, a)
-  }
+  for (const a of accounts || []) accountMap.set(a.id, a)
 
-  // Aggregate per account + collect daily
   const accountTotals = new Map<string, AccountSummary>()
   const accountDaily = new Map<string, Map<string, DailyMetric>>()
 
   for (const row of insights || []) {
     const account = accountMap.get(row.ad_account_id)
     if (!account) continue
-    const client = (account.clients as any)
+    const client = account.clients as any
     const { results: rowResults } = deriveResults(row, account.primary_action_type)
 
     const key = row.ad_account_id
     const existing = accountTotals.get(key) || {
-      client_name: client.name,
-      client_slug: client.slug,
-      account_name: account.name,
-      ad_account_id: row.ad_account_id,
-      platform_account_id: account.platform_account_id,
-      objective: account.objective,
-      primary_action_type: account.primary_action_type,
-      target_cpl: account.target_cpl,
-      target_roas: account.target_roas,
+      client_name: client.name, client_slug: client.slug, account_name: account.name,
+      ad_account_id: row.ad_account_id, platform_account_id: account.platform_account_id,
+      objective: account.objective, primary_action_type: account.primary_action_type,
+      target_cpl: account.target_cpl, target_roas: account.target_roas,
       spend: 0, impressions: 0, clicks: 0, reach: 0,
       leads: 0, purchases: 0, purchase_value: 0, schedules: 0,
       landing_page_views: 0, inline_link_clicks: 0,
@@ -179,10 +149,8 @@ export async function getDashboardData(orgId: string, days: number = 7): Promise
     existing.landing_page_views += row.landing_page_views || 0
     existing.inline_link_clicks += row.inline_link_clicks || 0
     existing.results += rowResults
-
     accountTotals.set(key, existing)
 
-    // Daily
     if (!accountDaily.has(key)) accountDaily.set(key, new Map())
     const dailyMap = accountDaily.get(key)!
     const d = row.date
@@ -199,13 +167,11 @@ export async function getDashboardData(orgId: string, days: number = 7): Promise
     dailyMap.set(d, day)
   }
 
-  // Set result labels and daily arrays
   for (const [key, acct] of accountTotals) {
     const pat = acct.primary_action_type || ''
     if (pat === 'schedule_total') acct.result_label = 'schedules'
     else if (['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'].includes(pat)) acct.result_label = 'purchases'
     else acct.result_label = pat.includes('fb_pixel_custom') ? 'calls' : 'leads'
-
     const dailyMap = accountDaily.get(key)
     acct.daily = dailyMap ? Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date)) : []
   }
@@ -213,19 +179,15 @@ export async function getDashboardData(orgId: string, days: number = 7): Promise
   return Array.from(accountTotals.values()).sort((a, b) => b.spend - a.spend)
 }
 
-// ─── Client Detail Queries ────────────────────────────────────
+// ─── Client Detail ────────────────────────────────────────────
 
 export async function getClientBySlug(slug: string) {
   const { data, error } = await supabaseAdmin
     .from('clients')
-    .select(`
-      id, name, slug, industry, status,
-      ad_accounts(id, name, platform_account_id, objective, primary_action_type, target_cpl, target_roas, is_active)
-    `)
+    .select('id, name, slug, industry, status, ad_accounts(id, name, platform_account_id, objective, primary_action_type, target_cpl, target_roas, is_active)')
     .eq('org_id', ORG_ID)
     .eq('slug', slug)
     .single()
-
   if (error) throw error
   return data
 }
@@ -235,7 +197,6 @@ export async function getClientInsights(accountId: string, days: number = 30, pr
   daysAgo.setDate(daysAgo.getDate() - days)
   const dateStr = daysAgo.toISOString().split('T')[0]
 
-  // Daily aggregates (campaign level to avoid double-counting)
   const { data: daily, error } = await supabaseAdmin
     .from('insights')
     .select('date, spend, impressions, clicks, reach, leads, purchases, purchase_value, schedules, landing_page_views, inline_link_clicks')
@@ -246,7 +207,6 @@ export async function getClientInsights(accountId: string, days: number = 30, pr
 
   if (error) throw error
 
-  // Aggregate by date
   const byDate = new Map<string, DailyMetric>()
   for (const r of daily || []) {
     const d = r.date
@@ -271,14 +231,24 @@ export async function getCampaignBreakdown(accountId: string, days: number = 30,
   daysAgo.setDate(daysAgo.getDate() - days)
   const dateStr = daysAgo.toISOString().split('T')[0]
 
+  // Get insights at campaign level
   const { data, error } = await supabaseAdmin
     .from('insights')
-    .select('platform_campaign_id, campaign_name, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
+    .select('platform_campaign_id, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
     .eq('ad_account_id', accountId)
     .eq('level', 'campaign')
     .gte('date', dateStr)
 
   if (error) throw error
+
+  // Get campaign names
+  const { data: campaigns } = await supabaseAdmin
+    .from('campaigns')
+    .select('platform_campaign_id, name')
+    .eq('ad_account_id', accountId)
+
+  const nameMap = new Map<string, string>()
+  for (const c of campaigns || []) nameMap.set(c.platform_campaign_id, c.name || 'Unknown')
 
   const { result_label } = deriveResults({ leads: 0, purchases: 0, schedules: 0 }, primaryActionType)
   const map = new Map<string, CampaignRow>()
@@ -287,7 +257,7 @@ export async function getCampaignBreakdown(accountId: string, days: number = 30,
     const { results } = deriveResults(r, primaryActionType)
     const existing = map.get(key) || {
       platform_campaign_id: r.platform_campaign_id,
-      campaign_name: r.campaign_name || 'Unknown',
+      campaign_name: nameMap.get(r.platform_campaign_id) || r.platform_campaign_id,
       spend: 0, impressions: 0, clicks: 0, results: 0, result_label, cpr: 0, ctr: 0, landing_page_views: 0,
     }
     existing.spend += parseFloat(r.spend) || 0
@@ -312,12 +282,21 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
 
   const { data, error } = await supabaseAdmin
     .from('insights')
-    .select('platform_ad_id, ad_name, platform_campaign_id, campaign_name, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
+    .select('platform_ad_id, platform_campaign_id, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
     .eq('ad_account_id', accountId)
     .eq('level', 'ad')
     .gte('date', dateStr)
 
   if (error) throw error
+
+  // Get ad + campaign names
+  const { data: ads } = await supabaseAdmin.from('ads').select('platform_ad_id, name').eq('ad_account_id', accountId)
+  const { data: campaigns } = await supabaseAdmin.from('campaigns').select('platform_campaign_id, name').eq('ad_account_id', accountId)
+
+  const adNames = new Map<string, string>()
+  for (const a of ads || []) adNames.set(a.platform_ad_id, a.name || 'Unknown')
+  const campNames = new Map<string, string>()
+  for (const c of campaigns || []) campNames.set(c.platform_campaign_id, c.name || 'Unknown')
 
   const { result_label } = deriveResults({ leads: 0, purchases: 0, schedules: 0 }, primaryActionType)
   const map = new Map<string, AdRow>()
@@ -327,9 +306,9 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
     const { results } = deriveResults(r, primaryActionType)
     const existing = map.get(key) || {
       platform_ad_id: r.platform_ad_id,
-      ad_name: r.ad_name || 'Unknown',
+      ad_name: adNames.get(r.platform_ad_id) || r.platform_ad_id,
       platform_campaign_id: r.platform_campaign_id,
-      campaign_name: r.campaign_name || 'Unknown',
+      campaign_name: campNames.get(r.platform_campaign_id) || r.platform_campaign_id,
       spend: 0, impressions: 0, clicks: 0, results: 0, result_label, cpr: 0, ctr: 0, landing_page_views: 0,
     }
     existing.spend += parseFloat(r.spend) || 0
@@ -353,7 +332,7 @@ export async function getBreakdownData(accountId: string, breakdownType: string,
   const dateStr = daysAgo.toISOString().split('T')[0]
 
   const { data, error } = await supabaseAdmin
-    .from('ad_breakdowns')
+    .from('insight_breakdowns')
     .select('dimension_1, dimension_2, spend, impressions, clicks, leads, purchases, purchase_value')
     .eq('ad_account_id', accountId)
     .eq('breakdown_type', breakdownType)
@@ -363,7 +342,6 @@ export async function getBreakdownData(accountId: string, breakdownType: string,
 
   const map = new Map<string, BreakdownRow>()
   for (const r of data || []) {
-    // Combine dimension_1 and dimension_2 for display (e.g. "25-34 male")
     const key = [r.dimension_1, r.dimension_2].filter(Boolean).join(' · ') || 'Unknown'
     const { results } = deriveResults({ ...r, schedules: 0 }, primaryActionType)
     const existing = map.get(key) || { dimension_value: key, spend: 0, impressions: 0, clicks: 0, results: 0, cpr: 0, ctr: 0 }
