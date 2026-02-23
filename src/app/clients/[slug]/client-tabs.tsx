@@ -369,9 +369,16 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
     { key: 'ctr', label: 'CTR', color: '#ec4899' },
   ]
 
-  const tw = daily.slice(-7); const lw = daily.slice(-14, -7)
+  // Current period = full daily range; prior period = same length before that
+  const periodLen = daily.length
+  const tw = daily // current period is the full selected range
+  const lw = daily.slice(0, Math.floor(periodLen / 2)) // first half for comparison
+  const twHalf = daily.slice(Math.floor(periodLen / 2)) // second half
   const twSum = (key: string) => tw.reduce((s, d) => s + (d[key] || 0), 0)
   const lwSum = (key: string) => lw.reduce((s, d) => s + (d[key] || 0), 0)
+  // For WoW: use second half vs first half
+  const tw2Sum = (key: string) => twHalf.reduce((s, d) => s + (d[key] || 0), 0)
+  const lw2Sum = (key: string) => lw.reduce((s, d) => s + (d[key] || 0), 0)
   const daysWithResults = daily.filter(d => d.results > 0)
   const bestDay = [...daysWithResults].sort((a, b) => (a.spend / a.results) - (b.spend / b.results))[0]
   const maxDailySpend = Math.max(...daily.map(d => d.spend), 1)
@@ -480,6 +487,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <div><span className="text-[#9d9da8]">{resultLabel} </span><span className="font-semibold tabular-nums">{formatNumber(twSum('results'))}</span></div>
             <div><span className="text-[#9d9da8]">CPR </span><span className={`font-semibold tabular-nums ${targetCpl && twSum('results') > 0 && twSum('spend') / twSum('results') > targetCpl ? 'text-[#dc2626]' : twSum('results') > 0 ? 'text-[#16a34a]' : ''}`}>{twSum('results') > 0 ? formatCurrency(twSum('spend') / twSum('results')) : '—'}</span></div>
             <div><span className="text-[#9d9da8]">CTR </span><span className="font-semibold tabular-nums">{twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'}</span></div>
+            <div><span className="text-[#9d9da8] text-[10px]">{daily.length}d</span></div>
             {targetCpl && <div><span className="text-[#9d9da8]">Target </span><span className="font-semibold tabular-nums">{formatCurrency(targetCpl)}</span></div>}
           </div>
         </div>
@@ -549,12 +557,12 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
           </Card>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-            <StatBox label="Spend" value={formatCurrency(twSum('spend'))} icon="$" sparkData={tw.map(d => d.spend)} sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatCurrency(v)} change={wowChange(twSum('spend'), lwSum('spend'))} />
-            <StatBox label={resultLabel} value={formatNumber(twSum('results'))} sparkData={tw.map(d => d.results)} sparkColor="#16a34a" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(twSum('results'), lwSum('results'))} />
-            <StatBox label="CPR" value={twSum('results') > 0 ? formatCurrency(twSum('spend') / twSum('results')) : '—'} sparkData={tw.map(d => d.results > 0 ? d.spend / d.results : 0)} sparkColor="#f59e0b" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => v > 0 ? formatCurrency(v) : '—'} change={wowChangeCPL(twSum('results') > 0 ? twSum('spend')/twSum('results') : 0, lwSum('results') > 0 ? lwSum('spend')/lwSum('results') : 0)} />
-            <StatBox label="Impressions" value={formatNumber(twSum('impressions'))} sparkData={tw.map(d => d.impressions)} sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(twSum('impressions'), lwSum('impressions'))} />
-            <StatBox label="Clicks" value={formatNumber(twSum('clicks'))} sparkData={tw.map(d => d.clicks)} sparkColor="#06b6d4" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(twSum('clicks'), lwSum('clicks'))} />
-            <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} sparkData={tw.map(d => d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0)} sparkColor="#ec4899" sparkLabels={tw.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatPercent(v)} />
+            <StatBox label="Spend" value={formatCurrency(twSum('spend'))} icon="$" sparkData={daily.map(d => d.spend)} sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatCurrency(v)} sub={`${formatCurrency(twSum('spend') / (daily.length || 1))}/day avg`} change={wowChange(tw2Sum('spend'), lw2Sum('spend'))} />
+            <StatBox label={resultLabel} value={formatNumber(twSum('results'))} sparkData={daily.map(d => d.results)} sparkColor="#16a34a" sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} sub={`${(twSum('results') / (daily.length || 1)).toFixed(1)}/day avg`} change={wowChange(tw2Sum('results'), lw2Sum('results'))} />
+            <StatBox label="CPR" value={twSum('results') > 0 ? formatCurrency(twSum('spend') / twSum('results')) : '—'} sparkData={daily.map(d => d.results > 0 ? d.spend / d.results : 0)} sparkColor="#f59e0b" sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => v > 0 ? formatCurrency(v) : '—'} sub={`Over ${daily.length} days`} change={wowChangeCPL(tw2Sum('results') > 0 ? tw2Sum('spend')/tw2Sum('results') : 0, lw2Sum('results') > 0 ? lw2Sum('spend')/lw2Sum('results') : 0)} />
+            <StatBox label="Impressions" value={formatNumber(twSum('impressions'))} sparkData={daily.map(d => d.impressions)} sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(tw2Sum('impressions'), lw2Sum('impressions'))} />
+            <StatBox label="Clicks" value={formatNumber(twSum('clicks'))} sparkData={daily.map(d => d.clicks)} sparkColor="#06b6d4" sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(tw2Sum('clicks'), lw2Sum('clicks'))} />
+            <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} sparkData={daily.map(d => d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0)} sparkColor="#ec4899" sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatPercent(v)} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1459,8 +1467,8 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       <TabsContent value="daily">
         <div className="space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatBox label="Total Spend" value={formatCurrency(daily.reduce((s, d) => s + d.spend, 0))} sub={`~${formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / (daily.length || 1))}/day`} icon="$" sparkData={daily.map(d => d.spend)} change={wowChange(twSum('spend'), lwSum('spend'))} />
-            <StatBox label={`Total ${resultLabel}`} value={formatNumber(daily.reduce((s, d) => s + d.results, 0))} sub={`~${(daily.reduce((s, d) => s + d.results, 0) / (daily.length || 1)).toFixed(1)}/day`} sparkData={daily.map(d => d.results)} sparkColor="#16a34a" change={wowChange(twSum('results'), lwSum('results'))} />
+            <StatBox label="Total Spend" value={formatCurrency(daily.reduce((s, d) => s + d.spend, 0))} sub={`~${formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / (daily.length || 1))}/day`} icon="$" sparkData={daily.map(d => d.spend)} sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatCurrency(v)} change={wowChange(tw2Sum('spend'), lw2Sum('spend'))} />
+            <StatBox label={`Total ${resultLabel}`} value={formatNumber(daily.reduce((s, d) => s + d.results, 0))} sub={`~${(daily.reduce((s, d) => s + d.results, 0) / (daily.length || 1)).toFixed(1)}/day`} sparkData={daily.map(d => d.results)} sparkColor="#16a34a" sparkLabels={daily.map(d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))} sparkFormat={v => formatNumber(v)} change={wowChange(tw2Sum('results'), lw2Sum('results'))} />
             <StatBox label="Avg CPR" value={totalResults > 0 ? formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / totalResults) : '—'} sub={`Over ${daily.length} days`} sparkData={daily.map(d => d.results > 0 ? d.spend / d.results : 0)} sparkColor="#f59e0b" />
             {bestDay && <StatBox label="Best Day" value={new Date(bestDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} sub={`${formatCurrency(bestDay.spend / bestDay.results)} CPR · ${bestDay.results} ${resultLabel.toLowerCase()}`} highlight={true} />}
           </div>
