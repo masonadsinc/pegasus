@@ -502,23 +502,6 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       {/* ═══════════════════ OVERVIEW ═══════════════════ */}
       <TabsContent value="overview">
         <div className="space-y-5">
-          {/* Monthly Pacing Bar */}
-          {pacingData.monthSpend > 0 && (
-            <Card className="px-5 py-3">
-              <div className="flex items-center gap-4">
-                <span className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider flex-shrink-0">Month Pacing</span>
-                <div className="flex-1 h-2 bg-[#f4f4f6] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#2563eb] rounded-full transition-all" style={{ width: `${Math.min((pacingData.dayOfMonth / pacingData.daysInMonth) * 100, 100)}%` }} />
-                </div>
-                <div className="flex items-center gap-3 text-[11px] flex-shrink-0">
-                  <span className="tabular-nums"><span className="text-[#9d9da8]">Spent </span><span className="font-semibold">{formatCurrency(pacingData.monthSpend)}</span></span>
-                  <span className="tabular-nums"><span className="text-[#9d9da8]">Proj </span><span className="font-semibold">{formatCurrency(pacingData.projected)}</span></span>
-                  <span className="text-[#9d9da8] tabular-nums">{pacingData.daysRemaining}d left</span>
-                </div>
-              </div>
-            </Card>
-          )}
-
           <Card className="p-5">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
               <h3 className="text-[14px] font-semibold">Performance Trend</h3>
