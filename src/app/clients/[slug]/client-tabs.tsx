@@ -137,7 +137,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
         {ad.creative_video_url ? (
           <video src={ad.creative_video_url} controls className="w-full max-h-[500px] object-contain bg-black rounded-t-2xl" />
         ) : imageUrl ? (
-          <img src={imageUrl} alt={ad.ad_name} className="w-full rounded-t-2xl" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
+          <img src={imageUrl} alt={ad.ad_name} className="w-full rounded-t-2xl block" style={{ maxHeight: '70vh', objectFit: 'contain', backgroundColor: '#f4f4f6' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
         ) : (
           <div className="w-full h-[200px] bg-[#f4f4f6] flex items-center justify-center text-[#c4c4cc] rounded-t-2xl">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
