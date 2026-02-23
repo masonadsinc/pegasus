@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { formatCurrency, formatNumber, formatPercent, formatCompact, wowChange, wowChangeCPL, grade } from '@/lib/utils'
+import { formatCurrency, formatNumber, formatPercent, formatCompact, wowChange, wowChangeCPL } from '@/lib/utils'
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell
@@ -64,14 +64,7 @@ function StatBox({ label, value, sub, change, sparkData, sparkColor, icon, highl
   )
 }
 
-/* ── Grade Badge (like old bot) ─────────────────── */
-function GradeBadge({ cpr, target }: { cpr: number; target: number | null }) {
-  if (!cpr || !target) return <span className="text-[#c4c4cc]">—</span>
-  const ratio = cpr / target
-  const g = grade(ratio)
-  const bgMap: Record<string, string> = { A: 'bg-[#dcfce7] text-[#16a34a]', B: 'bg-[#dbeafe] text-[#2563eb]', C: 'bg-[#fef9c3] text-[#a16207]', D: 'bg-[#ffedd5] text-[#ea580c]', F: 'bg-[#fef2f2] text-[#dc2626]', '—': 'bg-[#f4f4f6] text-[#9d9da8]' }
-  return <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold ${bgMap[g.letter] || bgMap['—']}`}>{g.letter}</span>
-}
+/* Grade Badge removed */
 
 /* ── Data Table ─────────────────────────────────── */
 function DataTable({ columns, data }: { columns: { key: string; label: string; format?: (v: any, row?: any) => string | React.ReactNode; align?: string }[]; data: any[] }) {
@@ -152,7 +145,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
             {ad.creative_video_url ? (
               <video src={ad.creative_video_url} controls className="w-full h-full object-contain" />
             ) : imageUrl ? (
-              <img src={imageUrl} alt={ad.ad_name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
+              <img src={imageUrl} alt={ad.ad_name} className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} loading="lazy" />
             ) : (
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c4c4cc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
@@ -166,7 +159,6 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl }: {
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <DialogTitle>{ad.ad_name}</DialogTitle>
-                <GradeBadge cpr={ad.cpr} target={targetCpl} />
                 {ad.effective_status && (
                   <Badge variant={ad.effective_status === 'ACTIVE' ? 'success' : 'danger'}>
                     {ad.effective_status.toLowerCase().replace(/_/g, ' ')}
@@ -458,7 +450,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-[13px] font-medium truncate flex-1">{ad.ad_name}</p>
-                        <GradeBadge cpr={ad.cpr} target={targetCpl} />
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-[11px]">
                         <div>
@@ -495,7 +486,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                     return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
                   }, align: 'right' },
                   { key: 'ctr', label: 'CTR', format: (v: number) => <span className="text-[#6b6b76]">{formatPercent(v)}</span>, align: 'right' },
-                  { key: '_grade', label: 'Grade', format: (_, row) => <GradeBadge cpr={row.cpr} target={targetCpl} />, align: 'center' },
                 ]}
                 data={ads}
               />
@@ -533,7 +523,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
               <Card key={c.platform_campaign_id} className="p-4">
                 <div className="flex items-start justify-between mb-2">
                   <h4 className="text-[13px] font-semibold truncate max-w-[200px]">{c.campaign_name}</h4>
-                  <GradeBadge cpr={c.cpr} target={targetCpl} />
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[12px]">
                   <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(c.spend)}</p></div>
@@ -607,7 +596,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
               <Card className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-[14px] font-semibold">Demographics Overview</h3>
-                  {targetCpl && audienceTotal.results > 0 && <GradeBadge cpr={audienceTotal.spend / audienceTotal.results} target={targetCpl} />}
                 </div>
                 <p className="text-[11px] text-[#9d9da8]">{ageGender.length} segments</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-3 text-[12px]">
@@ -677,7 +665,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="text-[13px] font-medium">{seg.dimension_value}</p>
-                            <GradeBadge cpr={seg.cpr} target={targetCpl} />
                           </div>
                           <p className="text-[11px] text-[#6b6b76]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
                         </div>
@@ -702,7 +689,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="text-[13px] font-medium">{seg.dimension_value}</p>
-                              <GradeBadge cpr={seg.cpr} target={targetCpl} />
                             </div>
                             <p className="text-[11px] text-[#6b6b76]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
                             {potentialSavings > 0 && <p className="text-[11px] text-[#dc2626]">Potential savings: {formatCurrency(potentialSavings)}</p>}
@@ -738,7 +724,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                     const pctVsTarget = targetCpl ? ` (${v > targetCpl ? '+' : ''}${(((v / targetCpl) - 1) * 100).toFixed(0)}%)` : ''
                     return <><span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>{pctVsTarget && <span className={`text-[10px] ml-1 ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{pctVsTarget}</span>}</>
                   }, align: 'right' },
-                  { key: '_grade', label: 'Grade', format: (_, row) => <GradeBadge cpr={row.cpr} target={targetCpl} />, align: 'center' },
                   { key: '_pct', label: '% Total', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
                 ]}
                 data={ageGender}
@@ -757,7 +742,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
               <Card className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-[14px] font-semibold">Placements Overview</h3>
-                  {targetCpl && placementTotal.results > 0 && <GradeBadge cpr={placementTotal.spend / placementTotal.results} target={targetCpl} />}
                 </div>
                 <p className="text-[11px] text-[#9d9da8]">{placement.length} active placements</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-3 text-[12px]">
@@ -830,7 +814,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                       <span className="w-5 h-5 rounded bg-[#dcfce7] text-[#16a34a] text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
                       <span className="text-[12px] flex-1 truncate">{p.dimension_value}</span>
                       <span className="text-[12px] font-bold tabular-nums">{formatCurrency(p.cpr)}</span>
-                      <GradeBadge cpr={p.cpr} target={targetCpl} />
                     </div>
                   ))}
                 </div>
@@ -843,7 +826,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                       <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center">{placement.length - i}</span>
                       <span className="text-[12px] flex-1 truncate">{p.dimension_value}</span>
                       <span className="text-[12px] font-bold tabular-nums">{formatCurrency(p.cpr)}</span>
-                      <GradeBadge cpr={p.cpr} target={targetCpl} />
                     </div>
                   ))}
                 </div>
@@ -868,7 +850,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                     const isOver = targetCpl ? v > targetCpl : false
                     return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
                   }, align: 'right' },
-                  { key: '_grade', label: 'Grade', format: (_, row) => <GradeBadge cpr={row.cpr} target={targetCpl} />, align: 'center' },
                   { key: '_pct', label: '% Total', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
                 ]}
                 data={placement}
