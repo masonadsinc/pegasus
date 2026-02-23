@@ -3,7 +3,7 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatNumber, formatPercent, grade, roasGrade } from '@/lib/utils'
+import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils'
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -55,13 +55,9 @@ function DataTable({ columns, data }: { columns: { key: string; label: string; f
   )
 }
 
-function AdCard({ ad, targetCpl, isEcom, targetRoas, rank, type }: any) {
-  const g = isEcom ? roasGrade(ad.spend > 0 ? ad.results / ad.spend : 0, targetRoas) : grade(targetCpl ? ad.cpr / targetCpl : 1)
+function AdCard({ ad, type }: any) {
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${g.color} bg-zinc-800`}>
-        {g.letter}
-      </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{ad.ad_name}</p>
         <p className="text-xs text-zinc-500">{formatNumber(ad.results)} {ad.result_label} · {formatCurrency(ad.spend)} spend</p>
@@ -172,7 +168,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                 <h3 className="text-sm font-semibold text-emerald-400 mb-3">🏆 Top Performers</h3>
                 <div className="space-y-2">
                   {topAds.map((ad, i) => (
-                    <AdCard key={ad.platform_ad_id} ad={ad} targetCpl={targetCpl} targetRoas={targetRoas} isEcom={isEcom} rank={i + 1} type="top" />
+                    <AdCard key={ad.platform_ad_id} ad={ad} type="top" />
                   ))}
                 </div>
               </Card>
@@ -182,7 +178,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
                 <h3 className="text-sm font-semibold text-red-400 mb-3">💸 Money Drains</h3>
                 <div className="space-y-2">
                   {bottomAds.map((ad, i) => (
-                    <AdCard key={ad.platform_ad_id} ad={ad} targetCpl={targetCpl} targetRoas={targetRoas} isEcom={isEcom} rank={i + 1} type="bottom" />
+                    <AdCard key={ad.platform_ad_id} ad={ad} type="bottom" />
                   ))}
                 </div>
               </Card>
@@ -198,7 +194,6 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
           <DataTable
             columns={[
               { key: 'ad_name', label: 'Ad' },
-              { key: 'grade', label: 'Grade', format: (v) => v },
               { key: 'spend', label: 'Spend', format: formatCurrency, align: 'right' },
               { key: 'impressions', label: 'Impr', format: formatNumber, align: 'right' },
               { key: 'clicks', label: 'Clicks', format: formatNumber, align: 'right' },
@@ -206,13 +201,7 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
               { key: 'cpr', label: 'CPR', format: (v: number) => v > 0 ? formatCurrency(v) : '—', align: 'right' },
               { key: 'ctr', label: 'CTR', format: (v: number) => formatPercent(v), align: 'right' },
             ]}
-            data={ads.map(a => ({
-              ...a,
-              grade: (() => {
-                const g = targetCpl && a.cpr > 0 ? grade(a.cpr / targetCpl) : { letter: '—', color: 'text-zinc-500' }
-                return `<span class="${g.color}">${g.letter}</span>`
-              })(),
-            })).map(a => ({ ...a, grade: targetCpl && a.cpr > 0 ? grade(a.cpr / targetCpl).letter : '—' }))}
+            data={ads}
           />
         </Card>
       </TabsContent>
