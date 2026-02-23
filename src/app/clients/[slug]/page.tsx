@@ -117,7 +117,12 @@ export default async function ClientDetailPage({ params, searchParams }: { param
 
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
-            <h1 className="text-xl font-bold text-[#111113]">{client.name}</h1>
+            <div className="flex items-center gap-3">
+              <a href="/clients" className="w-8 h-8 rounded-lg bg-[#f4f4f6] hover:bg-[#e8e8ec] flex items-center justify-center transition-colors flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b6b76" strokeWidth="2" strokeLinecap="round"><path d="M10 4l-4 4 4 4" /></svg>
+              </a>
+              <h1 className="text-xl font-bold text-[#111113]">{client.name}</h1>
+            </div>
             <div className="flex items-center gap-3">
               <Badge variant="success">Active</Badge>
               <Suspense fallback={<span className="text-[12px] text-[#9d9da8] bg-white border border-[#e8e8ec] rounded-lg px-3 py-1.5">Last {days} days</span>}>

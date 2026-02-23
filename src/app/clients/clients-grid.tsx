@@ -94,7 +94,7 @@ function ClientCard({ account }: { account: Account }) {
 
   return (
     <Link href={`/clients/${account.client_slug}`}>
-      <div className="rounded-xl bg-white border border-[#e8e8ec] p-5 hover:shadow-md transition-all cursor-pointer h-full">
+      <div className="rounded-xl bg-white border border-[#e8e8ec] p-5 card-hover cursor-pointer h-full">
         <div className="mb-3">
           <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider mb-1.5">Last 30 Days</p>
           <DotHeatmap daily={account.daily} />

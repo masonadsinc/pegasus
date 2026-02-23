@@ -40,7 +40,14 @@ function Spark({ data, color = '#2563eb', h = 32, w = 100 }: { data: number[]; c
   if (data.length < 2) return null
   const max = Math.max(...data, 1); const min = Math.min(...data, 0); const range = max - min || 1
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 4) - 2}`)
-  return <svg width={w} height={h} className="mt-2"><polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" /></svg>
+  const areaPath = `M0,${h} ${pts.map(p => `L${p}`).join(' ')} L${w},${h} Z`
+  return (
+    <svg width={w} height={h} className="mt-2">
+      <defs><linearGradient id={`sg_${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.15" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+      <path d={areaPath} fill={`url(#sg_${color.replace('#','')})`} />
+      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
 /* ── Stat Box ───────────────────────────────────── */
@@ -68,31 +75,55 @@ function StatBox({ label, value, sub, change, sparkData, sparkColor, icon, highl
 /* Grade Badge removed */
 
 /* ── Data Table ─────────────────────────────────── */
-function DataTable({ columns, data }: { columns: { key: string; label: string; format?: (v: any, row?: any) => string | React.ReactNode; align?: string }[]; data: any[] }) {
+function DataTable({ columns, data, pageSize = 50, emptyMessage = 'No data available' }: { columns: { key: string; label: string; format?: (v: any, row?: any) => string | React.ReactNode; align?: string }[]; data: any[]; pageSize?: number; emptyMessage?: string }) {
+  const [page, setPage] = useState(0)
+  const totalPages = Math.ceil(data.length / pageSize)
+  const pageData = data.slice(page * pageSize, (page + 1) * pageSize)
+
   return (
-    <div className="overflow-x-auto custom-scrollbar">
-      <table className="w-full text-[13px]">
-        <thead>
-          <tr className="border-b border-[#e8e8ec]">
-            {columns.map(col => (
-              <th key={col.key} className={`py-3 px-4 text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${row._highlight ? 'bg-[#fffbeb]' : ''}`}>
+    <div>
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="border-b border-[#e8e8ec]">
               {columns.map(col => (
-                <td key={col.key} className={`py-2.5 px-4 tabular-nums ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : ''}`}>
-                  {col.format ? col.format(row[col.key], row) : row[col.key]}
-                </td>
+                <th key={col.key} className={`py-3 px-4 text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
+                  {col.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageData.length === 0 && (
+              <tr><td colSpan={columns.length} className="py-12 text-center text-[#9d9da8] text-[13px]">{emptyMessage}</td></tr>
+            )}
+            {pageData.map((row, i) => (
+              <tr key={i} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${row._highlight ? 'bg-[#fffbeb]' : ''}`}>
+                {columns.map(col => (
+                  <td key={col.key} className={`py-2.5 px-4 tabular-nums ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : ''}`}>
+                    {col.format ? col.format(row[col.key], row) : row[col.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8e8ec]">
+          <span className="text-[11px] text-[#9d9da8]">{page * pageSize + 1}–{Math.min((page + 1) * pageSize, data.length)} of {data.length}</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="px-2.5 py-1 text-[11px] font-medium rounded-md disabled:opacity-30 text-[#6b6b76] hover:bg-[#f4f4f6] transition-colors">← Prev</button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const p = totalPages <= 5 ? i : page < 3 ? i : page > totalPages - 3 ? totalPages - 5 + i : page - 2 + i
+              return (
+                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 text-[11px] font-medium rounded-md transition-colors ${page === p ? 'bg-[#111113] text-white' : 'text-[#6b6b76] hover:bg-[#f4f4f6]'}`}>{p + 1}</button>
+              )
+            })}
+            <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page === totalPages - 1} className="px-2.5 py-1 text-[11px] font-medium rounded-md disabled:opacity-30 text-[#6b6b76] hover:bg-[#f4f4f6] transition-colors">Next →</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -102,10 +133,11 @@ function AdImage({ src, alt, className = '' }: { src?: string | null; alt: strin
   const [error, setError] = useState(false)
   if (!src || error) {
     return (
-      <div className={`bg-[#f4f4f6] flex items-center justify-center text-[#c4c4cc] ${className}`}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className={`bg-gradient-to-br from-[#f4f4f6] to-[#e8e8ec] flex flex-col items-center justify-center text-[#c4c4cc] gap-1 ${className}`}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
         </svg>
+        <span className="text-[9px] font-medium">No preview</span>
       </div>
     )
   }
@@ -320,9 +352,9 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
     <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== 'ads') setCampaignFilter(null) }}>
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="ads">Ads ({ads.length})</TabsTrigger>
-        <TabsTrigger value="campaigns">Ads Manager</TabsTrigger>
-        <TabsTrigger value="daily">Daily</TabsTrigger>
+        <TabsTrigger value="ads">Ads <span className="ml-1 text-[10px] bg-[#f4f4f6] px-1.5 py-0.5 rounded-full">{ads.length}</span></TabsTrigger>
+        <TabsTrigger value="campaigns">Ads Manager <span className="ml-1 text-[10px] bg-[#f4f4f6] px-1.5 py-0.5 rounded-full">{campaigns.length}</span></TabsTrigger>
+        <TabsTrigger value="daily">Daily <span className="ml-1 text-[10px] bg-[#f4f4f6] px-1.5 py-0.5 rounded-full">{daily.length}d</span></TabsTrigger>
         {ageGender.length > 0 && <TabsTrigger value="audience">Audience</TabsTrigger>}
         {placement.length > 0 && <TabsTrigger value="placements">Placements</TabsTrigger>}
         {region.length > 0 && <TabsTrigger value="geographic">Geographic</TabsTrigger>}
@@ -639,10 +671,10 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
           {adsView === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredAds.map(ad => {
+              {filteredAds.map((ad, idx) => {
                 const imageUrl = ad.creative_url || ad.creative_thumbnail_url
                 return (
-                  <Card key={ad.platform_ad_id} className="overflow-hidden cursor-pointer hover:shadow-md hover:border-[#c4c4cc] transition-all" onClick={() => setSelectedAd(ad)}>
+                  <Card key={ad.platform_ad_id} className="overflow-hidden cursor-pointer card-hover" style={{ animationDelay: `${idx * 30}ms` }} onClick={() => setSelectedAd(ad)}>
                     <AdImage src={imageUrl} alt={ad.ad_name} className="w-full h-[180px]" />
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-2 mb-2">

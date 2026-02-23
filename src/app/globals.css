@@ -39,3 +39,32 @@ body {
 .custom-scrollbar::-webkit-scrollbar { height: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+
+/* Smooth transitions */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+.animate-fade-in { animation: fadeIn 0.2s ease-out; }
+.animate-slide-in { animation: slideIn 0.2s ease-out; }
+
+/* Toast */
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-4px); } }
+.toast-in { animation: toastIn 0.2s ease-out; }
+.toast-out { animation: toastOut 0.15s ease-in forwards; }
+
+/* Card hover */
+.card-hover { transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease; }
+.card-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: #d4d4d8; transform: translateY(-1px); }
+
+/* Table improvements */
+table thead th { position: sticky; top: 0; background: white; z-index: 1; }
+table tbody tr { transition: background-color 0.1s ease; }
+
+/* Focus ring */
+:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 4px; }
+
+/* Selection */
+::selection { background: rgba(37, 99, 235, 0.15); }
+
+/* Smooth scroll */
+html { scroll-behavior: smooth; }

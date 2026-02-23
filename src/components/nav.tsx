@@ -70,9 +70,9 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
             key={l.key}
             href={l.href}
             onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium mb-0.5 transition-colors ${
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium mb-0.5 transition-all duration-200 ${
               current === l.key
-                ? 'bg-[#dc2626] text-white'
+                ? 'bg-[#dc2626] text-white shadow-sm shadow-red-500/20'
                 : 'text-[#6b6b76] hover:text-[#111113] hover:bg-[#f4f4f6]'
             }`}
           >
@@ -129,6 +129,19 @@ function GlobalSearch() {
   const [results, setResults] = useState<{ clients: any[]; ads: any[] } | null>(null)
   const [open, setOpen] = useState(false)
 
+  // Cmd+K shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        const input = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+        if (input) input.focus()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   useEffect(() => {
     if (query.length < 2) { setResults(null); return }
     const t = setTimeout(() => {
@@ -142,14 +155,16 @@ function GlobalSearch() {
 
   return (
     <div className="relative">
-      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9d9da8]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M13 13l4 4" /></svg>
+      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9d9da8] pointer-events-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M13 13l4 4" /></svg>
+      <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#c4c4cc] bg-white border border-[#e8e8ec] rounded px-1.5 py-0.5 pointer-events-none font-mono">⌘K</kbd>
       <input
         value={query}
         onChange={e => setQuery(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') { setOpen(false); (e.target as HTMLInputElement).blur() } }}
         onFocus={() => results && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
         placeholder="Search clients & ads..."
-        className="pl-9 pr-4 py-1.5 text-[13px] bg-[#f4f4f6] border border-[#e8e8ec] rounded-lg w-[240px] focus:outline-none focus:border-[#2563eb] focus:w-[320px] transition-all placeholder-[#9d9da8]"
+        className="pl-9 pr-16 py-1.5 text-[13px] bg-[#f4f4f6] border border-[#e8e8ec] rounded-lg w-[240px] focus:outline-none focus:border-[#2563eb] focus:bg-white focus:shadow-sm focus:w-[320px] transition-all placeholder-[#9d9da8]"
       />
       {open && results && (results.clients.length > 0 || results.ads.length > 0) && (
         <div className="absolute top-full mt-1 left-0 w-[360px] bg-white border border-[#e8e8ec] rounded-xl shadow-lg overflow-hidden z-50">
@@ -190,11 +205,11 @@ export function TopBar() {
       <div className="flex items-center gap-3">
         <GlobalSearch />
       </div>
-      <div className="flex items-center gap-3">
-        <div className="w-7 h-7 rounded-full bg-[#dc2626] flex items-center justify-center">
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#dc2626] to-[#b91c1c] flex items-center justify-center shadow-sm">
           <span className="text-white text-[11px] font-semibold">M</span>
         </div>
-        <span className="text-[13px] font-medium text-[#6b6b76]">mason</span>
+        <span className="text-[13px] font-medium text-[#6b6b76]">Mason</span>
       </div>
     </div>
   )

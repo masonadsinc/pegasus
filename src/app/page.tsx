@@ -70,8 +70,8 @@ export default async function Dashboard() {
         <div className="p-6 max-w-[1200px] mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-[#111113] mb-1">Health Tracker</h2>
-              <p className="text-[13px] text-[#9d9da8]">Agency overview — last 7 days vs prior 7</p>
+              <p className="text-[13px] text-[#9d9da8] mb-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })}</p>
+              <h2 className="text-xl font-bold text-[#111113]">Health Tracker</h2>
             </div>
             {alerts.length > 0 && (
               <div className="flex items-center gap-2 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2">
@@ -173,9 +173,9 @@ export default async function Dashboard() {
                     const ctr = a.impressions > 0 ? (a.clicks / a.impressions) * 100 : 0
                     const targetPct = a.target_cpl && cpr > 0 ? ((cpr / a.target_cpl - 1) * 100) : null
                     return (
-                      <tr key={a.ad_account_id} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${isOver ? 'bg-[#fef2f2]/30' : ''}`}>
+                      <tr key={a.ad_account_id} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors group ${isOver ? 'bg-[#fef2f2]/30' : ''}`}>
                         <td className="py-3 px-5">
-                          <Link href={`/clients/${a.client_slug}`} className="font-medium text-[#2563eb] hover:underline">{a.client_name}</Link>
+                          <Link href={`/clients/${a.client_slug}`} className="font-medium text-[#111113] group-hover:text-[#2563eb] transition-colors">{a.client_name}</Link>
                           <p className="text-[11px] text-[#9d9da8] mt-0.5">{a.result_label}</p>
                         </td>
                         <td className="py-3 px-5 text-right tabular-nums font-medium">{formatCurrency(twSpendAcct)}</td>
