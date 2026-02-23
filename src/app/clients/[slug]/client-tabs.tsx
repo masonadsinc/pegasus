@@ -36,16 +36,17 @@ interface ClientTabsProps {
 }
 
 /* ── Sparkline ──────────────────────────────────── */
-function Spark({ data, color = '#2563eb', h = 32, w = 100 }: { data: number[]; color?: string; h?: number; w?: number }) {
+function Spark({ data, color = '#2563eb', h = 32 }: { data: number[]; color?: string; h?: number }) {
   if (data.length < 2) return null
   const max = Math.max(...data, 1); const min = Math.min(...data, 0); const range = max - min || 1
+  const w = 100 // viewBox width, scales to container
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 4) - 2}`)
   const areaPath = `M0,${h} ${pts.map(p => `L${p}`).join(' ')} L${w},${h} Z`
   return (
-    <svg width={w} height={h} className="mt-2">
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-2 w-full" style={{ height: h }}>
       <defs><linearGradient id={`sg_${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.15" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
       <path d={areaPath} fill={`url(#sg_${color.replace('#','')})`} />
-      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
