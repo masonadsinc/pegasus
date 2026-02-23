@@ -319,6 +319,21 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
   const [drillCampaignId, setDrillCampaignId] = useState<string | null>(null)
   const [drillAdSetId, setDrillAdSetId] = useState<string | null>(null)
 
+  // Notes/Annotations (localStorage-based)
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  const [editingNote, setEditingNote] = useState<string | null>(null)
+  const [noteText, setNoteText] = useState('')
+  useEffect(() => {
+    try { const stored = localStorage.getItem(`notes_${platformAccountId}`); if (stored) setNotes(JSON.parse(stored)) } catch {}
+  }, [platformAccountId])
+  const saveNote = (date: string, text: string) => {
+    const updated = { ...notes, [date]: text }
+    if (!text.trim()) delete updated[date]
+    setNotes(updated)
+    localStorage.setItem(`notes_${platformAccountId}`, JSON.stringify(updated))
+    setEditingNote(null)
+  }
+
   const filteredAds = useMemo(() => {
     let list = [...ads]
     if (campaignFilter) list = list.filter(a => a.platform_campaign_id === campaignFilter)
@@ -494,6 +509,23 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       {/* ═══════════════════ OVERVIEW ═══════════════════ */}
       <TabsContent value="overview">
         <div className="space-y-5">
+          {/* Monthly Pacing Bar */}
+          {pacingData.monthSpend > 0 && (
+            <Card className="px-5 py-3">
+              <div className="flex items-center gap-4">
+                <span className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider flex-shrink-0">Month Pacing</span>
+                <div className="flex-1 h-2 bg-[#f4f4f6] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#2563eb] rounded-full transition-all" style={{ width: `${Math.min((pacingData.dayOfMonth / pacingData.daysInMonth) * 100, 100)}%` }} />
+                </div>
+                <div className="flex items-center gap-3 text-[11px] flex-shrink-0">
+                  <span className="tabular-nums"><span className="text-[#9d9da8]">Spent </span><span className="font-semibold">{formatCurrency(pacingData.monthSpend)}</span></span>
+                  <span className="tabular-nums"><span className="text-[#9d9da8]">Proj </span><span className="font-semibold">{formatCurrency(pacingData.projected)}</span></span>
+                  <span className="text-[#9d9da8] tabular-nums">{pacingData.daysRemaining}d left</span>
+                </div>
+              </div>
+            </Card>
+          )}
+
           <Card className="p-5">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
               <h3 className="text-[14px] font-semibold">Performance Trend</h3>
@@ -1496,6 +1528,25 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                                 {anomalies[d.date].join(' · ')}
                               </span>
                             </span>
+                          )}
+                          {notes[d.date] && editingNote !== d.date && (
+                            <button onClick={(e) => { e.stopPropagation(); setEditingNote(d.date); setNoteText(notes[d.date]) }} className="ml-1 relative group">
+                              <span className="inline-block w-3.5 h-3.5 rounded bg-[#eff6ff] text-[#2563eb] text-[8px] font-bold text-center leading-[14px]">N</span>
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 pointer-events-none bg-[#111113] text-white rounded px-2 py-1 text-[10px] whitespace-nowrap shadow-lg max-w-[200px]">
+                                {notes[d.date]}
+                              </span>
+                            </button>
+                          )}
+                          {!notes[d.date] && editingNote !== d.date && (
+                            <button onClick={(e) => { e.stopPropagation(); setEditingNote(d.date); setNoteText('') }} className="ml-1 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity">
+                              <span className="inline-block w-3.5 h-3.5 rounded bg-[#f4f4f6] text-[#9d9da8] text-[8px] text-center leading-[14px]">+</span>
+                            </button>
+                          )}
+                          {editingNote === d.date && (
+                            <div className="ml-2 flex items-center gap-1">
+                              <input autoFocus value={noteText} onChange={e => setNoteText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveNote(d.date, noteText); if (e.key === 'Escape') setEditingNote(null) }} className="text-[11px] border border-[#2563eb] rounded px-1.5 py-0.5 w-[160px] focus:outline-none" placeholder="Add note..." />
+                              <button onClick={() => saveNote(d.date, noteText)} className="text-[10px] text-[#2563eb] font-medium">Save</button>
+                            </div>
                           )}
                         </td>
                         <td className="py-2.5 px-4"><div className="h-[6px] bg-[#f4f4f6] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(d.spend / maxDailySpend) * 100}%`, backgroundColor: d.results > 0 ? '#2563eb' : '#94a3b8' }} /></div></td>
