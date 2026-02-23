@@ -60,10 +60,10 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
       <div className="px-5 py-4 flex items-center justify-between border-b border-[#f4f4f6]">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded bg-[#dc2626] flex items-center justify-center">
-            <span className="text-white text-[12px] font-bold">A</span>
+            <span className="text-white text-[12px] font-semibold">A</span>
           </div>
           <div>
-            <h1 className="text-[14px] font-bold text-[#111113] tracking-tight leading-none">Ads.Inc</h1>
+            <h1 className="text-[14px] font-semibold text-[#111113] tracking-tight leading-none">Ads.Inc</h1>
             <p className="text-[10px] text-[#9d9da8] leading-none mt-0.5">Command Center</p>
           </div>
         </div>

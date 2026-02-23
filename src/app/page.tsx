@@ -204,7 +204,7 @@ export default async function Dashboard() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-[22px] font-semibold text-[#111113] tracking-tight">Health Tracker</h2>
+              <h2 className="text-[20px] font-semibold text-[#111113] tracking-tight">Health Tracker</h2>
               <p className="text-[13px] text-[#9d9da8] mt-0.5">Last 7 days vs prior 7 — sorted by health score</p>
             </div>
             <div className="flex items-center gap-4">
@@ -220,27 +220,27 @@ export default async function Dashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <Card className="p-4">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1.5">Weekly Spend</p>
-              <p className="text-[22px] font-semibold tabular-nums text-[#111113] tracking-tight">{formatCurrency(totalTwSpend)}</p>
+              <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">{formatCurrency(totalTwSpend)}</p>
               <WowArrow value={totalLwSpend > 0 ? ((totalTwSpend - totalLwSpend) / totalLwSpend) * 100 : 0} />
             </Card>
             <Card className="p-4">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1.5">Weekly Results</p>
-              <p className="text-[22px] font-semibold tabular-nums text-[#111113] tracking-tight">{formatNumber(totalTwResults)}</p>
+              <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">{formatNumber(totalTwResults)}</p>
               <WowArrow value={totalLwResults > 0 ? ((totalTwResults - totalLwResults) / totalLwResults) * 100 : 0} />
             </Card>
             <Card className="p-4">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1.5">Blended CPR</p>
-              <p className="text-[22px] font-semibold tabular-nums text-[#111113] tracking-tight">{twCPR > 0 ? formatCurrency(twCPR) : '—'}</p>
+              <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">{twCPR > 0 ? formatCurrency(twCPR) : '—'}</p>
               <WowArrow value={lwCPR > 0 && twCPR > 0 ? ((twCPR - lwCPR) / lwCPR) * 100 : 0} invert />
             </Card>
             <Card className="p-4">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1.5">On Target</p>
-              <p className="text-[22px] font-semibold tabular-nums text-[#111113] tracking-tight">{onTarget.length}/{withTarget.length}</p>
+              <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">{onTarget.length}/{withTarget.length}</p>
               <span className="text-[10px] text-[#9d9da8]">accounts</span>
             </Card>
             <Card className="p-4">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1.5">Avg Health</p>
-              <p className="text-[22px] font-semibold tabular-nums text-[#111113] tracking-tight">
+              <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">
                 {scored.length > 0 ? Math.round(scored.reduce((s, a) => s + a.health.score, 0) / scored.length) : '—'}
               </p>
               <span className="text-[10px] text-[#9d9da8]">/ 100</span>
@@ -314,7 +314,7 @@ export default async function Dashboard() {
           {/* Full Account Table */}
           <Card>
             <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
-              <h3 className="text-[14px] font-semibold text-[#111113]">All Accounts</h3>
+              <h3 className="text-[13px] font-semibold text-[#111113]">All Accounts</h3>
               <span className="text-[12px] text-[#9d9da8]">{activeAccounts.length} active of {accounts.length}</span>
             </div>
             <div className="overflow-x-auto custom-scrollbar">

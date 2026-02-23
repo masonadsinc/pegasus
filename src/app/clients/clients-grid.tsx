@@ -149,7 +149,7 @@ function ClientCard({ account }: { account: Account }) {
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${roasOk ? 'bg-[#16a34a]' : 'bg-[#dc2626]'}`} />
                 <span className="text-[12px] text-[#9d9da8]">ROAS</span>
-                <span className="font-bold tabular-nums">{roas.toFixed(2)}x</span>
+                <span className="font-semibold tabular-nums">{roas.toFixed(2)}x</span>
               </div>
               <span className="text-[12px] text-[#9d9da8]">Target <span className="font-medium">{account.target_roas || '—'}x</span></span>
             </div>
@@ -158,7 +158,7 @@ function ClientCard({ account }: { account: Account }) {
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${cprOk === true ? 'bg-[#16a34a]' : cprOk === false ? 'bg-[#dc2626]' : 'bg-[#9d9da8]'}`} />
                 <span className="text-[12px] text-[#9d9da8]">CPR</span>
-                <span className={`font-bold tabular-nums ${cprOk === false ? 'text-[#dc2626]' : cprOk === true ? 'text-[#16a34a]' : ''}`}>{cpr > 0 ? formatCurrency(cpr) : '—'}</span>
+                <span className={`font-semibold tabular-nums ${cprOk === false ? 'text-[#dc2626]' : cprOk === true ? 'text-[#16a34a]' : ''}`}>{cpr > 0 ? formatCurrency(cpr) : '—'}</span>
               </div>
               <span className="text-[12px] text-[#9d9da8]">Target <span className="font-medium">{account.target_cpl ? formatCurrency(account.target_cpl) : '—'}</span></span>
             </div>

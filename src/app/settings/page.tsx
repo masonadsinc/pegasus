@@ -43,7 +43,7 @@ export default async function SettingsPage() {
       <PageWrapper>
         <div className="p-6 max-w-[1000px] mx-auto">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-[#111113]">Settings</h2>
+            <h2 className="text-[20px] font-semibold text-[#111113]">Settings</h2>
             <p className="text-[13px] text-[#9d9da8]">{org?.name || 'Organization'} · {org?.plan || 'Starter'} plan</p>
           </div>
 
@@ -56,7 +56,7 @@ export default async function SettingsPage() {
                       <h3 className="text-[14px] font-semibold text-[#111113]">{c.title}</h3>
                       <p className="text-[12px] text-[#9d9da8] mt-1">{c.desc}</p>
                     </div>
-                    <span className="text-lg font-semibold text-[#9d9da8]">{c.stat}</span>
+                    <span className="text-[18px] font-semibold text-[#9d9da8]">{c.stat}</span>
                   </div>
                 </Card>
               </Link>

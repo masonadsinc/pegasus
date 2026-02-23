@@ -12,7 +12,7 @@ export function MetricCard({ label, value, subtext, change, className }: MetricC
   return (
     <div className={cn('rounded-md bg-white border border-[#e8e8ec] p-5', className)}>
       <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-2">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums text-[#111113]">{value}</p>
+      <p className="text-[24px] font-semibold tabular-nums text-[#111113]">{value}</p>
       <div className="flex items-center gap-2 mt-1">
         {subtext && <p className="text-[12px] text-[#9d9da8]">{subtext}</p>}
         {change && change.label !== '—' && (

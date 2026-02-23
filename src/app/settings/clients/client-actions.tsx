@@ -30,7 +30,7 @@ export function ClientActions() {
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
       <div className="bg-white border border-[#e8e8ec] rounded-md p-6 w-full max-w-md shadow-xl">
-        <h2 className="text-lg font-bold text-[#111113] mb-4">New Client</h2>
+        <h2 className="text-[15px] font-semibold text-[#111113] mb-4">New Client</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
           <input name="name" placeholder="Client name *" required className={inputClass} />
           <input name="industry" placeholder="Industry" className={inputClass} />

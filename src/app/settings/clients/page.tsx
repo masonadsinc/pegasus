@@ -44,7 +44,7 @@ export default async function ClientsSettingsPage() {
                 <span className="mx-1.5">/</span>
                 <span className="text-[#6b6b76]">Clients</span>
               </div>
-              <h2 className="text-xl font-bold text-[#111113]">Client Management</h2>
+              <h2 className="text-[20px] font-semibold text-[#111113]">Client Management</h2>
               <p className="text-[13px] text-[#9d9da8]">{clients.length} clients total</p>
             </div>
             <ClientActions />

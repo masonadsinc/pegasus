@@ -27,7 +27,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-6 bg-[#f8f8fa]">
       <div className="w-full max-w-xs">
         <div className="text-center mb-10">
-          <h1 className="text-2xl font-bold text-[#111113]">Ads.Inc</h1>
+          <h1 className="text-[22px] font-semibold text-[#111113]">Ads.Inc</h1>
           <p className="text-[#9d9da8] text-[14px] mt-1">Agency Command</p>
         </div>
 

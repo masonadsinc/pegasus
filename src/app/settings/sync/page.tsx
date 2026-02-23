@@ -45,7 +45,7 @@ export default async function SyncPage() {
             <span className="text-[#6b6b76]">Sync Status</span>
           </div>
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-[#111113]">Sync Status</h2>
+            <h2 className="text-[20px] font-semibold text-[#111113]">Sync Status</h2>
             <p className="text-[13px] text-[#9d9da8]">{formatNumber(totalInsights)} insight rows · {accounts.length} active accounts</p>
           </div>
 

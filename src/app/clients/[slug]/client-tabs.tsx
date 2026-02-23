@@ -72,8 +72,8 @@ function StatBox({ label, value, sub, change, sparkData, sparkColor, sparkLabels
 }) {
   return (
     <Card className={`p-4 ${highlight ? 'border-[#f59e0b] border-2' : ''}`}>
-      <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</p>
-      <p className="text-xl font-bold tabular-nums text-[#111113] mt-1">{value}</p>
+      <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">{label}</p>
+      <p className="text-[18px] font-semibold tabular-nums text-[#111113] mt-1">{value}</p>
       <div className="flex items-center gap-2 mt-0.5">
         {sub && <span className="text-[11px] text-[#9d9da8]">{sub}</span>}
         {change && change.label !== '—' && (
@@ -100,7 +100,7 @@ function DataTable({ columns, data, pageSize = 50, emptyMessage = 'No data avail
           <thead>
             <tr className="border-b border-[#e8e8ec]">
               {columns.map(col => (
-                <th key={col.key} className={`py-3 px-4 text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
+                <th key={col.key} className={`py-3 px-4 text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
                   {col.label}
                 </th>
               ))}
@@ -251,7 +251,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
               ].map(m => (
                 <div key={m.label} className="bg-[#f8f8fa] rounded p-2.5">
                   <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">{m.label}</p>
-                  <p className={`text-[14px] font-bold tabular-nums ${m.highlight || ''}`}>{m.value}</p>
+                  <p className={`text-[13px] font-semibold tabular-nums ${m.highlight || ''}`}>{m.value}</p>
                 </div>
               ))}
             </div>
@@ -263,7 +263,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
                   <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Ad Copy</p>
                   <button onClick={(e) => { e.stopPropagation(); const text = [ad.creative_headline, ad.creative_body].filter(Boolean).join('\n\n'); navigator.clipboard.writeText(text); const btn = e.currentTarget; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = 'Copy' }, 1500) }} className="text-[10px] text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">Copy</button>
                 </div>
-                {ad.creative_headline && <p className="text-[14px] font-semibold text-[#111113]">{ad.creative_headline}</p>}
+                {ad.creative_headline && <p className="text-[13px] font-semibold text-[#111113]">{ad.creative_headline}</p>}
                 {ad.creative_body && <p className="text-[13px] text-[#6b6b76] whitespace-pre-line leading-relaxed">{ad.creative_body}</p>}
                 {ad.creative_cta && (
                   <span className="inline-block mt-1 px-3 py-1.5 bg-[#2563eb] text-white text-[11px] font-medium rounded">
@@ -512,7 +512,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         <div className="space-y-5">
           <Card className="p-5">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
-              <h3 className="text-[14px] font-semibold">Performance Trend</h3>
+              <h3 className="text-[13px] font-semibold">Performance Trend</h3>
               <div className="flex flex-wrap items-center gap-1">
                 {metricButtons.map(m => (
                   <button key={m.key} onClick={() => toggleMetric(m.key)}
@@ -568,7 +568,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {topAds.length > 0 && (
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold text-[#16a34a] mb-3">Top Performers</h3>
+                <h3 className="text-[13px] font-semibold text-[#16a34a] mb-3">Top Performers</h3>
                 <div className="space-y-3">
                   {topAds.map((ad, i) => (
                     <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
@@ -578,7 +578,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
                         <p className="text-[11px] text-[#9d9da8]">{formatCurrency(ad.spend)} spent · {ad.results} {ad.result_label}</p>
                       </div>
-                      <span className="text-[13px] font-bold text-[#16a34a] tabular-nums">{formatCurrency(ad.cpr)}</span>
+                      <span className="text-[13px] font-semibold text-[#16a34a] tabular-nums">{formatCurrency(ad.cpr)}</span>
                     </div>
                   ))}
                 </div>
@@ -586,7 +586,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             )}
             {bottomAds.length > 0 && (
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold text-[#dc2626] mb-3">Underperformers</h3>
+                <h3 className="text-[13px] font-semibold text-[#dc2626] mb-3">Underperformers</h3>
                 <div className="space-y-3">
                   {bottomAds.map((ad, i) => (
                     <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
@@ -596,7 +596,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
                         <p className="text-[11px] text-[#9d9da8]">{formatCurrency(ad.spend)} spent · {ad.results} {ad.result_label}</p>
                       </div>
-                      <span className="text-[13px] font-bold text-[#dc2626] tabular-nums">{formatCurrency(ad.cpr)}</span>
+                      <span className="text-[13px] font-semibold text-[#dc2626] tabular-nums">{formatCurrency(ad.cpr)}</span>
                     </div>
                   ))}
                 </div>
@@ -607,7 +607,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
           {/* Funnel — compact horizontal */}
           {funnelSteps.length > 1 && (
             <Card className="p-5">
-              <h3 className="text-[14px] font-semibold mb-4">Conversion Funnel</h3>
+              <h3 className="text-[13px] font-semibold mb-4">Conversion Funnel</h3>
               <div className="flex items-center gap-2">
                 {funnelSteps.map((step, i) => {
                   const maxVal = funnelSteps[0].value || 1
@@ -615,7 +615,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                   return (
                     <div key={step.label} className="flex items-center gap-2 flex-1">
                       <div className="flex-1 text-center">
-                        <p className="text-[18px] font-bold tabular-nums">{formatCompact(step.value)}</p>
+                        <p className="text-[18px] font-semibold tabular-nums">{formatCompact(step.value)}</p>
                         <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">{step.label}</p>
                         {step.rate !== undefined && <p className="text-[10px] font-medium text-[#16a34a] mt-0.5">{formatPercent(step.rate)}</p>}
                       </div>
@@ -722,7 +722,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {/* Monthly Pacing */}
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[14px] font-semibold">Monthly Pacing</h3>
+                  <h3 className="text-[13px] font-semibold">Monthly Pacing</h3>
                   <span className="text-[11px] text-[#9d9da8]">Day {pacingData.dayOfMonth} of {pacingData.daysInMonth}</span>
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -770,7 +770,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 const maxCpr = Math.max(...scatterAds.map(a => a.cpr))
                 return (
                   <Card className="p-5">
-                    <h3 className="text-[14px] font-semibold mb-1">Ad Efficiency Map</h3>
+                    <h3 className="text-[13px] font-semibold mb-1">Ad Efficiency Map</h3>
                     <p className="text-[11px] text-[#9d9da8] mb-4">Each dot is an ad. Bottom-right = high spend, low CPR (ideal).</p>
                     <div className="relative" style={{ height: 300 }}>
                       {/* Y axis label */}
@@ -847,7 +847,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 ]
                 return (
                   <Card className="p-5">
-                    <h3 className="text-[14px] font-semibold mb-4">Period Comparison</h3>
+                    <h3 className="text-[13px] font-semibold mb-4">Period Comparison</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-[12px]">
                         <thead>
@@ -911,7 +911,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {/* Day of Week + Weekly Trend */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-4">Day-of-Week Performance</h3>
+                  <h3 className="text-[13px] font-semibold mb-4">Day-of-Week Performance</h3>
                   <div className="space-y-2">
                     {dowArray.map(d => (
                       <div key={d.name} className={`flex items-center gap-3 py-1.5 ${bestDow?.fullName === d.fullName ? 'bg-[#f0fdf4] -mx-2 px-2 rounded' : worstDow?.fullName === d.fullName ? 'bg-[#fef2f2] -mx-2 px-2 rounded' : ''}`}>
@@ -939,7 +939,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </Card>
 
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-4">Weekly Trend</h3>
+                  <h3 className="text-[13px] font-semibold mb-4">Weekly Trend</h3>
                   {weeklyData.length > 1 ? (
                     <div className="space-y-3">
                       {weeklyData.map((w, i) => {
@@ -969,7 +969,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {/* Spend Efficiency Analysis */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">Spend Concentration</h3>
+                  <h3 className="text-[13px] font-semibold mb-3">Spend Concentration</h3>
                   <div className="space-y-3 text-[12px]">
                     <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
                       <span className="text-[#9d9da8]">Active ads</span>
@@ -995,7 +995,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </Card>
 
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">Consistency</h3>
+                  <h3 className="text-[13px] font-semibold mb-3">Consistency</h3>
                   <div className="space-y-3 text-[12px]">
                     <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
                       <span className="text-[#9d9da8]">Days analyzed</span>
@@ -1025,7 +1025,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </Card>
 
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">Creative Mix</h3>
+                  <h3 className="text-[13px] font-semibold mb-3">Creative Mix</h3>
                   <div className="space-y-3 text-[12px]">
                     <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
                       <span className="text-[#9d9da8]">Image ads</span>
@@ -1059,7 +1059,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 {campaignsWithData.length > 0 && (
                   <Card>
                     <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                      <h3 className="text-[14px] font-semibold">Campaign Efficiency Ranking</h3>
+                      <h3 className="text-[13px] font-semibold">Campaign Efficiency Ranking</h3>
                     </div>
                     <div className="divide-y divide-[#f4f4f6]">
                       {campaignsWithData.slice(0, 8).map((c, i) => (
@@ -1079,7 +1079,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 {headlines.length >= 2 && (
                   <Card>
                     <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                      <h3 className="text-[14px] font-semibold">Headline Performance</h3>
+                      <h3 className="text-[13px] font-semibold">Headline Performance</h3>
                     </div>
                     <div className="divide-y divide-[#f4f4f6]">
                       {headlines.slice(0, 8).map((h, i) => (
@@ -1101,7 +1101,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {(fatiguedAds.length > 0 || highCprAds.length > 0) && (
                 <Card>
                   <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
-                    <h3 className="text-[14px] font-semibold">Wasted Spend Detection</h3>
+                    <h3 className="text-[13px] font-semibold">Wasted Spend Detection</h3>
                     <span className="text-[11px] text-[#dc2626] font-medium">{formatCurrency(wastedSpend)} potential waste</span>
                   </div>
                   <div className="divide-y divide-[#f4f4f6]">
@@ -1146,7 +1146,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 return (
                   <Card>
                     <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                      <h3 className="text-[14px] font-semibold">CTA Performance</h3>
+                      <h3 className="text-[13px] font-semibold">CTA Performance</h3>
                     </div>
                     <div className="divide-y divide-[#f4f4f6]">
                       {ctas.map((c, i) => (
@@ -1167,7 +1167,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {/* Spend Distribution by Campaign — visual */}
               {campaigns.filter(c => c.spend > 0).length > 1 && (
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-4">Spend Distribution</h3>
+                  <h3 className="text-[13px] font-semibold mb-4">Spend Distribution</h3>
                   <div className="flex h-6 rounded overflow-hidden mb-4">
                     {campaigns.filter(c => c.spend > 0).sort((a, b) => b.spend - a.spend).map((c, i) => {
                       const colors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#8b5cf6', '#06b6d4', '#ec4899', '#6b7280']
@@ -1475,7 +1475,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
           <Card>
             <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
-              <h3 className="text-[14px] font-semibold">Daily Breakdown</h3>
+              <h3 className="text-[13px] font-semibold">Daily Breakdown</h3>
               <span className="text-[12px] text-[#9d9da8]">{daily.length} days</span>
             </div>
             <div className="overflow-x-auto custom-scrollbar">
@@ -1504,7 +1504,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                       <tr key={d.date} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${isBest ? 'bg-[#fffbeb]' : isWeekend ? 'bg-[#fafafa]' : ''}`}>
                         <td className="py-2.5 px-4">
                           <span className={isWeekend ? 'text-[#9d9da8]' : ''}>{new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                          {isBest && <span className="ml-1.5 text-[9px] font-bold text-[#f59e0b]">BEST</span>}
+                          {isBest && <span className="ml-1.5 text-[9px] font-semibold text-[#f59e0b]">BEST</span>}
                           {anomalies[d.date] && (
                             <span className="relative group ml-1">
                               <span className="inline-block w-3.5 h-3.5 rounded bg-[#fef2f2] text-[#dc2626] text-[8px] font-bold text-center leading-[14px] cursor-default">!</span>
@@ -1557,24 +1557,24 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             {/* KPI Strip */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <Card className="p-4">
-                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Segments</p>
-                <p className="text-[20px] font-semibold tabular-nums mt-1">{ageGender.length}</p>
+                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Segments</p>
+                <p className="text-[18px] font-semibold tabular-nums mt-1">{ageGender.length}</p>
               </Card>
               <Card className="p-4">
-                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Total Spend</p>
-                <p className="text-[20px] font-semibold tabular-nums mt-1">{formatCurrency(audienceTotal.spend)}</p>
+                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Total Spend</p>
+                <p className="text-[18px] font-semibold tabular-nums mt-1">{formatCurrency(audienceTotal.spend)}</p>
               </Card>
               <Card className="p-4">
-                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">{resultLabel}</p>
-                <p className="text-[20px] font-semibold tabular-nums mt-1">{formatNumber(audienceTotal.results)}</p>
+                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">{resultLabel}</p>
+                <p className="text-[18px] font-semibold tabular-nums mt-1">{formatNumber(audienceTotal.results)}</p>
               </Card>
               <Card className="p-4">
-                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Overall CPR</p>
-                <p className={`text-[20px] font-semibold tabular-nums mt-1 ${targetCpl && audienceTotal.results > 0 && (audienceTotal.spend / audienceTotal.results) > targetCpl ? 'text-[#dc2626]' : ''}`}>{audienceTotal.results > 0 ? formatCurrency(audienceTotal.spend / audienceTotal.results) : '—'}</p>
+                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Overall CPR</p>
+                <p className={`text-[18px] font-semibold tabular-nums mt-1 ${targetCpl && audienceTotal.results > 0 && (audienceTotal.spend / audienceTotal.results) > targetCpl ? 'text-[#dc2626]' : ''}`}>{audienceTotal.results > 0 ? formatCurrency(audienceTotal.spend / audienceTotal.results) : '—'}</p>
               </Card>
               <Card className="p-4">
-                <p className="text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider">Best Segment</p>
-                <p className="text-[14px] font-semibold text-[#16a34a] mt-1">{bestAudienceSegment?.dimension_value || '—'}</p>
+                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Best Segment</p>
+                <p className="text-[13px] font-semibold text-[#16a34a] mt-1">{bestAudienceSegment?.dimension_value || '—'}</p>
                 <p className="text-[11px] text-[#9d9da8]">{bestAudienceSegment ? `${formatCurrency(bestAudienceSegment.cpr)} CPR` : ''}</p>
               </Card>
             </div>
@@ -1582,7 +1582,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             {/* Spend by Segment + Device — 2 col */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-4">Spend by Segment</h3>
+                <h3 className="text-[13px] font-semibold mb-4">Spend by Segment</h3>
                 <div className="space-y-2.5">
                   {ageGender.slice(0, 10).map(seg => {
                     const maxSeg = ageGender[0]?.spend || 1
@@ -1603,7 +1603,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {/* Device Performance — table style */}
               <Card>
                 <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                  <h3 className="text-[14px] font-semibold">Device Performance</h3>
+                  <h3 className="text-[13px] font-semibold">Device Performance</h3>
                 </div>
                 <DataTable
                   columns={[
@@ -1623,7 +1623,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {topAudienceSegments.length > 0 && (
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">Best Performers</h3>
+                  <h3 className="text-[13px] font-semibold mb-3">Best Performers</h3>
                   <div className="space-y-2">
                     {topAudienceSegments.map((seg, i) => (
                       <div key={seg.dimension_value} className="flex items-center gap-3 py-2.5 border-b border-[#f4f4f6] last:border-0">
@@ -1643,7 +1643,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               )}
               {worstAudienceSegments.length > 0 && (
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">Needs Attention</h3>
+                  <h3 className="text-[13px] font-semibold mb-3">Needs Attention</h3>
                   <div className="space-y-2">
                     {worstAudienceSegments.map((seg, i) => {
                       const potentialSavings = targetCpl && seg.cpr > targetCpl ? (seg.cpr - targetCpl) * seg.results : 0
@@ -1670,7 +1670,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             {/* Full Breakdown Table */}
             <Card>
               <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                <h3 className="text-[14px] font-semibold">All Segments</h3>
+                <h3 className="text-[13px] font-semibold">All Segments</h3>
               </div>
               <DataTable
                 columns={[
@@ -1702,12 +1702,12 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <div className="grid grid-cols-3 gap-4">
               <Card className="p-5">
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-[14px] font-semibold">Placements Overview</h3>
+                  <h3 className="text-[13px] font-semibold">Placements Overview</h3>
                 </div>
                 <p className="text-[11px] text-[#9d9da8]">{placement.length} active placements</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-3 text-[12px]">
-                  <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-bold text-[16px]">{formatCompact(placementTotal.spend)}</p></div>
-                  <div><span className="text-[#9d9da8]">Overall CPR</span><p className="font-bold text-[16px]">{placementTotal.results > 0 ? formatCurrency(placementTotal.spend / placementTotal.results) : '—'}</p></div>
+                  <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-semibold text-[18px]">{formatCompact(placementTotal.spend)}</p></div>
+                  <div><span className="text-[#9d9da8]">Overall CPR</span><p className="font-semibold text-[18px]">{placementTotal.results > 0 ? formatCurrency(placementTotal.spend / placementTotal.results) : '—'}</p></div>
                 </div>
                 {bestPlacement && (
                   <div className="mt-3 pt-3 border-t border-[#e8e8ec]">
@@ -1719,7 +1719,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               </Card>
 
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-3">Spend by Platform</h3>
+                <h3 className="text-[13px] font-semibold mb-3">Spend by Platform</h3>
                 <div className="space-y-2">
                   {platformData.map((p, i) => (
                     <div key={p.name} className="flex items-center gap-2">
@@ -1732,7 +1732,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               </Card>
 
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-3">Spend Distribution</h3>
+                <h3 className="text-[13px] font-semibold mb-3">Spend Distribution</h3>
                 <div className="space-y-2">
                   {placement.slice(0, 6).map(p => (
                     <div key={p.dimension_value}>
@@ -1751,7 +1751,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
             {/* Top Placements Chart */}
             <Card className="p-5">
-              <h3 className="text-[14px] font-semibold mb-3">Top Placements</h3>
+              <h3 className="text-[13px] font-semibold mb-3">Top Placements</h3>
               <div className="space-y-2">
                 {placement.slice(0, 12).map(p => (
                   <div key={p.dimension_value} className="flex items-center gap-3">
@@ -1768,25 +1768,25 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             {/* Performance Ranking */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold text-[#16a34a] mb-3">Top Performers</h3>
+                <h3 className="text-[13px] font-semibold text-[#16a34a] mb-3">Top Performers</h3>
                 <div className="space-y-2">
                   {topPlacements.map((p, i) => (
                     <div key={p.dimension_value} className="flex items-center gap-3">
                       <span className="w-5 h-5 rounded bg-[#dcfce7] text-[#16a34a] text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
                       <span className="text-[12px] flex-1 truncate">{p.dimension_value}</span>
-                      <span className="text-[12px] font-bold tabular-nums">{formatCurrency(p.cpr)}</span>
+                      <span className="text-[12px] font-semibold tabular-nums">{formatCurrency(p.cpr)}</span>
                     </div>
                   ))}
                 </div>
               </Card>
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold text-[#dc2626] mb-3">Needs Attention</h3>
+                <h3 className="text-[13px] font-semibold text-[#dc2626] mb-3">Needs Attention</h3>
                 <div className="space-y-2">
                   {worstPlacements.map((p, i) => (
                     <div key={p.dimension_value} className="flex items-center gap-3">
                       <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center">{placement.length - i}</span>
                       <span className="text-[12px] flex-1 truncate">{p.dimension_value}</span>
-                      <span className="text-[12px] font-bold tabular-nums">{formatCurrency(p.cpr)}</span>
+                      <span className="text-[12px] font-semibold tabular-nums">{formatCurrency(p.cpr)}</span>
                     </div>
                   ))}
                 </div>
@@ -1796,7 +1796,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             {/* All Placements Table */}
             <Card>
               <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                <h3 className="text-[14px] font-semibold">All Placements</h3>
+                <h3 className="text-[13px] font-semibold">All Placements</h3>
               </div>
               <DataTable
                 columns={[
@@ -1861,18 +1861,18 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {/* Overview row */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-2">Geographic Overview</h3>
+                  <h3 className="text-[13px] font-semibold mb-2">Geographic Overview</h3>
                   <p className="text-[11px] text-[#9d9da8] mb-3">{region.length} states active</p>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
-                    <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-semibold text-[16px]">{formatCompact(geoTotal.spend)}</p></div>
-                    <div><span className="text-[#9d9da8]">Impressions</span><p className="font-semibold text-[16px]">{formatCompact(geoTotal.impressions)}</p></div>
-                    <div><span className="text-[#9d9da8]">Clicks</span><p className="font-semibold text-[16px]">{formatCompact(geoTotal.clicks)}</p></div>
-                    <div><span className="text-[#9d9da8]">CTR</span><p className="font-semibold text-[16px]">{geoTotal.impressions > 0 ? formatPercent((geoTotal.clicks / geoTotal.impressions) * 100) : '—'}</p></div>
+                    <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-semibold text-[18px]">{formatCompact(geoTotal.spend)}</p></div>
+                    <div><span className="text-[#9d9da8]">Impressions</span><p className="font-semibold text-[18px]">{formatCompact(geoTotal.impressions)}</p></div>
+                    <div><span className="text-[#9d9da8]">Clicks</span><p className="font-semibold text-[18px]">{formatCompact(geoTotal.clicks)}</p></div>
+                    <div><span className="text-[#9d9da8]">CTR</span><p className="font-semibold text-[18px]">{geoTotal.impressions > 0 ? formatPercent((geoTotal.clicks / geoTotal.impressions) * 100) : '—'}</p></div>
                   </div>
                 </Card>
 
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">Regional Performance</h3>
+                  <h3 className="text-[13px] font-semibold mb-3">Regional Performance</h3>
                   <div className="space-y-2">
                     {Object.entries(regionGroups).sort((a, b) => b[1].spend - a[1].spend).map(([name, data]) => (
                       <div key={name} className="flex items-center justify-between text-[12px]">
@@ -1884,7 +1884,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </Card>
 
                 <Card className="p-5">
-                  <h3 className="text-[14px] font-semibold mb-3">Top States</h3>
+                  <h3 className="text-[13px] font-semibold mb-3">Top States</h3>
                   <div className="grid grid-cols-5 gap-1.5">
                     {region.slice(0, 15).map(r => {
                       const abbr = getAbbr(r.dimension_value)
@@ -1902,7 +1902,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
 
               {/* Top States bar chart */}
               <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-3">Top States by Spend</h3>
+                <h3 className="text-[13px] font-semibold mb-3">Top States by Spend</h3>
                 <div className="space-y-2">
                   {region.slice(0, 10).map(r => (
                     <div key={r.dimension_value} className="flex items-center gap-3">
@@ -1919,7 +1919,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               {/* All States table */}
               <Card>
                 <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                  <h3 className="text-[14px] font-semibold">All States</h3>
+                  <h3 className="text-[13px] font-semibold">All States</h3>
                 </div>
                 <DataTable
                   columns={[
@@ -1941,7 +1941,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       <TabsContent value="settings">
         <div className="space-y-5 max-w-2xl">
           <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-4">Account Configuration</h3>
+            <h3 className="text-[13px] font-semibold mb-4">Account Configuration</h3>
             <div className="space-y-3 text-[13px]">
               <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
                 <span className="text-[#9d9da8]">Account Name</span>
@@ -1975,7 +1975,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
           </Card>
 
           <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-4">Data Summary</h3>
+            <h3 className="text-[13px] font-semibold mb-4">Data Summary</h3>
             <div className="space-y-3 text-[13px]">
               <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
                 <span className="text-[#9d9da8]">Data Range</span>

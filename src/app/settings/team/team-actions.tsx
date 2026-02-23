@@ -30,7 +30,7 @@ export function TeamActions() {
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
       <div className="bg-white border border-[#e8e8ec] rounded-md p-6 w-full max-w-sm shadow-xl">
-        <h2 className="text-lg font-bold text-[#111113] mb-4">Invite Team Member</h2>
+        <h2 className="text-[15px] font-semibold text-[#111113] mb-4">Invite Team Member</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
           <input name="email" type="email" placeholder="Email address *" required className={inputClass} />
           <input name="display_name" placeholder="Display name" className={inputClass} />

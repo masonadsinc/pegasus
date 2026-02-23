@@ -18,7 +18,7 @@ export default async function ClientsPage() {
         <div className="p-6 max-w-[1400px] mx-auto">
           <div className="flex items-end justify-between mb-4">
             <div>
-              <h2 className="text-xl font-bold text-[#111113]">Clients</h2>
+              <h2 className="text-[20px] font-semibold text-[#111113]">Clients</h2>
               <p className="text-[13px] text-[#9d9da8]">{accounts.length} accounts · {activeCount} active · {formatCurrency(totalSpend)} total spend (7d)</p>
             </div>
           </div>

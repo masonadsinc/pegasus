@@ -45,7 +45,7 @@ export default async function ClientSettingPage({ params }: { params: Promise<{ 
           <span className="text-zinc-300">{client.name}</span>
         </div>
 
-        <h1 className="text-xl font-bold mb-6">{client.name}</h1>
+        <h1 className="text-[20px] font-semibold mb-6">{client.name}</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Client Details */}

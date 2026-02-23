@@ -24,7 +24,7 @@ function KpiCard({ label, value, target, sub, status, icon, progressPct }: {
           <Badge variant={status ? 'success' : 'danger'}>{status ? 'On Target' : 'Over'}</Badge>
         )}
       </div>
-      <p className="text-[28px] font-bold tabular-nums text-[#111113] tracking-tight">{value}</p>
+      <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">{value}</p>
       {target && <p className="text-[12px] text-[#9d9da8] mt-0.5">{target}</p>}
       {sub && <p className="text-[12px] text-[#9d9da8] mt-0.5">{sub}</p>}
       {progressPct !== undefined && (
@@ -118,7 +118,7 @@ export default async function ClientDetailPage({ params, searchParams }: { param
               <a href="/clients" className="w-8 h-8 rounded bg-[#f4f4f6] hover:bg-[#e8e8ec] flex items-center justify-center transition-colors flex-shrink-0">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b6b76" strokeWidth="2" strokeLinecap="round"><path d="M10 4l-4 4 4 4" /></svg>
               </a>
-              <h1 className="text-xl font-bold text-[#111113]">{client.name}</h1>
+              <h1 className="text-[20px] font-semibold text-[#111113]">{client.name}</h1>
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="success">Active</Badge>
