@@ -52,15 +52,43 @@ const statusCfg: Record<Status, { label: string; variant: 'success' | 'info' | '
 
 const statusOrder: Record<Status, number> = { attention: 0, watch: 1, 'on-track': 2, excellent: 3, 'no-data': 4 }
 
-function DotHeatmap({ daily }: { daily: Account['daily'] }) {
-  const dots = []
+function DotHeatmap({ daily, targetCpl, targetRoas, isEcom }: { daily: Account['daily']; targetCpl?: number | null; targetRoas?: number | null; isEcom?: boolean }) {
+  const last30: (Account['daily'][0] | null)[] = []
   for (let i = 0; i < 30; i++) {
-    const day = daily[daily.length - 30 + i]
-    if (!day || day.spend === 0) dots.push('bg-[#e8e8ec]')
-    else if (day.results > 0) dots.push('bg-[#16a34a]')
-    else dots.push('bg-[#f59e0b]')
+    last30.push(daily[daily.length - 30 + i] || null)
   }
-  return <div className="flex gap-[3px]">{dots.map((c, i) => <div key={i} className={`w-[7px] h-[7px] rounded-[2px] ${c} transition-transform hover:scale-150`} />)}</div>
+  return (
+    <div className="flex gap-[3px]">
+      {last30.map((day, i) => {
+        let color = 'bg-[#e8e8ec]'
+        if (day && day.spend > 0) {
+          if (day.results > 0) {
+            const cpr = day.spend / day.results
+            if (targetCpl && cpr > targetCpl) color = 'bg-[#dc2626]'
+            else color = 'bg-[#16a34a]'
+          } else color = 'bg-[#f59e0b]'
+        }
+        const dateLabel = day ? new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''
+        const cpr = day && day.results > 0 ? day.spend / day.results : 0
+        return (
+          <div key={i} className="relative group">
+            <div className={`w-[7px] h-[7px] rounded-[2px] ${color} transition-transform hover:scale-[2] cursor-default`} />
+            {day && day.spend > 0 && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                <div className="bg-[#111113] text-white rounded px-2.5 py-1.5 text-[10px] whitespace-nowrap shadow-lg">
+                  <p className="font-medium mb-0.5">{dateLabel}</p>
+                  <p>Spend: {formatCurrency(day.spend)}</p>
+                  <p>Results: {day.results}</p>
+                  {cpr > 0 && <p className={targetCpl && cpr > targetCpl ? 'text-[#fca5a5]' : 'text-[#86efac]'}>CPR: {formatCurrency(cpr)}</p>}
+                </div>
+                <div className="w-1.5 h-1.5 bg-[#111113] rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-0.5" />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function DaysOnTarget({ daily, targetCpl, targetRoas, isEcom }: { daily: Account['daily']; targetCpl: number | null; targetRoas: number | null; isEcom: boolean }) {
@@ -97,7 +125,7 @@ function ClientCard({ account }: { account: Account }) {
       <div className="rounded-md bg-white border border-[#e8e8ec] p-5 card-hover cursor-pointer h-full">
         <div className="mb-3">
           <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider mb-1.5">Last 30 Days</p>
-          <DotHeatmap daily={account.daily} />
+          <DotHeatmap daily={account.daily} targetCpl={account.target_cpl} targetRoas={account.target_roas} isEcom={isEcom} />
         </div>
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-semibold text-[14px] text-[#111113]">{account.client_name}</h3>

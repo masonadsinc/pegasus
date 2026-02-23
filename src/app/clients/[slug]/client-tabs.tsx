@@ -430,54 +430,6 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} />
           </div>
 
-          {/* Creative Performance: Image vs Video */}
-          {(() => {
-            const isVideoAd = (a: any) => a.creative_video_url || a.creative_url?.includes('/t15.5256-10/') || a.creative_url?.includes('/t15.13418-10/')
-            const videoAds = ads.filter(a => isVideoAd(a) && a.spend > 0)
-            const imageAds = ads.filter(a => !isVideoAd(a) && a.spend > 0)
-            const videoSpend = videoAds.reduce((s, a) => s + a.spend, 0)
-            const videoResults = videoAds.reduce((s, a) => s + a.results, 0)
-            const imageSpend = imageAds.reduce((s, a) => s + a.spend, 0)
-            const imageResults = imageAds.reduce((s, a) => s + a.results, 0)
-            const videoCpr = videoResults > 0 ? videoSpend / videoResults : 0
-            const imageCpr = imageResults > 0 ? imageSpend / imageResults : 0
-            if (videoAds.length === 0 && imageAds.length === 0) return null
-            const totalCreativeSpend = videoSpend + imageSpend
-            return (
-              <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-3">Creative Type Performance</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[#f8f8fa] rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
-                      <span className="text-[12px] font-semibold">Images</span>
-                      <span className="text-[10px] text-[#9d9da8]">{imageAds.length} ads</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-[11px]">
-                      <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(imageSpend)}</p></div>
-                      <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{imageResults}</p></div>
-                      <div><span className="text-[#9d9da8]">CPR</span><p className={`font-semibold ${imageCpr > 0 ? (targetCpl && imageCpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]') : ''}`}>{imageCpr > 0 ? formatCurrency(imageCpr) : '—'}</p></div>
-                    </div>
-                    {totalCreativeSpend > 0 && <div className="mt-2 h-1.5 bg-[#e8e8ec] rounded-full"><div className="h-full bg-[#2563eb] rounded-full" style={{ width: `${(imageSpend / totalCreativeSpend) * 100}%` }} /></div>}
-                  </div>
-                  <div className="bg-[#f8f8fa] rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                      <span className="text-[12px] font-semibold">Videos</span>
-                      <span className="text-[10px] text-[#9d9da8]">{videoAds.length} ads</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-[11px]">
-                      <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold">{formatCurrency(videoSpend)}</p></div>
-                      <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold">{videoResults}</p></div>
-                      <div><span className="text-[#9d9da8]">CPR</span><p className={`font-semibold ${videoCpr > 0 ? (targetCpl && videoCpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]') : ''}`}>{videoCpr > 0 ? formatCurrency(videoCpr) : '—'}</p></div>
-                    </div>
-                    {totalCreativeSpend > 0 && <div className="mt-2 h-1.5 bg-[#e8e8ec] rounded-full"><div className="h-full bg-[#8b5cf6] rounded-full" style={{ width: `${(videoSpend / totalCreativeSpend) * 100}%` }} /></div>}
-                  </div>
-                </div>
-              </Card>
-            )
-          })()}
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {topAds.length > 0 && (
               <Card className="p-5">
@@ -517,35 +469,28 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             )}
           </div>
 
-          <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-4">Funnel Health</h3>
-            <div className="flex items-center justify-around mb-5">
-              {funnelSteps.map((step, i) => (
-                <div key={step.label} className="flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-[22px] font-bold tabular-nums">{formatNumber(step.value)}</p>
-                    <p className="text-[11px] text-[#9d9da8]">{step.label}</p>
-                    {step.rate !== undefined && i > 0 && <p className="text-[11px] text-[#16a34a] font-medium mt-0.5">{step.rateLabel}: {step.rate.toFixed(2)}%</p>}
-                  </div>
-                  {i < funnelSteps.length - 1 && <svg className="w-4 h-4 text-[#d4d4d8]" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>}
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              {funnelSteps.map(step => {
-                const maxVal = funnelSteps[0].value || 1
-                return (
-                  <div key={step.label} className="flex items-center gap-3">
-                    <span className="text-[11px] text-[#9d9da8] w-20 text-right">{step.label}</span>
-                    <div className="flex-1 h-4 bg-[#f4f4f6] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#2563eb] rounded-full" style={{ width: `${(step.value / maxVal) * 100}%` }} />
+          {/* Funnel — compact horizontal */}
+          {funnelSteps.length > 1 && (
+            <Card className="p-5">
+              <h3 className="text-[14px] font-semibold mb-4">Conversion Funnel</h3>
+              <div className="flex items-center gap-2">
+                {funnelSteps.map((step, i) => {
+                  const maxVal = funnelSteps[0].value || 1
+                  const pct = (step.value / maxVal) * 100
+                  return (
+                    <div key={step.label} className="flex items-center gap-2 flex-1">
+                      <div className="flex-1 text-center">
+                        <p className="text-[18px] font-bold tabular-nums">{formatCompact(step.value)}</p>
+                        <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider">{step.label}</p>
+                        {step.rate !== undefined && <p className="text-[10px] font-medium text-[#16a34a] mt-0.5">{formatPercent(step.rate)}</p>}
+                      </div>
+                      {i < funnelSteps.length - 1 && <svg className="w-3 h-3 text-[#d4d4d8] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M7 4l6 6-6 6" /></svg>}
                     </div>
-                    <span className="text-[11px] text-[#9d9da8] w-16 tabular-nums">{formatNumber(step.value)}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </Card>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
         </div>
       </TabsContent>
 
@@ -888,30 +833,74 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 </Card>
               )}
 
-              {/* Full Funnel Table */}
-              <Card>
-                <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                  <h3 className="text-[14px] font-semibold">Full Funnel Breakdown</h3>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center gap-0">
-                    {funnelSteps.map((step, i) => (
-                      <div key={step.label} className="flex-1">
-                        <div className={`py-4 px-3 text-center ${i === 0 ? 'bg-[#2563eb] text-white rounded-l' : i === funnelSteps.length - 1 ? 'bg-[#16a34a] text-white rounded-r' : 'bg-[#f59e0b] text-white'}`}>
-                          <p className="text-[10px] font-medium uppercase tracking-wider opacity-80">{step.label}</p>
-                          <p className="text-[20px] font-bold tabular-nums mt-1">{formatCompact(step.value)}</p>
-                        </div>
-                        {step.rate !== undefined && (
-                          <div className="text-center mt-2">
-                            <p className="text-[10px] text-[#9d9da8]">{step.rateLabel}</p>
-                            <p className="text-[13px] font-semibold tabular-nums">{formatPercent(step.rate)}</p>
+              {/* CTA Performance */}
+              {(() => {
+                const ctaMap = new Map<string, { spend: number; results: number; count: number }>()
+                for (const a of ads.filter(a => a.creative_cta && a.spend > 0)) {
+                  const c = a.creative_cta!
+                  const existing = ctaMap.get(c) || { spend: 0, results: 0, count: 0 }
+                  existing.spend += a.spend; existing.results += a.results; existing.count++
+                  ctaMap.set(c, existing)
+                }
+                const ctas = Array.from(ctaMap.entries())
+                  .map(([cta, data]) => ({ cta, ...data, cpr: data.results > 0 ? data.spend / data.results : Infinity }))
+                  .filter(c => c.results >= 1)
+                  .sort((a, b) => a.cpr - b.cpr)
+                if (ctas.length < 2) return null
+                return (
+                  <Card>
+                    <div className="px-5 py-4 border-b border-[#e8e8ec]">
+                      <h3 className="text-[14px] font-semibold">CTA Performance</h3>
+                    </div>
+                    <div className="divide-y divide-[#f4f4f6]">
+                      {ctas.map((c, i) => (
+                        <div key={c.cta} className="flex items-center gap-3 px-5 py-3">
+                          <span className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i === 0 ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[#f4f4f6] text-[#9d9da8]'}`}>{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium">{c.cta.replace(/_/g, ' ')}</p>
+                            <p className="text-[10px] text-[#9d9da8]">{c.count} ad{c.count > 1 ? 's' : ''} · {c.results} {resultLabel.toLowerCase()} · {formatCurrency(c.spend)} spent</p>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          <span className={`text-[12px] font-semibold tabular-nums ${targetCpl && c.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{c.cpr < Infinity ? formatCurrency(c.cpr) : '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )
+              })()}
+
+              {/* Spend Distribution by Campaign — visual */}
+              {campaigns.filter(c => c.spend > 0).length > 1 && (
+                <Card className="p-5">
+                  <h3 className="text-[14px] font-semibold mb-4">Spend Distribution</h3>
+                  <div className="flex h-6 rounded overflow-hidden mb-4">
+                    {campaigns.filter(c => c.spend > 0).sort((a, b) => b.spend - a.spend).map((c, i) => {
+                      const colors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#8b5cf6', '#06b6d4', '#ec4899', '#6b7280']
+                      return (
+                        <div key={c.platform_campaign_id} className="h-full relative group" style={{ width: `${(c.spend / totalSpendAll) * 100}%`, backgroundColor: colors[i % colors.length] }} title={`${c.campaign_name}: ${formatCurrency(c.spend)}`}>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                            <div className="bg-[#111113] text-white rounded px-2.5 py-1.5 text-[10px] whitespace-nowrap shadow-lg">
+                              <p className="font-medium">{c.campaign_name}</p>
+                              <p className="text-[#9d9da8]">{formatCurrency(c.spend)} · {((c.spend / totalSpendAll) * 100).toFixed(1)}%</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                </div>
-              </Card>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 text-[11px]">
+                    {campaigns.filter(c => c.spend > 0).sort((a, b) => b.spend - a.spend).slice(0, 6).map((c, i) => {
+                      const colors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#8b5cf6', '#06b6d4']
+                      return (
+                        <div key={c.platform_campaign_id} className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-[1px] flex-shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
+                          <span className="truncate text-[#6b6b76]">{c.campaign_name}</span>
+                          <span className="tabular-nums text-[#9d9da8] ml-auto flex-shrink-0">{((c.spend / totalSpendAll) * 100).toFixed(0)}%</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Card>
+              )}
             </div>
           )
         })()}
@@ -1002,7 +991,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
               <DataTable
                 columns={[
                   { key: '_img', label: '', format: (_, row) => <AdImage src={row.creative_url || row.creative_thumbnail_url} alt={row.ad_name} className="w-10 h-10 rounded-md" /> },
-                  { key: 'ad_name', label: 'Ad', format: (v, row) => <button className="font-medium text-left hover:text-[#2563eb] transition-colors" onClick={() => setSelectedAd(row)}>{v}</button> },
+                  { key: 'ad_name', label: 'Ad', format: (v, row) => <div><button className="font-medium text-left hover:text-[#2563eb] transition-colors" onClick={() => setSelectedAd(row)}>{v}</button><p className="text-[10px] text-[#9d9da8] truncate max-w-[250px]">{row.campaign_name}</p></div> },
                   { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
                   { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
                   { key: 'cpr', label: 'CPR', format: (v: number) => {
@@ -1010,6 +999,8 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                     const isOver = targetCpl ? v > targetCpl : false
                     return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
                   }, align: 'right' },
+                  { key: 'impressions', label: 'Impr', format: (v) => formatNumber(v), align: 'right' },
+                  { key: 'clicks', label: 'Clicks', format: (v) => formatNumber(v), align: 'right' },
                   { key: 'ctr', label: 'CTR', format: (v: number) => <span className="text-[#6b6b76]">{formatPercent(v)}</span>, align: 'right' },
                 ]}
                 data={filteredAds}
@@ -1241,6 +1232,8 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                     <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Spend</th>
                     <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">{resultLabel}</th>
                     <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CPR</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Impr</th>
+                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Clicks</th>
                     <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">CTR</th>
                   </tr>
                 </thead>
@@ -1256,12 +1249,14 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                       <tr key={d.date} className={`border-b border-[#f4f4f6] hover:bg-[#fafafb] transition-colors ${isBest ? 'bg-[#fffbeb]' : isWeekend ? 'bg-[#fafafa]' : ''}`}>
                         <td className="py-2.5 px-4">
                           <span className={isWeekend ? 'text-[#9d9da8]' : ''}>{new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                          {isBest && <span className="ml-1.5 text-[9px] text-[#f59e0b]">★</span>}
+                          {isBest && <span className="ml-1.5 text-[9px] font-bold text-[#f59e0b]">BEST</span>}
                         </td>
                         <td className="py-2.5 px-4"><div className="h-[6px] bg-[#f4f4f6] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(d.spend / maxDailySpend) * 100}%`, backgroundColor: d.results > 0 ? '#2563eb' : '#94a3b8' }} /></div></td>
                         <td className="py-2.5 px-4 text-right tabular-nums font-medium">{formatCurrency(d.spend)}</td>
                         <td className="py-2.5 px-4 text-right tabular-nums">{d.results}</td>
                         <td className="py-2.5 px-4 text-right tabular-nums">{cpr > 0 ? <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(cpr)}</span> : <span className="text-[#c4c4cc]">—</span>}</td>
+                        <td className="py-2.5 px-4 text-right tabular-nums text-[#9d9da8]">{formatNumber(d.impressions)}</td>
+                        <td className="py-2.5 px-4 text-right tabular-nums text-[#9d9da8]">{formatNumber(d.clicks)}</td>
                         <td className="py-2.5 px-4 text-right tabular-nums text-[#6b6b76]">{ctrVal > 0 ? formatPercent(ctrVal) : '—'}</td>
                       </tr>
                     )
