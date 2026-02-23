@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -425,6 +425,27 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
     return { monthSpend, monthResults, avgDaily, projected, projectedResults, dayOfMonth, daysInMonth, daysRemaining: daysInMonth - dayOfMonth }
   }, [daily])
 
+  // Sticky header scroll tracking
+  const [showStickyKpi, setShowStickyKpi] = useState(false)
+  useEffect(() => {
+    const handleScroll = () => setShowStickyKpi(window.scrollY > 280)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      const tabKeys: Record<string, string> = { '1': 'overview', '2': 'deepdive', '3': 'ads', '4': 'campaigns', '5': 'daily', '6': 'audience', '7': 'placements', '8': 'geographic' }
+      if (tabKeys[e.key]) { e.preventDefault(); setActiveTab(tabKeys[e.key]) }
+      if (e.key === '?') { e.preventDefault(); alert('Keyboard Shortcuts:\n1-8: Switch tabs\nEsc: Close modal') }
+      if (e.key === 'Escape' && selectedAd) { setSelectedAd(null) }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [selectedAd])
+
   // Data freshness
   const lastDate = daily.length > 0 ? daily[daily.length - 1].date : null
   const freshnessLabel = lastDate ? `Data through ${new Date(lastDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''
@@ -436,6 +457,24 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
       <div className="flex items-center gap-2 mb-3 text-[11px] text-[#9d9da8]">
         <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" />
         <span>{freshnessLabel}</span>
+        <span className="ml-auto text-[10px] text-[#c4c4cc]">Press ? for shortcuts</span>
+      </div>
+    )}
+
+    {/* Sticky KPI Header */}
+    {showStickyKpi && (
+      <div className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-[#e8e8ec] shadow-sm">
+        <div className="max-w-[1440px] mx-auto px-6 py-2 flex items-center gap-6">
+          <span className="text-[13px] font-semibold text-[#111113] truncate max-w-[180px]">{clientName}</span>
+          <div className="w-px h-4 bg-[#e8e8ec]" />
+          <div className="flex items-center gap-5 text-[11px] overflow-x-auto">
+            <div><span className="text-[#9d9da8]">Spend </span><span className="font-semibold tabular-nums">{formatCurrency(twSum('spend'))}</span></div>
+            <div><span className="text-[#9d9da8]">{resultLabel} </span><span className="font-semibold tabular-nums">{formatNumber(twSum('results'))}</span></div>
+            <div><span className="text-[#9d9da8]">CPR </span><span className={`font-semibold tabular-nums ${targetCpl && twSum('results') > 0 && twSum('spend') / twSum('results') > targetCpl ? 'text-[#dc2626]' : twSum('results') > 0 ? 'text-[#16a34a]' : ''}`}>{twSum('results') > 0 ? formatCurrency(twSum('spend') / twSum('results')) : '—'}</span></div>
+            <div><span className="text-[#9d9da8]">CTR </span><span className="font-semibold tabular-nums">{twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'}</span></div>
+            {targetCpl && <div><span className="text-[#9d9da8]">Target </span><span className="font-semibold tabular-nums">{formatCurrency(targetCpl)}</span></div>}
+          </div>
+        </div>
       </div>
     )}
 
