@@ -134,7 +134,7 @@ export async function getDashboardData(orgId: string, days: number = 7) {
     } else {
       // lead, offsite_conversion.fb_pixel_custom, offsite_conversion.fb_pixel_lead, etc.
       acct.results = acct.leads
-      acct.result_label = pat === 'offsite_conversion.fb_pixel_custom' ? 'conversions' : 'leads'
+      acct.result_label = pat.includes('fb_pixel_custom') ? 'calls' : 'leads'
     }
   }
 
