@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
-const supabase = createClient(
+const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
@@ -34,8 +34,8 @@ export default function LoginPage() {
       <div className="w-full max-w-xs">
         <div className="text-center mb-10">
           <div className="text-5xl mb-3">🐎</div>
-          <h1 className="text-2xl font-bold">Pegasus</h1>
-          <p className="text-zinc-500 text-sm mt-1">Agency Command</p>
+          <h1 className="text-2xl font-bold">Agency Command</h1>
+          <p className="text-zinc-500 text-sm mt-1">Sign in to your account</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-3">

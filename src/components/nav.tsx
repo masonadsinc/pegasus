@@ -5,6 +5,7 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'financial
     { href: '/', label: '🐎 Command', key: 'dashboard' as const },
     { href: '/clients', label: 'Clients', key: 'clients' as const },
     { href: '/financials', label: 'Financials', key: 'financials' as const },
+    { href: '/settings', label: '⚙️ Settings', key: 'settings' as const },
   ]
 
   return (
