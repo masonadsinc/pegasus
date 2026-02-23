@@ -429,67 +429,6 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <StatBox label="CTR" value={twSum('impressions') > 0 ? formatPercent((twSum('clicks') / twSum('impressions')) * 100) : '—'} />
           </div>
 
-          {/* Spend Heatmap Calendar */}
-          <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-3">Daily Activity</h3>
-            <div className="flex flex-wrap gap-[3px]">
-              {daily.map(d => {
-                const intensity = d.spend / maxDailySpend
-                const hasResults = d.results > 0
-                const cpr = d.results > 0 ? d.spend / d.results : 0
-                const isOver = targetCpl && cpr > targetCpl
-                const bg = d.spend === 0 ? '#f4f4f6' : isOver ? `rgba(220, 38, 38, ${0.3 + intensity * 0.7})` : hasResults ? `rgba(22, 163, 74, ${0.2 + intensity * 0.8})` : `rgba(37, 99, 235, ${0.2 + intensity * 0.6})`
-                const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                return (
-                  <div key={d.date} className="w-[18px] h-[18px] rounded-[3px] cursor-default" style={{ backgroundColor: bg }} title={`${dateLabel}: ${formatCurrency(d.spend)} · ${d.results} ${resultLabel.toLowerCase()}`} />
-                )
-              })}
-            </div>
-            <div className="flex items-center gap-4 mt-3 text-[10px] text-[#9d9da8]">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#16a34a]" /> On target</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#dc2626]" /> Over target</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#2563eb]" /> Spend, no results</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#f4f4f6]" /> No spend</span>
-            </div>
-          </Card>
-
-          {/* Top Performing Headlines */}
-          {(() => {
-            const adsWithHeadline = ads.filter(a => a.creative_headline && a.spend > 0 && a.results > 0)
-            if (adsWithHeadline.length < 2) return null
-            // Group by headline
-            const headlineMap = new Map<string, { spend: number; results: number; count: number }>()
-            for (const a of adsWithHeadline) {
-              const h = a.creative_headline!
-              const existing = headlineMap.get(h) || { spend: 0, results: 0, count: 0 }
-              existing.spend += a.spend; existing.results += a.results; existing.count++
-              headlineMap.set(h, existing)
-            }
-            const headlines = Array.from(headlineMap.entries())
-              .map(([headline, data]) => ({ headline, ...data, cpr: data.results > 0 ? data.spend / data.results : 0 }))
-              .filter(h => h.results >= 2)
-              .sort((a, b) => a.cpr - b.cpr)
-              .slice(0, 5)
-            if (headlines.length < 2) return null
-            return (
-              <Card className="p-5">
-                <h3 className="text-[14px] font-semibold mb-3">Top Headlines by CPR</h3>
-                <div className="space-y-2.5">
-                  {headlines.map((h, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i === 0 ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#f4f4f6] text-[#9d9da8]'}`}>{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-medium truncate">&ldquo;{h.headline}&rdquo;</p>
-                        <p className="text-[10px] text-[#9d9da8]">{h.count} ad{h.count > 1 ? 's' : ''} · {h.results} {resultLabel.toLowerCase()}</p>
-                      </div>
-                      <span className={`text-[12px] font-bold tabular-nums ${targetCpl && h.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(h.cpr)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )
-          })()}
-
           {/* Creative Performance: Image vs Video */}
           {(() => {
             const isVideoAd = (a: any) => a.creative_video_url || a.creative_url?.includes('/t15.5256-10/') || a.creative_url?.includes('/t15.13418-10/')
@@ -509,7 +448,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-[#f8f8fa] rounded-md p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
                       <span className="text-[12px] font-semibold">Images</span>
                       <span className="text-[10px] text-[#9d9da8]">{imageAds.length} ads</span>
                     </div>
@@ -522,7 +461,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                   </div>
                   <div className="bg-[#f8f8fa] rounded-md p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
                       <span className="text-[12px] font-semibold">Videos</span>
                       <span className="text-[10px] text-[#9d9da8]">{videoAds.length} ads</span>
                     </div>
@@ -533,32 +472,6 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                     </div>
                     {totalCreativeSpend > 0 && <div className="mt-2 h-1.5 bg-[#e8e8ec] rounded-full"><div className="h-full bg-[#8b5cf6] rounded-full" style={{ width: `${(videoSpend / totalCreativeSpend) * 100}%` }} /></div>}
                   </div>
-                </div>
-              </Card>
-            )
-          })()}
-
-          {/* Quick Insights */}
-          {(() => {
-            const totalSpendPeriod = daily.reduce((s, d) => s + d.spend, 0)
-            const totalResultsPeriod = daily.reduce((s, d) => s + d.results, 0)
-            const avgDailySpend = totalSpendPeriod / (daily.length || 1)
-            const daysOverTarget = targetCpl ? daily.filter(d => d.results > 0 && (d.spend / d.results) > targetCpl).length : 0
-            const zeroDays = daily.filter(d => d.results === 0 && d.spend > 0).length
-            const bestCprDay = [...daysWithResults].sort((a, b) => (a.spend / a.results) - (b.spend / b.results))[0]
-            const worstCprDay = [...daysWithResults].sort((a, b) => (b.spend / b.results) - (a.spend / a.results))[0]
-            const insights: string[] = []
-            if (zeroDays > 3) insights.push(`${zeroDays} days with spend but zero results`)
-            if (daysOverTarget > daily.length * 0.5 && targetCpl) insights.push(`Over target on ${daysOverTarget} of ${daily.length} days`)
-            if (bestCprDay && totalResultsPeriod > 10) {
-              const bestDayName = new Date(bestCprDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
-              insights.push(`Best day: ${bestDayName} at ${formatCurrency(bestCprDay.spend / bestCprDay.results)} CPR`)
-            }
-            if (insights.length === 0) return null
-            return (
-              <Card className="p-4 border-[#e8e8ec]">
-                <div className="space-y-1.5">
-                  {insights.map((ins, i) => <p key={i} className="text-[12px] text-[#6b6b76]">{ins}</p>)}
                 </div>
               </Card>
             )
@@ -903,6 +816,30 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             <StatBox label="Avg CPR" value={totalResults > 0 ? formatCurrency(daily.reduce((s, d) => s + d.spend, 0) / totalResults) : '—'} sub={`Over ${daily.length} days`} sparkData={daily.map(d => d.results > 0 ? d.spend / d.results : 0)} sparkColor="#f59e0b" />
             {bestDay && <StatBox label="Best Day" value={new Date(bestDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} sub={`${formatCurrency(bestDay.spend / bestDay.results)} CPR · ${bestDay.results} ${resultLabel.toLowerCase()}`} highlight={true} />}
           </div>
+
+          {/* Activity Heatmap */}
+          <Card className="p-5">
+            <h3 className="text-[14px] font-semibold mb-3">Activity Heatmap</h3>
+            <div className="flex flex-wrap gap-[3px]">
+              {daily.map(d => {
+                const intensity = d.spend / maxDailySpend
+                const hasResults = d.results > 0
+                const cpr = d.results > 0 ? d.spend / d.results : 0
+                const isOver = targetCpl && cpr > targetCpl
+                const bg = d.spend === 0 ? '#f4f4f6' : isOver ? `rgba(220, 38, 38, ${0.3 + intensity * 0.7})` : hasResults ? `rgba(22, 163, 74, ${0.2 + intensity * 0.8})` : `rgba(37, 99, 235, ${0.2 + intensity * 0.6})`
+                const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                return (
+                  <div key={d.date} className="w-[18px] h-[18px] rounded-[2px] cursor-default" style={{ backgroundColor: bg }} title={`${dateLabel}: ${formatCurrency(d.spend)} · ${d.results} ${resultLabel.toLowerCase()}`} />
+                )
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-[10px] text-[#9d9da8]">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#16a34a]" /> On target</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#dc2626]" /> Over target</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#2563eb]" /> Spend, no results</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-[1px] bg-[#f4f4f6]" /> No spend</span>
+            </div>
+          </Card>
 
           <Card>
             <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
