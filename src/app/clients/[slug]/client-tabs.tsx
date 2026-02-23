@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -112,6 +113,25 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
     clicks: d.clicks,
   }))
 
+  const [chartMetrics, setChartMetrics] = useState<Set<string>>(new Set(['spend', 'results']))
+
+  const toggleMetric = (m: string) => {
+    setChartMetrics(prev => {
+      const next = new Set(prev)
+      if (next.has(m)) { if (next.size > 1) next.delete(m) } else next.add(m)
+      return next
+    })
+  }
+
+  const metricButtons = [
+    { key: 'spend', label: 'Spend', color: '#2563eb' },
+    { key: 'results', label: resultLabel, color: '#16a34a' },
+    { key: 'cpr', label: 'CPR', color: '#f59e0b' },
+    { key: 'impressions', label: 'Impressions', color: '#8b5cf6' },
+    { key: 'clicks', label: 'Clicks', color: '#06b6d4' },
+    { key: 'ctr', label: 'CTR', color: '#ec4899' },
+  ]
+
   const tw = daily.slice(-7); const lw = daily.slice(-14, -7)
   const twSum = (key: string) => tw.reduce((s, d) => s + (d[key] || 0), 0)
   const lwSum = (key: string) => lw.reduce((s, d) => s + (d[key] || 0), 0)
@@ -160,21 +180,44 @@ export function ClientTabs({ daily, campaigns, ads, topAds, bottomAds, funnelSte
       <TabsContent value="overview">
         <div className="space-y-5">
           <Card className="p-5">
-            <h3 className="text-[14px] font-semibold mb-4">Performance Trend</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[14px] font-semibold">Performance Trend</h3>
+              <div className="flex items-center gap-1">
+                {metricButtons.map(m => (
+                  <button key={m.key} onClick={() => toggleMetric(m.key)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                      chartMetrics.has(m.key) ? 'text-white' : 'text-[#9d9da8] bg-[#f4f4f6] hover:bg-[#e8e8ec]'
+                    }`}
+                    style={chartMetrics.has(m.key) ? { backgroundColor: m.color } : undefined}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={chartData}>
+              <AreaChart data={chartData.map(d => ({
+                ...d,
+                ctr: d.impressions > 0 ? Math.round((d.clicks / d.impressions) * 10000) / 100 : 0,
+              }))}>
                 <defs>
-                  <linearGradient id="spendG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563eb" stopOpacity={0.12} /><stop offset="100%" stopColor="#2563eb" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="resultsG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#16a34a" stopOpacity={0.12} /><stop offset="100%" stopColor="#16a34a" stopOpacity={0} /></linearGradient>
+                  {metricButtons.map(m => (
+                    <linearGradient key={m.key} id={`grad_${m.key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={m.color} stopOpacity={0.12} />
+                      <stop offset="100%" stopColor={m.color} stopOpacity={0} />
+                    </linearGradient>
+                  ))}
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f2" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9d9da8' }} axisLine={{ stroke: '#e8e8ec' }} tickLine={false} interval={Math.floor(chartData.length / 7)} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#9d9da8' }} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#9d9da8' }} axisLine={false} tickLine={false} />
                 <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Area yAxisId="left" type="monotone" dataKey="spend" stroke="#2563eb" fill="url(#spendG)" name="Spend ($)" strokeWidth={2} />
-                <Area yAxisId="right" type="monotone" dataKey="results" stroke="#16a34a" fill="url(#resultsG)" name={resultLabel} strokeWidth={2} />
+                {chartMetrics.has('spend') && <Area yAxisId="left" type="monotone" dataKey="spend" stroke="#2563eb" fill="url(#grad_spend)" name="Spend ($)" strokeWidth={2} />}
+                {chartMetrics.has('results') && <Area yAxisId="right" type="monotone" dataKey="results" stroke="#16a34a" fill="url(#grad_results)" name={resultLabel} strokeWidth={2} />}
+                {chartMetrics.has('cpr') && <Area yAxisId="left" type="monotone" dataKey="cpr" stroke="#f59e0b" fill="url(#grad_cpr)" name="CPR ($)" strokeWidth={2} />}
+                {chartMetrics.has('impressions') && <Area yAxisId="right" type="monotone" dataKey="impressions" stroke="#8b5cf6" fill="url(#grad_impressions)" name="Impressions" strokeWidth={2} />}
+                {chartMetrics.has('clicks') && <Area yAxisId="right" type="monotone" dataKey="clicks" stroke="#06b6d4" fill="url(#grad_clicks)" name="Clicks" strokeWidth={2} />}
+                {chartMetrics.has('ctr') && <Area yAxisId="right" type="monotone" dataKey="ctr" stroke="#ec4899" fill="url(#grad_ctr)" name="CTR (%)" strokeWidth={2} />}
               </AreaChart>
             </ResponsiveContainer>
           </Card>
