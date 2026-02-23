@@ -142,14 +142,14 @@ export default async function ClientDetailPage({ params, searchParams }: { param
                 <KpiCard label="ROAS" value={`${roas.toFixed(2)}x`} target={activeAccount.target_roas ? `Target: ${activeAccount.target_roas}x` : undefined} status={roasOnTarget} icon="$" />
                 <KpiCard label="Total Spend" value={formatCurrency(totals.spend)} sub={`Last ${days} days`} icon="$" />
                 <KpiCard label={`Total ${resultLabel}`} value={formatNumber(totals.results)} sub={`~${(totals.results / days).toFixed(1)}/day avg`} icon="#" />
-                <KpiCard label="Click Rate" value={formatPercent(ctr)} sub={ctr > 3 ? 'Excellent' : ctr > 2 ? 'Average' : 'Below average'} icon="%" />
+                <KpiCard label="Click Rate" value={formatPercent(ctr)}  icon="%" />
               </>
             ) : (
               <>
                 <KpiCard label={`Cost Per ${resultLabel.replace(/s$/, '')}`} value={cpr > 0 ? formatCurrency(cpr) : '—'} target={activeAccount.target_cpl ? `Target: ${formatCurrency(activeAccount.target_cpl)}` : undefined} status={cprOnTarget} icon="$" progressPct={cplProgressPct} />
                 <KpiCard label="Total Spend" value={formatCurrency(totals.spend)} sub={`Last ${days} days`} icon="$" />
                 <KpiCard label={`Total ${resultLabel}`} value={formatNumber(totals.results)} sub={`~${(totals.results / days).toFixed(1)}/day avg`} icon="#" />
-                <KpiCard label="Click Rate" value={formatPercent(ctr)} sub={ctr > 3 ? 'Excellent' : ctr > 2 ? 'Average' : 'Below average'} icon="%" />
+                <KpiCard label="Click Rate" value={formatPercent(ctr)}  icon="%" />
               </>
             )}
           </div>
