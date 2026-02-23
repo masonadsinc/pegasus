@@ -149,6 +149,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ s
             targetCpl={activeAccount.target_cpl}
             targetRoas={activeAccount.target_roas}
             totalSpend={totals.spend}
+            clientName={client.name}
+            accountName={activeAccount.name}
+            platformAccountId={activeAccount.platform_account_id}
+            objective={activeAccount.objective}
+            primaryActionType={pat}
           />
         </div>
       </PageWrapper>
