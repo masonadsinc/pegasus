@@ -1,4 +1,4 @@
-import { Nav } from '@/components/nav'
+import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -43,19 +43,19 @@ export default async function TeamPage() {
   const members = await getTeam()
 
   return (
-    <main className="min-h-screen pb-8">
+    <><PageWrapper><main className="pb-8">
       <Nav current="settings" />
 
       <div className="max-w-4xl mx-auto px-4 mt-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <div className="text-xs text-zinc-500 mb-1">
-              <Link href="/settings" className="hover:text-zinc-300">Settings</Link>
+            <div className="text-xs text-[#86868b]500 mb-1">
+              <Link href="/settings" className="hover:text-[#86868b]300">Settings</Link>
               <span className="mx-1">/</span>
-              <span className="text-zinc-300">Team</span>
+              <span className="text-[#86868b]300">Team</span>
             </div>
             <h1 className="text-xl font-bold">Team Management</h1>
-            <p className="text-sm text-zinc-500">{members.length} members</p>
+            <p className="text-sm text-[#86868b]500">{members.length} members</p>
           </div>
           <TeamActions />
         </div>
@@ -69,24 +69,24 @@ export default async function TeamPage() {
                     <h3 className="font-medium text-sm">{member.display_name || member.email}</h3>
                     <Badge variant={roleColors[member.role] || 'neutral'}>{member.role}</Badge>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-0.5">{member.email}</p>
+                  <p className="text-xs text-[#86868b]500 mt-0.5">{member.email}</p>
                 </div>
-                <p className="text-xs text-zinc-500">Joined {new Date(member.created_at).toLocaleDateString()}</p>
+                <p className="text-xs text-[#86868b]500">Joined {new Date(member.created_at).toLocaleDateString()}</p>
               </div>
             </Card>
           ))}
         </div>
 
-        <div className="mt-8 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/50">
-          <h3 className="text-sm font-semibold text-zinc-400 mb-2">Role Permissions</h3>
-          <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500">
-            <div><span className="text-zinc-300">Owner</span> — Full access, billing, delete org</div>
-            <div><span className="text-zinc-300">Admin</span> — Manage clients, team, settings</div>
-            <div><span className="text-zinc-300">Operator</span> — View + edit ads, run reports</div>
-            <div><span className="text-zinc-300">Viewer</span> — Read-only dashboard access</div>
+        <div className="mt-8 p-4 rounded-xl bg-white/50 border border-[#e5e5e5]/50">
+          <h3 className="text-sm font-semibold text-[#86868b]400 mb-2">Role Permissions</h3>
+          <div className="grid grid-cols-2 gap-2 text-xs text-[#86868b]500">
+            <div><span className="text-[#86868b]300">Owner</span> — Full access, billing, delete org</div>
+            <div><span className="text-[#86868b]300">Admin</span> — Manage clients, team, settings</div>
+            <div><span className="text-[#86868b]300">Operator</span> — View + edit ads, run reports</div>
+            <div><span className="text-[#86868b]300">Viewer</span> — Read-only dashboard access</div>
           </div>
         </div>
       </div>
-    </main>
+    </main></PageWrapper></>
   )
 }

@@ -18,58 +18,38 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    } else {
-      window.location.href = '/'
-    }
+    if (error) { setError(error.message); setLoading(false) }
+    else { window.location.href = '/' }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6">
+    <div className="min-h-screen flex items-center justify-center px-6 bg-[#f5f5f7]">
       <div className="w-full max-w-xs">
         <div className="text-center mb-10">
-          <div className="text-5xl mb-3">🐎</div>
-          <h1 className="text-2xl font-bold">Agency Command</h1>
-          <p className="text-zinc-500 text-sm mt-1">Sign in to your account</p>
+          <h1 className="text-[28px] font-bold text-[#1d1d1f]">Ads.Inc</h1>
+          <p className="text-[#86868b] text-[14px] mt-1">Agency Command</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-3">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 text-base"
-            autoComplete="email"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 text-base"
-            autoComplete="current-password"
-            required
-          />
-
-          {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-white text-zinc-900 font-semibold active:bg-zinc-200 disabled:opacity-50 transition-colors text-base mt-2"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+        <div className="bg-white rounded-2xl border border-[#e5e5e5] p-6 shadow-sm">
+          <form onSubmit={handleLogin} className="space-y-3">
+            <input
+              type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] border border-[#e5e5e5] text-[14px] focus:outline-none focus:border-[#007aff] transition-colors"
+              autoComplete="email" required
+            />
+            <input
+              type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] border border-[#e5e5e5] text-[14px] focus:outline-none focus:border-[#007aff] transition-colors"
+              autoComplete="current-password" required
+            />
+            {error && <p className="text-[#ff3b30] text-[13px] text-center">{error}</p>}
+            <button type="submit" disabled={loading}
+              className="w-full py-3 rounded-xl bg-[#007aff] text-white font-semibold text-[14px] hover:bg-[#0051a8] disabled:opacity-50 transition-colors mt-1">
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )

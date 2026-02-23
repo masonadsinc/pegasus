@@ -1,135 +1,95 @@
 import { getDashboardData } from '@/lib/queries'
-import { formatCurrency, formatNumber, cplStatus, roasStatus, statusDot, isEcomActionType } from '@/lib/utils'
-import { Nav } from '@/components/nav'
+import { formatCurrency, formatNumber, isEcomActionType } from '@/lib/utils'
+import { Nav, PageWrapper } from '@/components/nav'
+import { Card } from '@/components/ui/card'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
-
 export const revalidate = 300
-
-function KpiCard({ label, value, subtext }: { label: string; value: string; subtext?: string }) {
-  return (
-    <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-      <p className="text-xs text-zinc-500 uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-bold mt-0.5">{value}</p>
-      {subtext && <p className="text-xs text-zinc-500 mt-0.5">{subtext}</p>}
-    </div>
-  )
-}
-
-function StatusIndicator({ status }: { status: 'green' | 'yellow' | 'red' }) {
-  return <span className={`inline-block w-2 h-2 rounded-full ${statusDot(status)}`} />
-}
-
-function AccountRow({ account }: { account: any }) {
-  const isEcom = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'].includes(account.primary_action_type || '')
-  const cpr = account.results > 0 ? account.spend / account.results : 0
-  const roas = account.spend > 0 ? account.purchase_value / account.spend : 0
-  
-  let status: 'green' | 'yellow' | 'red' = 'green'
-  if (isEcom && account.target_roas) {
-    status = roasStatus(roas, account.target_roas)
-  } else if (account.target_cpl) {
-    status = cplStatus(cpr, account.target_cpl)
-  }
-
-  const primaryMetric = isEcom
-    ? `${roas.toFixed(1)}x`
-    : cpr > 0 ? formatCurrency(cpr) : '—'
-  
-  const target = isEcom
-    ? account.target_roas ? `${account.target_roas}x` : '—'
-    : account.target_cpl ? formatCurrency(account.target_cpl) : '—'
-
-  return (
-    <a href={`/clients/${account.client_slug}`} className="flex items-center gap-3 py-3 px-4 rounded-xl bg-zinc-900 border border-zinc-800 active:bg-zinc-800 transition-colors">
-      <StatusIndicator status={status} />
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">{account.client_name}</p>
-        <p className="text-xs text-zinc-500">{formatNumber(account.results)} {account.result_label} · {formatNumber(account.impressions)} imps</p>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-sm font-semibold">{formatCurrency(account.spend)}</p>
-        <p className="text-xs text-zinc-500">{primaryMetric} <span className="text-zinc-600">/ {target}</span></p>
-      </div>
-    </a>
-  )
-}
 
 export default async function Dashboard() {
   const accounts = await getDashboardData(ORG_ID, 7)
 
   const totalSpend = accounts.reduce((s, a) => s + a.spend, 0)
   const totalResults = accounts.reduce((s, a) => s + a.results, 0)
-  const totalPurchases = accounts.reduce((s, a) => s + a.purchases, 0)
   const totalImpressions = accounts.reduce((s, a) => s + a.impressions, 0)
-  const totalPurchaseValue = accounts.reduce((s, a) => s + a.purchase_value, 0)
-  
-  const isEcomAccount = (a: any) => ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'].includes(a.primary_action_type || '')
-  const nonEcomAccounts = accounts.filter(a => !isEcomAccount(a))
-  const totalNonEcomSpend = nonEcomAccounts.reduce((s, a) => s + a.spend, 0)
-  const totalNonEcomResults = nonEcomAccounts.reduce((s, a) => s + a.results, 0)
-  const blendedCPR = totalNonEcomResults > 0 ? totalNonEcomSpend / totalNonEcomResults : 0
-
   const activeAccounts = accounts.filter(a => a.spend > 0)
-  const redAccounts = activeAccounts.filter(a => {
-    const cpr = a.results > 0 ? a.spend / a.results : 999
-    if (isEcomAccount(a)) return a.target_roas ? (a.purchase_value / a.spend) < a.target_roas * 0.7 : false
-    return a.target_cpl ? cpr > a.target_cpl * 1.3 : false
-  })
-  const yellowAccounts = activeAccounts.filter(a => {
-    const cpr = a.results > 0 ? a.spend / a.results : 0
-    if (isEcomAccount(a)) {
-      const r = a.spend > 0 ? a.purchase_value / a.spend : 0
-      return a.target_roas ? r < a.target_roas && r >= a.target_roas * 0.7 : false
-    }
-    return a.target_cpl ? cpr > a.target_cpl && cpr <= a.target_cpl * 1.3 : false
-  })
+
+  const nonEcom = activeAccounts.filter(a => !isEcomActionType(a.primary_action_type))
+  const nonEcomSpend = nonEcom.reduce((s, a) => s + a.spend, 0)
+  const nonEcomResults = nonEcom.reduce((s, a) => s + a.results, 0)
+  const blendedCPR = nonEcomResults > 0 ? nonEcomSpend / nonEcomResults : 0
 
   return (
-    <main className="min-h-screen pb-8">
+    <>
       <Nav current="dashboard" />
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between max-w-2xl mx-auto">
-          <div />
-          <div className="flex items-center gap-2 text-xs">
-            {redAccounts.length > 0 && <span className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">{redAccounts.length} red</span>}
-            {yellowAccounts.length > 0 && <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">{yellowAccounts.length} yellow</span>}
-            <span className="text-zinc-500">7d</span>
+      <PageWrapper>
+        <div className="p-6 max-w-[1200px] mx-auto">
+          <h1 className="text-xl font-bold text-[#1d1d1f] mb-1">Health Tracker</h1>
+          <p className="text-[13px] text-[#86868b] mb-6">Agency overview · Last 7 days</p>
+
+          {/* KPI Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card className="p-5">
+              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Total Spend</p>
+              <p className="text-[28px] font-bold tabular-nums">{formatCurrency(totalSpend)}</p>
+              <p className="text-[12px] text-[#86868b]">{formatCurrency(totalSpend / 7)}/day</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Total Results</p>
+              <p className="text-[28px] font-bold tabular-nums">{formatNumber(totalResults)}</p>
+              <p className="text-[12px] text-[#86868b]">{(totalResults / 7).toFixed(0)}/day</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Blended CPR</p>
+              <p className="text-[28px] font-bold tabular-nums">{blendedCPR > 0 ? formatCurrency(blendedCPR) : '—'}</p>
+              <p className="text-[12px] text-[#86868b]">Non-ecom accounts</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-[11px] text-[#86868b] uppercase tracking-wider mb-1">Active Accounts</p>
+              <p className="text-[28px] font-bold tabular-nums">{activeAccounts.length}</p>
+              <p className="text-[12px] text-[#86868b]">{accounts.length} total</p>
+            </Card>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-2xl mx-auto px-4">
-        {/* KPI Grid - 2x2 on mobile */}
-        <div className="grid grid-cols-2 gap-3 mt-4">
-          <KpiCard label="Spend" value={formatCurrency(totalSpend)} subtext={`${formatCurrency(totalSpend / 7)}/day`} />
-          <KpiCard label="Results" value={formatNumber(totalResults)} subtext={`${(totalResults / 7).toFixed(0)}/day`} />
-          <KpiCard label="Blended CPR" value={blendedCPR > 0 ? formatCurrency(blendedCPR) : '—'} />
-          <KpiCard label="Purchases" value={formatNumber(totalPurchases)} subtext={totalPurchaseValue > 0 ? formatCurrency(totalPurchaseValue) : undefined} />
-        </div>
-
-        {/* Attention Queue */}
-        {redAccounts.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-sm font-semibold text-red-400 mb-2 px-1">⚠️ Needs Attention</h2>
-            <div className="space-y-2">
-              {redAccounts.map(a => (
-                <AccountRow key={a.ad_account_id} account={a} />
-              ))}
+          {/* Account List */}
+          <Card className="p-5">
+            <h2 className="text-[14px] font-semibold mb-4">All Accounts</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-[#e5e5e5]">
+                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-left uppercase tracking-wider">Client</th>
+                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">Spend</th>
+                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">Results</th>
+                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">CPR</th>
+                    <th className="py-2 px-3 text-[11px] text-[#86868b] font-medium text-right uppercase tracking-wider">Impressions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeAccounts.map(a => {
+                    const cpr = a.results > 0 ? a.spend / a.results : 0
+                    const isOver = a.target_cpl ? cpr > a.target_cpl : false
+                    return (
+                      <tr key={a.ad_account_id} className="border-b border-[#f0f0f0] hover:bg-[#fafafa]">
+                        <td className="py-2.5 px-3">
+                          <a href={`/clients/${a.client_slug}`} className="font-medium text-[#007aff] hover:underline">{a.client_name}</a>
+                          <p className="text-[11px] text-[#86868b]">{a.result_label}</p>
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums font-medium">{formatCurrency(a.spend)}</td>
+                        <td className="py-2.5 px-3 text-right tabular-nums">{formatNumber(a.results)}</td>
+                        <td className={`py-2.5 px-3 text-right tabular-nums font-semibold ${isOver ? 'text-[#ff3b30]' : cpr > 0 ? 'text-[#34c759]' : 'text-[#aeaeb2]'}`}>
+                          {cpr > 0 ? formatCurrency(cpr) : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-[#86868b]">{formatNumber(a.impressions)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
-        )}
-
-        {/* All Active Accounts */}
-        <div className="mt-6">
-          <h2 className="text-sm font-semibold text-zinc-400 mb-2 px-1">Active ({activeAccounts.length})</h2>
-          <div className="space-y-2">
-            {activeAccounts.map(a => (
-              <AccountRow key={a.ad_account_id} account={a} />
-            ))}
-          </div>
+          </Card>
         </div>
-      </div>
-    </main>
+      </PageWrapper>
+    </>
   )
 }

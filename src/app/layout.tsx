@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pegasus — Agency Command",
+  title: "Agency Command — Ads.Inc",
   description: "The operating system for performance marketing agencies",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Pegasus",
+    statusBarStyle: "default",
+    title: "Agency Command",
   },
 };
 
@@ -15,19 +15,13 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#09090b",
+  themeColor: "#f5f5f7",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-zinc-950 text-zinc-100 antialiased">
-        {children}
-      </body>
+    <html lang="en">
+      <body>{children}</body>
     </html>
   );
 }

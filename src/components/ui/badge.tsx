@@ -1,21 +1,24 @@
 import { cn } from '@/lib/utils'
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'excellent' | 'good' | 'warning' | 'critical' | 'neutral'
+  variant?: 'default' | 'excellent' | 'good' | 'warning' | 'critical' | 'neutral' | 'onTarget' | 'attention' | 'noData'
 }
 
 const variants: Record<string, string> = {
-  default: 'bg-zinc-800 text-zinc-300',
-  excellent: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-  good: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  warning: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-  critical: 'bg-red-500/15 text-red-400 border-red-500/20',
-  neutral: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/20',
+  default: 'bg-[#f5f5f7] text-[#86868b]',
+  excellent: 'bg-[#34c75920] text-[#248a3d]',
+  good: 'bg-[#007aff20] text-[#0051a8]',
+  warning: 'bg-[#ff950020] text-[#c75300]',
+  critical: 'bg-[#ff3b3020] text-[#d70015]',
+  neutral: 'bg-[#f5f5f7] text-[#86868b]',
+  onTarget: 'bg-[#34c75920] text-[#248a3d]',
+  attention: 'bg-[#ff3b3020] text-[#d70015]',
+  noData: 'bg-[#f5f5f7] text-[#aeaeb2]',
 }
 
 export function Badge({ variant = 'default', className, children, ...props }: BadgeProps) {
   return (
-    <span className={cn('inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border', variants[variant], className)} {...props}>
+    <span className={cn('inline-flex items-center px-2.5 py-0.5 text-[11px] font-semibold rounded-full', variants[variant], className)} {...props}>
       {children}
     </span>
   )

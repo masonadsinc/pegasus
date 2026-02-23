@@ -1,4 +1,4 @@
-import { Nav } from '@/components/nav'
+import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -43,30 +43,30 @@ export default async function ClientsSettingsPage() {
   }
 
   return (
-    <main className="min-h-screen pb-8">
+    <><PageWrapper><main className="pb-8">
       <Nav current="settings" />
 
       <div className="max-w-5xl mx-auto px-4 mt-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <div className="text-xs text-zinc-500 mb-1">
-              <Link href="/settings" className="hover:text-zinc-300">Settings</Link>
+            <div className="text-xs text-[#86868b]500 mb-1">
+              <Link href="/settings" className="hover:text-[#86868b]300">Settings</Link>
               <span className="mx-1">/</span>
-              <span className="text-zinc-300">Clients</span>
+              <span className="text-[#86868b]300">Clients</span>
             </div>
             <h1 className="text-xl font-bold">Client Management</h1>
-            <p className="text-sm text-zinc-500">{clients.length} clients total</p>
+            <p className="text-sm text-[#86868b]500">{clients.length} clients total</p>
           </div>
           <ClientActions />
         </div>
 
         {Object.entries(grouped).map(([status, group]) => group.length > 0 && (
           <div key={status} className="mb-8">
-            <h2 className="text-sm font-semibold text-zinc-400 mb-3 capitalize">{status} ({group.length})</h2>
+            <h2 className="text-sm font-semibold text-[#86868b]400 mb-3 capitalize">{status} ({group.length})</h2>
             <div className="space-y-2">
               {group.map(client => (
                 <Link key={client.id} href={`/settings/clients/${client.id}`}>
-                  <Card className="p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer mb-2">
+                  <Card className="p-4 hover:bg-[#f5f5f7]/50 transition-colors cursor-pointer mb-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div>
@@ -74,14 +74,14 @@ export default async function ClientsSettingsPage() {
                             <h3 className="font-medium text-sm">{client.name}</h3>
                             <Badge variant={statusVariant[client.status || 'neutral']}>{client.status}</Badge>
                           </div>
-                          <p className="text-xs text-zinc-500 mt-0.5">
+                          <p className="text-xs text-[#86868b]500 mt-0.5">
                             {client.industry || 'No industry'}
                             {client.monthly_retainer ? ` · ${formatCurrency(client.monthly_retainer)}/mo` : ''}
                             {' · '}{(client.ad_accounts as any[])?.filter((a: any) => a.is_active).length || 0} active accounts
                           </p>
                         </div>
                       </div>
-                      <div className="text-xs text-zinc-500">
+                      <div className="text-xs text-[#86868b]500">
                         {client.primary_contact_email || 'No contact'}
                       </div>
                     </div>
@@ -92,6 +92,6 @@ export default async function ClientsSettingsPage() {
           </div>
         ))}
       </div>
-    </main>
+    </main></PageWrapper></>
   )
 }

@@ -1,4 +1,4 @@
-import { Nav } from '@/components/nav'
+import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
@@ -27,13 +27,13 @@ async function getOrgData() {
 function SettingsCard({ href, title, description, stat }: { href: string; title: string; description: string; stat?: string }) {
   return (
     <Link href={href}>
-      <Card className="p-5 hover:bg-zinc-800/50 transition-colors cursor-pointer h-full">
+      <Card className="p-5 hover:bg-[#f5f5f7]/50 transition-colors cursor-pointer h-full">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-semibold text-sm">{title}</h3>
-            <p className="text-xs text-zinc-500 mt-1">{description}</p>
+            <p className="text-xs text-[#86868b]500 mt-1">{description}</p>
           </div>
-          {stat && <span className="text-lg font-bold text-zinc-400">{stat}</span>}
+          {stat && <span className="text-lg font-bold text-[#86868b]400">{stat}</span>}
         </div>
       </Card>
     </Link>
@@ -50,13 +50,13 @@ export default async function SettingsPage() {
     : 'Never'
 
   return (
-    <main className="min-h-screen pb-8">
+    <><PageWrapper><main className="pb-8">
       <Nav current="settings" />
 
       <div className="max-w-4xl mx-auto px-4 mt-6">
         <div className="mb-6">
           <h1 className="text-xl font-bold">Settings</h1>
-          <p className="text-sm text-zinc-500">{org?.name || 'Organization'} · {org?.plan || 'Starter'} plan</p>
+          <p className="text-sm text-[#86868b]500">{org?.name || 'Organization'} · {org?.plan || 'Starter'} plan</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -80,10 +80,10 @@ export default async function SettingsPage() {
           />
           <Card className="p-5 opacity-50">
             <h3 className="font-semibold text-sm">Integrations</h3>
-            <p className="text-xs text-zinc-500 mt-1">Stripe, Mercury, Slack — coming soon</p>
+            <p className="text-xs text-[#86868b]500 mt-1">Stripe, Mercury, Slack — coming soon</p>
           </Card>
         </div>
       </div>
-    </main>
+    </main></PageWrapper></>
   )
 }
