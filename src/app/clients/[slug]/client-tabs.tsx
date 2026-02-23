@@ -365,6 +365,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
     <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== 'ads') setCampaignFilter(null) }}>
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="deepdive">Deep Dive</TabsTrigger>
         <TabsTrigger value="ads">Ads <span className="ml-1 text-[10px] bg-[#f4f4f6] px-1.5 py-0.5 rounded-full">{ads.length}</span></TabsTrigger>
         <TabsTrigger value="campaigns">Ads Manager <span className="ml-1 text-[10px] bg-[#f4f4f6] px-1.5 py-0.5 rounded-full">{campaigns.length}</span></TabsTrigger>
         <TabsTrigger value="daily">Daily <span className="ml-1 text-[10px] bg-[#f4f4f6] px-1.5 py-0.5 rounded-full">{daily.length}d</span></TabsTrigger>
@@ -546,6 +547,374 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
             </div>
           </Card>
         </div>
+      </TabsContent>
+
+      {/* ═══════════════════ DEEP DIVE ═══════════════════ */}
+      <TabsContent value="deepdive">
+        {(() => {
+          // === Data Processing ===
+          const totalSpendAll = daily.reduce((s, d) => s + d.spend, 0)
+          const totalResultsAll = daily.reduce((s, d) => s + d.results, 0)
+          const totalImpressions = daily.reduce((s, d) => s + d.impressions, 0)
+          const totalClicks = daily.reduce((s, d) => s + d.clicks, 0)
+          const overallCpr = totalResultsAll > 0 ? totalSpendAll / totalResultsAll : 0
+          const overallCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
+          const convRate = totalClicks > 0 ? (totalResultsAll / totalClicks) * 100 : 0
+          const costPerClick = totalClicks > 0 ? totalSpendAll / totalClicks : 0
+          const cpm = totalImpressions > 0 ? (totalSpendAll / totalImpressions) * 1000 : 0
+          const lpvTotal = daily.reduce((s, d) => s + (d.landing_page_views || 0), 0)
+          const lpvRate = totalClicks > 0 ? (lpvTotal / totalClicks) * 100 : 0
+
+          // Day-of-week analysis
+          const dowData: Record<string, { spend: number; results: number; impressions: number; clicks: number; days: number }> = {}
+          const dowNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+          daily.forEach(d => {
+            const dow = dowNames[new Date(d.date + 'T12:00:00').getDay()]
+            if (!dowData[dow]) dowData[dow] = { spend: 0, results: 0, impressions: 0, clicks: 0, days: 0 }
+            dowData[dow].spend += d.spend; dowData[dow].results += d.results
+            dowData[dow].impressions += d.impressions; dowData[dow].clicks += d.clicks; dowData[dow].days++
+          })
+          const dowArray = dowNames.map(name => {
+            const d = dowData[name] || { spend: 0, results: 0, impressions: 0, clicks: 0, days: 0 }
+            return { name: name.slice(0, 3), fullName: name, ...d, avgSpend: d.days > 0 ? d.spend / d.days : 0, avgResults: d.days > 0 ? d.results / d.days : 0, cpr: d.results > 0 ? d.spend / d.results : 0, ctr: d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0 }
+          })
+          const bestDow = [...dowArray].filter(d => d.results > 0).sort((a, b) => a.cpr - b.cpr)[0]
+          const worstDow = [...dowArray].filter(d => d.results > 0).sort((a, b) => b.cpr - a.cpr)[0]
+
+          // Week-over-week trends (4 weeks)
+          const weeklyData: { week: string; spend: number; results: number; cpr: number }[] = []
+          for (let w = 0; w < Math.min(4, Math.ceil(daily.length / 7)); w++) {
+            const slice = daily.slice(-(w + 1) * 7, w === 0 ? undefined : -w * 7)
+            const wSpend = slice.reduce((s, d) => s + d.spend, 0)
+            const wResults = slice.reduce((s, d) => s + d.results, 0)
+            weeklyData.unshift({ week: `W${Math.min(4, Math.ceil(daily.length / 7)) - w}`, spend: wSpend, results: wResults, cpr: wResults > 0 ? wSpend / wResults : 0 })
+          }
+
+          // Campaign efficiency
+          const campaignsWithData = campaigns.filter(c => c.spend > 0 && c.results > 0).sort((a, b) => a.cpr - b.cpr)
+          const topCampaign = campaignsWithData[0]
+          const worstCampaign = campaignsWithData[campaignsWithData.length - 1]
+          const campaignCount = campaigns.filter(c => c.spend > 0).length
+
+          // Ad fatigue detection: ads with spend but declining or zero results
+          const adsWithSpend = ads.filter(a => a.spend > 50)
+          const fatiguedAds = adsWithSpend.filter(a => a.spend > 100 && a.results === 0)
+          const highCprAds = adsWithSpend.filter(a => a.results > 0 && targetCpl && a.cpr > targetCpl * 2).sort((a, b) => b.spend - a.spend)
+          const wastedSpend = fatiguedAds.reduce((s, a) => s + a.spend, 0) + highCprAds.reduce((s, a) => s + Math.max(0, a.spend - (targetCpl ? targetCpl * a.results : 0)), 0)
+
+          // Creative analysis
+          const isVideoAd = (a: any) => a.creative_video_url || a.creative_url?.includes('/t15.5256-10/') || a.creative_url?.includes('/t15.13418-10/')
+          const videoAds = ads.filter(a => isVideoAd(a) && a.spend > 0)
+          const imageAds = ads.filter(a => !isVideoAd(a) && a.spend > 0)
+          const videoResults = videoAds.reduce((s, a) => s + a.results, 0)
+          const videoSpend = videoAds.reduce((s, a) => s + a.spend, 0)
+          const imageResults = imageAds.reduce((s, a) => s + a.results, 0)
+          const imageSpend = imageAds.reduce((s, a) => s + a.spend, 0)
+          const videoCpr = videoResults > 0 ? videoSpend / videoResults : 0
+          const imageCpr = imageResults > 0 ? imageSpend / imageResults : 0
+
+          // Headline analysis
+          const headlineMap = new Map<string, { spend: number; results: number; count: number }>()
+          for (const a of ads.filter(a => a.creative_headline && a.spend > 0)) {
+            const h = a.creative_headline!
+            const existing = headlineMap.get(h) || { spend: 0, results: 0, count: 0 }
+            existing.spend += a.spend; existing.results += a.results; existing.count++
+            headlineMap.set(h, existing)
+          }
+          const headlines = Array.from(headlineMap.entries())
+            .map(([headline, data]) => ({ headline, ...data, cpr: data.results > 0 ? data.spend / data.results : Infinity }))
+            .filter(h => h.results >= 2)
+            .sort((a, b) => a.cpr - b.cpr)
+
+          // Spend concentration
+          const top3Ads = [...ads].filter(a => a.spend > 0).sort((a, b) => b.spend - a.spend).slice(0, 3)
+          const top3Spend = top3Ads.reduce((s, a) => s + a.spend, 0)
+          const top3Pct = totalSpendAll > 0 ? (top3Spend / totalSpendAll) * 100 : 0
+
+          // Zero-result days
+          const zeroDays = daily.filter(d => d.spend > 0 && d.results === 0)
+          const overTargetDays = targetCpl ? daily.filter(d => d.results > 0 && (d.spend / d.results) > targetCpl) : []
+
+          const maxDowSpend = Math.max(...dowArray.map(d => d.avgSpend), 1)
+
+          return (
+            <div className="space-y-5">
+              {/* Funnel Metrics */}
+              <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                <Card className="p-4">
+                  <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">CPM</p>
+                  <p className="text-[18px] font-semibold tabular-nums mt-1">{formatCurrency(cpm)}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">CPC</p>
+                  <p className="text-[18px] font-semibold tabular-nums mt-1">{formatCurrency(costPerClick)}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">CTR</p>
+                  <p className="text-[18px] font-semibold tabular-nums mt-1">{formatPercent(overallCtr)}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Conv Rate</p>
+                  <p className="text-[18px] font-semibold tabular-nums mt-1">{formatPercent(convRate)}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">LPV Rate</p>
+                  <p className="text-[18px] font-semibold tabular-nums mt-1">{lpvTotal > 0 ? formatPercent(lpvRate) : '—'}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Cost / {resultLabel.replace(/s$/, '')}</p>
+                  <p className={`text-[18px] font-semibold tabular-nums mt-1 ${targetCpl && overallCpr > targetCpl ? 'text-[#dc2626]' : overallCpr > 0 ? 'text-[#16a34a]' : ''}`}>{overallCpr > 0 ? formatCurrency(overallCpr) : '—'}</p>
+                </Card>
+              </div>
+
+              {/* Day of Week + Weekly Trend */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card className="p-5">
+                  <h3 className="text-[14px] font-semibold mb-4">Day-of-Week Performance</h3>
+                  <div className="space-y-2">
+                    {dowArray.map(d => (
+                      <div key={d.name} className={`flex items-center gap-3 py-1.5 ${bestDow?.fullName === d.fullName ? 'bg-[#f0fdf4] -mx-2 px-2 rounded' : worstDow?.fullName === d.fullName ? 'bg-[#fef2f2] -mx-2 px-2 rounded' : ''}`}>
+                        <span className="text-[11px] font-medium w-8 text-[#6b6b76]">{d.name}</span>
+                        <div className="flex-1 h-4 bg-[#f4f4f6] rounded overflow-hidden">
+                          <div className="h-full rounded" style={{ width: `${(d.avgSpend / maxDowSpend) * 100}%`, backgroundColor: d.cpr > 0 && targetCpl && d.cpr > targetCpl ? '#dc2626' : '#2563eb' }} />
+                        </div>
+                        <span className="text-[11px] tabular-nums w-14 text-right">{formatCurrency(d.avgSpend)}</span>
+                        <span className="text-[11px] tabular-nums w-10 text-right text-[#9d9da8]">{d.avgResults.toFixed(1)}</span>
+                        <span className={`text-[11px] tabular-nums w-12 text-right font-medium ${d.cpr > 0 && targetCpl && d.cpr > targetCpl ? 'text-[#dc2626]' : d.cpr > 0 ? 'text-[#16a34a]' : 'text-[#c4c4cc]'}`}>{d.cpr > 0 ? formatCurrency(d.cpr) : '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#f4f4f6] text-[11px]">
+                    <span className="text-[#9d9da8]">Avg spend/day</span>
+                    <span className="text-[#9d9da8]">Avg results/day</span>
+                    <span className="text-[#9d9da8]">CPR</span>
+                  </div>
+                  {bestDow && worstDow && bestDow.fullName !== worstDow.fullName && (
+                    <div className="mt-3 pt-3 border-t border-[#f4f4f6] text-[11px] space-y-1">
+                      <p><span className="text-[#16a34a] font-medium">Best: {bestDow.fullName}</span> — {formatCurrency(bestDow.cpr)} CPR avg</p>
+                      <p><span className="text-[#dc2626] font-medium">Worst: {worstDow.fullName}</span> — {formatCurrency(worstDow.cpr)} CPR avg</p>
+                    </div>
+                  )}
+                </Card>
+
+                <Card className="p-5">
+                  <h3 className="text-[14px] font-semibold mb-4">Weekly Trend</h3>
+                  {weeklyData.length > 1 ? (
+                    <div className="space-y-3">
+                      {weeklyData.map((w, i) => {
+                        const prev = i > 0 ? weeklyData[i - 1] : null
+                        const cprChange = prev && prev.cpr > 0 && w.cpr > 0 ? ((w.cpr - prev.cpr) / prev.cpr) * 100 : null
+                        return (
+                          <div key={w.week} className="flex items-center gap-4 py-2 border-b border-[#f4f4f6] last:border-0">
+                            <span className="text-[12px] font-medium w-8">{w.week}</span>
+                            <div className="flex-1 grid grid-cols-3 gap-4 text-[12px]">
+                              <div><span className="text-[#9d9da8] text-[10px]">Spend</span><p className="font-semibold tabular-nums">{formatCurrency(w.spend)}</p></div>
+                              <div><span className="text-[#9d9da8] text-[10px]">{resultLabel}</span><p className="font-semibold tabular-nums">{w.results}</p></div>
+                              <div>
+                                <span className="text-[#9d9da8] text-[10px]">CPR</span>
+                                <p className="font-semibold tabular-nums">{w.cpr > 0 ? formatCurrency(w.cpr) : '—'}
+                                  {cprChange !== null && <span className={`ml-1 text-[10px] ${cprChange > 0 ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{cprChange > 0 ? '+' : ''}{cprChange.toFixed(0)}%</span>}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : <p className="text-[12px] text-[#9d9da8]">Need 2+ weeks of data</p>}
+                </Card>
+              </div>
+
+              {/* Spend Efficiency Analysis */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <Card className="p-5">
+                  <h3 className="text-[14px] font-semibold mb-3">Spend Concentration</h3>
+                  <div className="space-y-3 text-[12px]">
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Active ads</span>
+                      <span className="font-medium">{ads.filter(a => a.effective_status === 'ACTIVE').length} of {ads.length}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Top 3 ads % of spend</span>
+                      <span className="font-medium">{top3Pct.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Active campaigns</span>
+                      <span className="font-medium">{campaignCount}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Ads with $0 results</span>
+                      <span className={`font-medium ${fatiguedAds.length > 0 ? 'text-[#dc2626]' : ''}`}>{fatiguedAds.length}</span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-[#9d9da8]">Est. wasted spend</span>
+                      <span className={`font-semibold ${wastedSpend > 0 ? 'text-[#dc2626]' : ''}`}>{formatCurrency(wastedSpend)}</span>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-5">
+                  <h3 className="text-[14px] font-semibold mb-3">Consistency</h3>
+                  <div className="space-y-3 text-[12px]">
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Days analyzed</span>
+                      <span className="font-medium">{daily.length}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Days with results</span>
+                      <span className="font-medium">{daysWithResults.length} ({daily.length > 0 ? ((daysWithResults.length / daily.length) * 100).toFixed(0) : 0}%)</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Zero-result days</span>
+                      <span className={`font-medium ${zeroDays.length > 3 ? 'text-[#dc2626]' : ''}`}>{zeroDays.length}</span>
+                    </div>
+                    {targetCpl && (
+                      <>
+                        <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                          <span className="text-[#9d9da8]">Days over target</span>
+                          <span className={`font-medium ${overTargetDays.length > daily.length * 0.5 ? 'text-[#dc2626]' : ''}`}>{overTargetDays.length} ({daily.length > 0 ? ((overTargetDays.length / Math.max(daysWithResults.length, 1)) * 100).toFixed(0) : 0}%)</span>
+                        </div>
+                        <div className="flex justify-between py-2">
+                          <span className="text-[#9d9da8]">On-target rate</span>
+                          <span className={`font-semibold ${(daysWithResults.length - overTargetDays.length) / Math.max(daysWithResults.length, 1) > 0.6 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>{daysWithResults.length > 0 ? (((daysWithResults.length - overTargetDays.length) / daysWithResults.length) * 100).toFixed(0) : 0}%</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-5">
+                  <h3 className="text-[14px] font-semibold mb-3">Creative Mix</h3>
+                  <div className="space-y-3 text-[12px]">
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Image ads</span>
+                      <span className="font-medium">{imageAds.length} ({imageSpend > 0 ? formatCurrency(imageCpr) + ' CPR' : 'no spend'})</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Video ads</span>
+                      <span className="font-medium">{videoAds.length} ({videoSpend > 0 ? formatCurrency(videoCpr) + ' CPR' : 'no spend'})</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Better format</span>
+                      <span className={`font-semibold ${videoCpr > 0 && imageCpr > 0 ? (videoCpr < imageCpr ? 'text-[#8b5cf6]' : 'text-[#2563eb]') : ''}`}>
+                        {videoCpr > 0 && imageCpr > 0 ? (videoCpr < imageCpr ? 'Video' : 'Image') : '—'}
+                        {videoCpr > 0 && imageCpr > 0 && <span className="text-[#9d9da8] font-normal ml-1">by {Math.abs(((Math.min(videoCpr, imageCpr) / Math.max(videoCpr, imageCpr)) - 1) * 100).toFixed(0)}%</span>}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#f4f4f6]">
+                      <span className="text-[#9d9da8]">Unique headlines</span>
+                      <span className="font-medium">{headlineMap.size}</span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-[#9d9da8]">Unique CTAs</span>
+                      <span className="font-medium">{new Set(ads.filter(a => a.creative_cta).map(a => a.creative_cta)).size}</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Campaign Rankings + Headlines */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {campaignsWithData.length > 0 && (
+                  <Card>
+                    <div className="px-5 py-4 border-b border-[#e8e8ec]">
+                      <h3 className="text-[14px] font-semibold">Campaign Efficiency Ranking</h3>
+                    </div>
+                    <div className="divide-y divide-[#f4f4f6]">
+                      {campaignsWithData.slice(0, 8).map((c, i) => (
+                        <div key={c.platform_campaign_id} className="flex items-center gap-3 px-5 py-3">
+                          <span className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i < 3 ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[#f4f4f6] text-[#9d9da8]'}`}>{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium truncate">{c.campaign_name}</p>
+                            <p className="text-[10px] text-[#9d9da8]">{c.results} {resultLabel.toLowerCase()} · {formatCurrency(c.spend)} spent</p>
+                          </div>
+                          <span className={`text-[12px] font-semibold tabular-nums ${targetCpl && c.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(c.cpr)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {headlines.length >= 2 && (
+                  <Card>
+                    <div className="px-5 py-4 border-b border-[#e8e8ec]">
+                      <h3 className="text-[14px] font-semibold">Headline Performance</h3>
+                    </div>
+                    <div className="divide-y divide-[#f4f4f6]">
+                      {headlines.slice(0, 8).map((h, i) => (
+                        <div key={i} className="flex items-center gap-3 px-5 py-3">
+                          <span className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i < 3 ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[#f4f4f6] text-[#9d9da8]'}`}>{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium truncate">&ldquo;{h.headline}&rdquo;</p>
+                            <p className="text-[10px] text-[#9d9da8]">{h.count} ad{h.count > 1 ? 's' : ''} · {h.results} {resultLabel.toLowerCase()}</p>
+                          </div>
+                          <span className={`text-[12px] font-semibold tabular-nums ${targetCpl && h.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(h.cpr)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </div>
+
+              {/* Wasted Spend / Fatigue Detection */}
+              {(fatiguedAds.length > 0 || highCprAds.length > 0) && (
+                <Card>
+                  <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
+                    <h3 className="text-[14px] font-semibold">Wasted Spend Detection</h3>
+                    <span className="text-[11px] text-[#dc2626] font-medium">{formatCurrency(wastedSpend)} potential waste</span>
+                  </div>
+                  <div className="divide-y divide-[#f4f4f6]">
+                    {fatiguedAds.slice(0, 5).map(a => (
+                      <div key={a.platform_ad_id} className="flex items-center gap-3 px-5 py-3">
+                        <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">!</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium truncate">{a.ad_name}</p>
+                          <p className="text-[10px] text-[#dc2626]">Spent {formatCurrency(a.spend)} with 0 results</p>
+                        </div>
+                        <span className="text-[12px] font-semibold tabular-nums text-[#dc2626]">{formatCurrency(a.spend)}</span>
+                      </div>
+                    ))}
+                    {highCprAds.slice(0, 5).map(a => (
+                      <div key={a.platform_ad_id} className="flex items-center gap-3 px-5 py-3">
+                        <span className="w-5 h-5 rounded bg-[#fff7ed] text-[#ea580c] text-[10px] font-bold flex items-center justify-center flex-shrink-0">!</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium truncate">{a.ad_name}</p>
+                          <p className="text-[10px] text-[#ea580c]">CPR {formatCurrency(a.cpr)} — {targetCpl ? `${((a.cpr / targetCpl - 1) * 100).toFixed(0)}% over target` : 'very high'}</p>
+                        </div>
+                        <span className="text-[12px] font-semibold tabular-nums text-[#ea580c]">{formatCurrency(a.spend)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Full Funnel Table */}
+              <Card>
+                <div className="px-5 py-4 border-b border-[#e8e8ec]">
+                  <h3 className="text-[14px] font-semibold">Full Funnel Breakdown</h3>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center gap-0">
+                    {funnelSteps.map((step, i) => (
+                      <div key={step.label} className="flex-1">
+                        <div className={`py-4 px-3 text-center ${i === 0 ? 'bg-[#2563eb] text-white rounded-l' : i === funnelSteps.length - 1 ? 'bg-[#16a34a] text-white rounded-r' : 'bg-[#f59e0b] text-white'}`}>
+                          <p className="text-[10px] font-medium uppercase tracking-wider opacity-80">{step.label}</p>
+                          <p className="text-[20px] font-bold tabular-nums mt-1">{formatCompact(step.value)}</p>
+                        </div>
+                        {step.rate !== undefined && (
+                          <div className="text-center mt-2">
+                            <p className="text-[10px] text-[#9d9da8]">{step.rateLabel}</p>
+                            <p className="text-[13px] font-semibold tabular-nums">{formatPercent(step.rate)}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )
+        })()}
       </TabsContent>
 
       {/* ═══════════════════ ADS ═══════════════════ */}
