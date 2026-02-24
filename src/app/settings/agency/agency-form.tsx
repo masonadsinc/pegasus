@@ -88,13 +88,16 @@ export function GeminiKeyForm({ hasKey, maskedKey }: { hasKey: boolean; maskedKe
       setSaved(true)
       setKeyConfigured(true)
       setDisplayMask(key.slice(0, 4) + '****' + key.slice(-4))
-      // Clear the input after save
       const input = e.currentTarget.querySelector('input[name="gemini_api_key"]') as HTMLInputElement
       if (input) input.value = ''
       setTimeout(() => setSaved(false), 2000)
     } else {
-      const err = await res.json()
-      alert(err.error || 'Failed to save')
+      try {
+        const err = await res.json()
+        alert(err.error || 'Failed to save')
+      } catch {
+        alert('Failed to save. Please try again.')
+      }
     }
     setSaving(false)
   }

@@ -55,7 +55,12 @@ export async function PATCH(req: NextRequest) {
 
     // Encrypt API key before storing
     if (update.gemini_api_key) {
-      update.gemini_api_key = encrypt(update.gemini_api_key)
+      try {
+        update.gemini_api_key = encrypt(update.gemini_api_key)
+      } catch (encErr: any) {
+        // If encryption fails (missing secret), store plaintext rather than losing the key
+        console.error('Encryption failed, storing plaintext:', encErr.message)
+      }
     }
 
     if (update.name) {
