@@ -15,6 +15,8 @@ interface ClientOption {
   slug: string
   industry: string | null
   location: string | null
+  weeklySpend: number
+  weeklyResults: number
 }
 
 const QUICK_ACTIONS = [
@@ -211,9 +213,17 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
                 onClick={() => selectClient(client)}
                 className="w-full text-left px-4 py-3 hover:bg-[#fafafb] transition-colors border-b border-[#f4f4f6] last:border-b-0"
               >
-                <p className="text-[13px] font-medium text-[#111113]">{client.name}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[13px] font-medium text-[#111113]">{client.name}</p>
+                  {client.weeklySpend > 0 ? (
+                    <span className="text-[10px] tabular-nums text-[#6b6b76]">${client.weeklySpend.toFixed(0)}/wk</span>
+                  ) : (
+                    <span className="text-[10px] text-[#c4c4cc]">No spend</span>
+                  )}
+                </div>
                 <p className="text-[11px] text-[#9d9da8] mt-0.5">
                   {[client.industry, client.location].filter(Boolean).join(' · ') || 'No details'}
+                  {client.weeklyResults > 0 && ` · ${client.weeklyResults} results`}
                 </p>
               </button>
             ))}
@@ -241,6 +251,7 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
             <p className="text-[13px] font-semibold text-[#111113]">{selectedClient.name}</p>
             <p className="text-[10px] text-[#9d9da8]">
               {[selectedClient.industry, selectedClient.location].filter(Boolean).join(' · ')}
+              {selectedClient.weeklySpend > 0 ? ` · $${selectedClient.weeklySpend.toFixed(0)}/wk` : ' · No recent spend'}
             </p>
           </div>
         </div>
