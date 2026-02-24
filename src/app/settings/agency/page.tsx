@@ -1,12 +1,17 @@
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
-import { maskApiKey } from '@/lib/encryption'
 import Link from 'next/link'
 import { AgencyForm, GeminiKeyForm } from './agency-form'
 
 export const revalidate = 30
 const ORG_ID = process.env.ADSINC_ORG_ID!
+
+function maskKey(key: string): string {
+  if (!key) return ''
+  if (key.length <= 8) return '****'
+  return key.slice(0, 4) + '****' + key.slice(-4)
+}
 
 async function getOrg() {
   const { data } = await supabaseAdmin
@@ -17,12 +22,7 @@ async function getOrg() {
   
   if (!data) return null
 
-  // Build safe org object — never send raw key to client
-  let maskedKey = ''
   const hasKey = !!data.gemini_api_key
-  if (hasKey) {
-    maskedKey = maskApiKey(data.gemini_api_key)
-  }
 
   return {
     id: data.id,
@@ -32,7 +32,7 @@ async function getOrg() {
     primary_color: data.primary_color,
     plan: data.plan,
     has_gemini_key: hasKey,
-    gemini_key_masked: maskedKey,
+    gemini_key_masked: hasKey ? maskKey(data.gemini_api_key) : '',
   }
 }
 
