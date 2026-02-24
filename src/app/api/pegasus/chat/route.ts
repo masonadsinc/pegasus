@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { getUser, getUserOrgRole } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isEcomActionType } from '@/lib/utils'
+import { preAnalyze } from '@/lib/analysis'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
@@ -335,6 +336,72 @@ async function getClientContext(clientId: string, days = 7) {
     }
   }
 
+  // === PRE-ANALYSIS ENGINE ===
+  const dayData = thisWeek.map(d => ({
+    date: d.date,
+    spend: d.spend || 0,
+    impressions: d.impressions || 0,
+    clicks: d.clicks || 0,
+    results: (d.leads || 0) + (d.purchases || 0) + (d.schedules || 0),
+    revenue: d.purchase_value || 0,
+    lpv: d.landing_page_views || 0,
+  }))
+  const lwDayData = lastWeek.map(d => ({
+    date: d.date,
+    spend: d.spend || 0,
+    impressions: d.impressions || 0,
+    clicks: d.clicks || 0,
+    results: (d.leads || 0) + (d.purchases || 0) + (d.schedules || 0),
+    revenue: d.purchase_value || 0,
+    lpv: d.landing_page_views || 0,
+  }))
+  const adDataForAnalysis = sortedAds.map(([name, d]) => ({
+    name, campaign: d.campaign, adSet: d.adSet || '', spend: d.spend, results: d.results, clicks: d.clicks, impressions: d.impressions, revenue: d.revenue,
+  }))
+  const campDataForAnalysis = Object.entries(campaigns).map(([name, d]) => ({
+    name, spend: d.spend, results: d.results, clicks: d.clicks, impressions: d.impressions, revenue: d.revenue,
+  }))
+
+  const analysis = preAnalyze(dayData, lwDayData, adDataForAnalysis, campDataForAnalysis, account.target_cpl, isEcom, account.target_roas)
+
+  ctx += `\n## ===== AUTOMATED SIGNALS (pre-computed) =====\n`
+  ctx += `Trend: ${analysis.trendDirection}\n`
+  ctx += `Spend health: ${analysis.spendHealth}\n\n`
+
+  if (analysis.signals.length > 0) {
+    ctx += `### Key Signals\n`
+    for (const s of analysis.signals) ctx += `- ${s}\n`
+    ctx += '\n'
+  }
+
+  if (analysis.fatigueSignals.length > 0) {
+    ctx += `### Fatigue Signals\n`
+    for (const s of analysis.fatigueSignals) ctx += `- ${s}\n`
+    ctx += '\n'
+  }
+
+  if (analysis.anomalies.length > 0) {
+    ctx += `### Anomalies\n`
+    for (const s of analysis.anomalies) ctx += `- ${s}\n`
+    ctx += '\n'
+  }
+
+  if (analysis.wastedSpend.total > 0) {
+    ctx += `### Wasted Spend: $${analysis.wastedSpend.total.toFixed(0)}\n`
+    for (const d of analysis.wastedSpend.details) ctx += `- ${d}\n`
+    ctx += '\n'
+  }
+
+  if (analysis.scalingOpportunities.length > 0) {
+    ctx += `### Scaling Opportunities\n`
+    for (const s of analysis.scalingOpportunities) ctx += `- ${s}\n`
+    ctx += '\n'
+  }
+
+  if (analysis.concentrationRisk) {
+    ctx += `### Concentration Risk\n- ${analysis.concentrationRisk}\n\n`
+  }
+
   return { client, context: ctx }
 }
 
@@ -360,19 +427,30 @@ export async function POST(req: NextRequest) {
 
     const member = await getUserOrgRole(user.id)
 
-    const systemPrompt = `You are Pegasus, the AI operations assistant for a Meta advertising agency. You are analyzing a specific client account with ${lookbackDays} days of data.
+    const systemPrompt = `You are Pegasus — a senior Meta ads media buyer with 10 years of experience managing 8-figure ad budgets. You think in terms of unit economics, creative fatigue cycles, audience saturation, and marginal ROAS. You are analyzing a client account with ${lookbackDays} days of data.
 
-Your role:
-- Provide deep, actionable analysis on this client's ad performance
-- Flag issues with specific, numbered recommendations
-- Use exact numbers from the data — never approximate when you have the real figure
-- Compare current vs previous period to identify trends
-- Consider the client's business context, audience, and goals in your analysis
-- Be direct and action-oriented. No fluff, no caveats, no filler.
-- When suggesting optimizations, be specific (which campaign, which ad set, which ad, what to change, expected impact)
-- Analyze creative patterns — headline effectiveness, CTA choices, copy themes
-- Identify wasted spend and recommend specific pauses/kills
-- When discussing ads, use the exact ad names so the user can find them
+## How You Think
+
+You don't just report numbers — you diagnose WHY things are happening and prescribe WHAT TO DO about it. Every observation leads to an action.
+
+When CPR goes up, you ask: Is it creative fatigue (frequency rising)? Audience saturation (CPM rising)? Landing page issue (CTR fine but conv rate dropping)? Tracking broken (sudden zero-result days)?
+
+When something works, you ask: Can we scale it? What's the ceiling? What would break if we doubled budget? Are we over-indexed on one winner?
+
+## Rules
+
+1. ALWAYS cite exact ad names, campaign names, and numbers. The user needs to find things in Ads Manager.
+2. Lead with the most important thing — what needs action TODAY, not background.
+3. When you see the "AUTOMATED SIGNALS" section, those are pre-computed insights. Use them as the foundation of your analysis, add depth and reasoning, and suggest specific actions.
+4. Distinguish between "do this now" (pause a bleeding ad), "do this this week" (launch a creative test), and "watch this" (a trend that might become a problem).
+5. When recommending creative changes, be specific about angles — not "test new creative" but "test a social proof angle with before/after imagery based on what's working in the top performer."
+6. Think about the client's BUSINESS, not just their ads. If they're a kitchen remodeler, a $40 CPL might be amazing ($15K average job). If they're selling a $20 product, it's a disaster.
+7. No emojis. No corporate fluff. No "Great question!" — just answer.
+8. Format for readability: use headers, bullets, bold the numbers that matter.
+
+## Your Data
+
+Below is the full account data with automated pre-analysis signals at the bottom. The signals section contains patterns I've already identified — build your analysis on top of these.
 
 The user is ${member?.display_name || user.email} (${member?.role || 'member'}).
 

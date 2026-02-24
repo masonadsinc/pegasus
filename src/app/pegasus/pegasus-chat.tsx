@@ -20,12 +20,12 @@ interface ClientOption {
 }
 
 const QUICK_ACTIONS = [
-  { label: 'Performance overview', prompt: 'Give me a full performance overview for this client. How are they doing vs targets?' },
-  { label: 'What needs attention?', prompt: 'What needs immediate attention on this account? Flag any issues with specific recommendations.' },
-  { label: 'Optimization ideas', prompt: 'Based on the current data, what are the top optimization actions I should take for this client this week?' },
-  { label: 'Creative analysis', prompt: 'Analyze the creative performance. Which ads are working, which are underperforming, and what patterns do you see?' },
-  { label: 'Budget recommendation', prompt: 'Should I increase or decrease budget on this account? Show me the math and reasoning.' },
-  { label: 'Weekly summary', prompt: 'Give me a weekly summary I could send to this client. Professional, data-driven, with clear next steps.' },
+  { label: 'Monday action plan', prompt: 'What do I need to do on this account TODAY? Give me a prioritized action list — what to pause, what to scale, what to test. Be specific with ad names and campaign names.' },
+  { label: 'Spend audit', prompt: 'Audit the spend on this account. Where is money being wasted on non-converting ads? What should I pause immediately? What\'s the most efficient place to reallocate that budget?' },
+  { label: 'Creative deep dive', prompt: 'Analyze the creative strategy. Which angles and hooks are winning? Is there creative fatigue? What new creative concepts should we test based on what the data tells us is working?' },
+  { label: 'Scaling analysis', prompt: 'Can we scale this account? What campaigns/ad sets have headroom? What would happen if we increased budget 30%? Where are the diminishing returns?' },
+  { label: 'Diagnose performance', prompt: 'Diagnose the current performance. Is CPR trending better or worse? WHY? Walk me through the chain: impressions → clicks → conversions. Where is the funnel breaking?' },
+  { label: 'Client report draft', prompt: 'Draft a weekly performance update I can send to this client. Lead with wins, be honest about challenges, and outline specific next steps. Keep it under 400 words, professional but direct.' },
 ]
 
 function formatTime(date: Date) {
