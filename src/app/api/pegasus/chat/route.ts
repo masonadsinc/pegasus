@@ -543,6 +543,38 @@ async function getClientContext(clientId: string, days = 7) {
     }
   }
 
+  // Placement efficiency signals
+  if (placementData.length > 0) {
+    const placementAgg: Record<string, { spend: number; results: number }> = {}
+    for (const row of placementData) {
+      const key = `${row.dimension_1 || 'Unknown'} — ${row.dimension_2 || 'Unknown'}`
+      if (!placementAgg[key]) placementAgg[key] = { spend: 0, results: 0 }
+      placementAgg[key].spend += row.spend || 0
+      placementAgg[key].results += (row.leads || 0) + (row.purchases || 0)
+    }
+    const totalSpend = Object.values(placementAgg).reduce((s, d) => s + d.spend, 0)
+    const placementSignals: string[] = []
+    const targetCPR = account.target_cpl || 0
+
+    for (const [name, d] of Object.entries(placementAgg).sort((a, b) => b[1].spend - a[1].spend)) {
+      if (d.spend < 10) continue
+      const cpr = d.results > 0 ? d.spend / d.results : Infinity
+      const pct = totalSpend > 0 ? (d.spend / totalSpend * 100) : 0
+      if (d.results === 0 && d.spend > 50) {
+        placementSignals.push(`WASTED: "${name}" spent $${d.spend.toFixed(0)} with ZERO results (${pct.toFixed(1)}% of total spend)`)
+      } else if (targetCPR > 0 && cpr > targetCPR * 2) {
+        placementSignals.push(`EXPENSIVE: "${name}" CPR $${cpr.toFixed(2)} is ${(cpr/targetCPR).toFixed(1)}x target ($${targetCPR}) — spent $${d.spend.toFixed(0)}`)
+      } else if (targetCPR > 0 && cpr <= targetCPR * 0.8 && d.results >= 3) {
+        placementSignals.push(`STRONG: "${name}" CPR $${cpr.toFixed(2)} is ${((1 - cpr/targetCPR) * 100).toFixed(0)}% below target — ${d.results} results from $${d.spend.toFixed(0)}`)
+      }
+    }
+    if (placementSignals.length > 0) {
+      ctx += `### Placement Efficiency Signals\n`
+      for (const s of placementSignals) ctx += `- ${s}\n`
+      ctx += `NOTE: Each placement above is platform-specific. "Facebook — Feed" and "Instagram — Feed" are DIFFERENT placements. Evaluate individually.\n\n`
+    }
+  }
+
   return { client, context: ctx }
 }
 
@@ -588,6 +620,9 @@ When something works, you ask: Can we scale it? What's the ceiling? What would b
 6. Think about the client's BUSINESS, not just their ads. If they're a kitchen remodeler, a $40 CPL might be amazing ($15K average job). If they're selling a $20 product, it's a disaster.
 7. No emojis. No corporate fluff. No "Great question!" — just answer.
 8. Format for readability: use headers, bullets, bold the numbers that matter.
+9. NEVER lump different platforms/placements together. "Facebook Feed" and "Instagram Feed" are COMPLETELY different placements with different audiences, CPRs, and creative requirements. Evaluate each placement INDIVIDUALLY on its own metrics. If Facebook Feed is bad but Instagram Feed is good, say exactly that — don't recommend turning off "Feed" broadly.
+10. When recommending placement changes, list the EXACT placements to keep and the EXACT placements to remove, with the performance data for each. The user needs to configure this in Ads Manager — vague groupings are useless.
+11. Never recommend removing a placement that is performing at or below target CPR/ROAS, even if other similar-sounding placements are failing.
 
 ## Your Data
 
