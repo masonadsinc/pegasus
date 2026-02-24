@@ -25,7 +25,8 @@ async function getOrg() {
       const raw = isEncrypted(data.gemini_api_key) ? decrypt(data.gemini_api_key) : data.gemini_api_key
       maskedKey = maskApiKey(raw)
     } catch {
-      maskedKey = '****configured****'
+      // Key exists but can't be decrypted — mark as needing re-entry
+      maskedKey = 'Unable to decrypt — please re-enter key'
     }
   }
 

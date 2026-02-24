@@ -363,6 +363,13 @@ export function ReportsHub({
                 </div>
 
                 <div className="flex items-center gap-2 ml-4">
+                  <button
+                    onClick={() => generateOne(report.client_id)}
+                    disabled={generatingId === report.client_id}
+                    className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#6b6b76] hover:bg-[#f4f4f6] disabled:opacity-50 transition-colors"
+                  >
+                    {generatingId === report.client_id ? 'Generating...' : 'Regenerate'}
+                  </button>
                   {report.content && (
                     <button
                       onClick={() => openEditor(report)}

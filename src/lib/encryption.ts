@@ -6,7 +6,7 @@ const TAG_LENGTH = 16
 
 function getEncryptionKey(): Buffer {
   const secret = process.env.ENCRYPTION_SECRET
-  if (!secret) throw new Error('ENCRYPTION_SECRET not configured')
+  if (!secret) throw new Error('ENCRYPTION_SECRET environment variable is not configured. Add it in Vercel and redeploy.')
   // Derive a 32-byte key from the secret using SHA-256
   return crypto.createHash('sha256').update(secret).digest()
 }
