@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { logApiUsage, extractTokenCounts } from '@/lib/api-usage'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
@@ -77,6 +78,8 @@ WHAT_WORKS: [Why does this specific combination of visual + text + layout conver
   }
 
   const result = await response.json()
+  const tokens = extractTokenCounts(result)
+  logApiUsage({ model: 'gemini-3-flash-preview', feature: 'creative-studio-analysis', inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens })
   const raw = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
 
   // Parse structured fields from the analysis
@@ -144,6 +147,8 @@ ISSUES: [specific issues found, comma-separated, or "none"]` }
   if (!response.ok) return { pass: true, issues: [] }
 
   const result = await response.json()
+  const qaTok = extractTokenCounts(result)
+  logApiUsage({ model: 'gemini-3-flash-preview', feature: 'creative-studio-qa', inputTokens: qaTok.inputTokens, outputTokens: qaTok.outputTokens })
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
   const pass = text.includes('PASS: true')
   const issueMatch = text.match(/ISSUES:\s*(.+)/i)
@@ -439,6 +444,8 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await response.json()
+        const genTok = extractTokenCounts(result)
+        logApiUsage({ model: 'gemini-3-pro-image-preview', feature: 'creative-studio-generation', inputTokens: genTok.inputTokens, outputTokens: genTok.outputTokens, imagesGenerated: 1 })
         const parts = result.candidates?.[0]?.content?.parts || []
 
         let imageData: string | null = null

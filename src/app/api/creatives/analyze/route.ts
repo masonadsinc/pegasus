@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
 import { isEcomActionType } from '@/lib/utils'
+import { logApiUsage } from '@/lib/api-usage'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 const META_TOKEN = process.env.META_ACCESS_TOKEN!
@@ -468,6 +469,11 @@ Rules:
           }
 
           // Save analysis to DB
+          // Log approximate usage (streaming doesn't return token counts)
+          const approxInputTokens = Math.round(JSON.stringify(allAdsForAnalysis).length / 4)
+          const approxOutputTokens = Math.round(fullAnalysis.length / 4)
+          logApiUsage({ model: 'gemini-3-flash-preview', feature: 'creative-analysis', inputTokens: approxInputTokens, outputTokens: approxOutputTokens })
+
           if (fullAnalysis) {
             await supabaseAdmin.from('creative_analyses').insert({
               org_id: ORG_ID,

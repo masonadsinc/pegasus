@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
 import { isEcomActionType } from '@/lib/utils'
 import { preAnalyze } from '@/lib/analysis'
+import { logApiUsage, extractTokenCounts } from '@/lib/api-usage'
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
 async function getGeminiKey() {
@@ -360,6 +361,8 @@ ${isEcom ? 'This is an e-commerce account — focus on ROAS and revenue, not CPL
   }
 
   const result = await response.json()
+  const tok = extractTokenCounts(result)
+  logApiUsage({ model: 'gemini-3-flash-preview', feature: 'report-generation', inputTokens: tok.inputTokens, outputTokens: tok.outputTokens, metadata: { clientName: client.name } })
   const content = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
 
   const subject = `${client.name} - Meta Ads Report - ${formatDateRange(dates.periodStart, dates.periodEnd)}`
