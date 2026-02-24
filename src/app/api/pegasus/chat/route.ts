@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { getUser, getUserOrgRole } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isEcomActionType } from '@/lib/utils'
-import { preAnalyze } from '@/lib/analysis'
+import { preAnalyze, analyzeAudience } from '@/lib/analysis'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
@@ -44,7 +44,7 @@ async function getClientContext(clientId: string, days = 7) {
   const pStart = prevStart.toISOString().split('T')[0]
 
   // Parallel data fetches for speed
-  const [insightsRes, campaignRes, adInsightsRes, adSetInsightsRes, activeAdsRes, adCreativesRes] = await Promise.all([
+  const [insightsRes, campaignRes, adInsightsRes, adSetInsightsRes, activeAdsRes, ageGenderRes, placementRes] = await Promise.all([
     // Account-level daily insights (current + previous period)
     supabaseAdmin
       .from('insights')
@@ -94,13 +94,25 @@ async function getClientContext(clientId: string, days = 7) {
       .in('effective_status', ['ACTIVE', 'PAUSED'])
       .limit(100),
 
-    // Get creative details for top ads
+    // Age/gender breakdown
     supabaseAdmin
-      .from('ads')
-      .select('name, creative_headline, creative_body, creative_cta, creative_url, effective_status, campaign_name, ad_set_name')
+      .from('insight_breakdowns')
+      .select('dimension_1, dimension_2, spend, impressions, clicks, leads, purchases, purchase_value')
       .eq('ad_account_id', account.id)
-      .eq('effective_status', 'ACTIVE')
-      .limit(50),
+      .eq('breakdown_type', 'age_gender')
+      .gte('date', dStr)
+      .lte('date', yStr)
+      .limit(500),
+
+    // Placement breakdown
+    supabaseAdmin
+      .from('insight_breakdowns')
+      .select('dimension_1, dimension_2, spend, impressions, clicks, leads, purchases, purchase_value')
+      .eq('ad_account_id', account.id)
+      .eq('breakdown_type', 'placement')
+      .gte('date', dStr)
+      .lte('date', yStr)
+      .limit(500),
   ])
 
   const insights = insightsRes.data || []
@@ -155,9 +167,9 @@ async function getClientContext(clientId: string, days = 7) {
     ads[name].revenue += ai.purchase_value || 0
   }
 
-  // Creative lookup map
+  // Creative lookup map from active ads
   const creativeMap = new Map<string, any>()
-  for (const ad of (adCreativesRes.data || [])) {
+  for (const ad of (activeAdsRes.data || [])) {
     creativeMap.set(ad.name, ad)
   }
 
@@ -336,6 +348,94 @@ async function getClientContext(clientId: string, days = 7) {
     }
   }
 
+  // === AUDIENCE BREAKDOWN ===
+  const ageGenderData = ageGenderRes.data || []
+  if (ageGenderData.length > 0) {
+    // Aggregate by age group
+    const ages: Record<string, { spend: number; results: number; clicks: number; impressions: number }> = {}
+    const genders: Record<string, { spend: number; results: number; clicks: number; impressions: number }> = {}
+
+    for (const row of ageGenderData) {
+      const age = row.dimension_1 || 'Unknown'
+      const gender = row.dimension_2 || 'Unknown'
+      const results = (row.leads || 0) + (row.purchases || 0)
+
+      if (!ages[age]) ages[age] = { spend: 0, results: 0, clicks: 0, impressions: 0 }
+      ages[age].spend += row.spend || 0
+      ages[age].results += results
+      ages[age].clicks += row.clicks || 0
+      ages[age].impressions += row.impressions || 0
+
+      if (!genders[gender]) genders[gender] = { spend: 0, results: 0, clicks: 0, impressions: 0 }
+      genders[gender].spend += row.spend || 0
+      genders[gender].results += results
+      genders[gender].clicks += row.clicks || 0
+      genders[gender].impressions += row.impressions || 0
+    }
+
+    ctx += `\n## Audience: Age Breakdown\n`
+    for (const [age, d] of Object.entries(ages).sort((a, b) => b[1].spend - a[1].spend)) {
+      const acpr = d.results > 0 ? d.spend / d.results : 0
+      const actr = d.impressions > 0 ? (d.clicks / d.impressions * 100) : 0
+      ctx += `- ${age}: $${d.spend.toFixed(0)} spend, ${d.results} results, $${acpr.toFixed(2)} CPR, ${actr.toFixed(2)}% CTR\n`
+    }
+
+    ctx += `\n## Audience: Gender Breakdown\n`
+    for (const [gender, d] of Object.entries(genders).sort((a, b) => b[1].spend - a[1].spend)) {
+      const gcpr = d.results > 0 ? d.spend / d.results : 0
+      ctx += `- ${gender}: $${d.spend.toFixed(0)} spend, ${d.results} results, $${gcpr.toFixed(2)} CPR\n`
+    }
+    ctx += '\n'
+  }
+
+  // === PLACEMENT BREAKDOWN ===
+  const placementData = placementRes.data || []
+  if (placementData.length > 0) {
+    const placements: Record<string, { spend: number; results: number; clicks: number; impressions: number }> = {}
+
+    for (const row of placementData) {
+      const platform = row.dimension_1 || 'Unknown'
+      const position = row.dimension_2 || 'Unknown'
+      const key = `${platform} — ${position}`
+      const results = (row.leads || 0) + (row.purchases || 0)
+
+      if (!placements[key]) placements[key] = { spend: 0, results: 0, clicks: 0, impressions: 0 }
+      placements[key].spend += row.spend || 0
+      placements[key].results += results
+      placements[key].clicks += row.clicks || 0
+      placements[key].impressions += row.impressions || 0
+    }
+
+    ctx += `## Placement Breakdown\n`
+    for (const [name, d] of Object.entries(placements).sort((a, b) => b[1].spend - a[1].spend).slice(0, 12)) {
+      const pcpr = d.results > 0 ? d.spend / d.results : 0
+      const pctr = d.impressions > 0 ? (d.clicks / d.impressions * 100) : 0
+      ctx += `- ${name}: $${d.spend.toFixed(0)} spend, ${d.results} results, $${pcpr.toFixed(2)} CPR, ${pctr.toFixed(2)}% CTR\n`
+    }
+    ctx += '\n'
+  }
+
+  // === UNIFIED AD PERFORMANCE + CREATIVE VIEW ===
+  // Merge ad performance with creative details so Gemini can analyze which creative elements drive results
+  if (sortedAds.length > 0) {
+    ctx += `## Ad Performance with Creative Details (top ${Math.min(sortedAds.length, 20)} by spend)\n`
+    for (const [name, d] of sortedAds.slice(0, 20)) {
+      const acpr = d.results > 0 ? d.spend / d.results : 0
+      const actr = d.impressions > 0 ? (d.clicks / d.impressions * 100) : 0
+      const creative = creativeMap.get(name)
+      ctx += `\n### "${name}"\n`
+      ctx += `- Performance: $${d.spend.toFixed(2)} spend | ${d.results} results | $${acpr.toFixed(2)} CPR | ${actr.toFixed(2)}% CTR | ${d.clicks} clicks\n`
+      ctx += `- Campaign: ${d.campaign} | Ad Set: ${d.adSet || 'N/A'}\n`
+      if (creative) {
+        ctx += `- Status: ${creative.effective_status}\n`
+        if (creative.creative_headline) ctx += `- Headline: "${creative.creative_headline}"\n`
+        if (creative.creative_body) ctx += `- Body: "${creative.creative_body.slice(0, 300)}"\n`
+        if (creative.creative_cta) ctx += `- CTA: ${creative.creative_cta}\n`
+      }
+    }
+    ctx += '\n'
+  }
+
   // === PRE-ANALYSIS ENGINE ===
   const dayData = thisWeek.map(d => ({
     date: d.date,
@@ -400,6 +500,23 @@ async function getClientContext(clientId: string, days = 7) {
 
   if (analysis.concentrationRisk) {
     ctx += `### Concentration Risk\n- ${analysis.concentrationRisk}\n\n`
+  }
+
+  // Audience targeting signals
+  if (ageGenderData.length > 0) {
+    const ageAgg: Record<string, { spend: number; results: number }> = {}
+    for (const row of ageGenderData) {
+      const age = row.dimension_1 || 'Unknown'
+      if (!ageAgg[age]) ageAgg[age] = { spend: 0, results: 0 }
+      ageAgg[age].spend += row.spend || 0
+      ageAgg[age].results += (row.leads || 0) + (row.purchases || 0)
+    }
+    const audienceSignals = analyzeAudience(ageAgg, account.target_cpl)
+    if (audienceSignals.length > 0) {
+      ctx += `### Audience Targeting Signals\n`
+      for (const s of audienceSignals) ctx += `- ${s}\n`
+      ctx += '\n'
+    }
   }
 
   return { client, context: ctx }

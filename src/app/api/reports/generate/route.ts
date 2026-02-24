@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
 import { isEcomActionType } from '@/lib/utils'
+import { preAnalyze } from '@/lib/analysis'
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
 async function getGeminiKey() {
@@ -192,6 +193,26 @@ ${topPerformers.length > 0 ? topPerformers.map(([name, d]) => {
 UNDERPERFORMERS:
 ${nonConverting.length > 0 ? `Non-converting ads (0 results, significant spend):\n${nonConverting.slice(0, 5).map(([name, d]) => `- "${name}": $${d.spend.toFixed(0)} spent, 0 results`).join('\n')}\nTotal wasted: $${nonConverting.reduce((s, [, d]) => s + d.spend, 0).toFixed(0)}` : 'No major wasted spend this week.'}
 ${highCost.length > 0 ? `\nHigh-cost ads (converting but expensive):\n${highCost.map(([name, d]) => `- "${name}": $${(d.spend / d.results).toFixed(2)} CPR (${d.results} results)`).join('\n')}` : ''}`
+
+  // Pre-analysis signals
+  const dayData = thisWeek.map(d => ({
+    date: d.date, spend: d.spend || 0, impressions: d.impressions || 0, clicks: d.clicks || 0,
+    results: (d.leads || 0) + (d.purchases || 0) + (d.schedules || 0), revenue: d.purchase_value || 0, lpv: d.landing_page_views || 0,
+  }))
+  const lwDayData = lastWeek.map(d => ({
+    date: d.date, spend: d.spend || 0, impressions: d.impressions || 0, clicks: d.clicks || 0,
+    results: (d.leads || 0) + (d.purchases || 0) + (d.schedules || 0), revenue: d.purchase_value || 0, lpv: 0,
+  }))
+  const adArr = sortedAds.map(([name, d]) => ({ name, campaign: d.campaign, adSet: '', spend: d.spend, results: d.results, clicks: d.clicks, impressions: d.impressions, revenue: d.revenue }))
+  const campArr = Object.entries(campaigns).map(([name, d]) => ({ name, spend: d.spend, results: d.results, clicks: d.clicks, impressions: d.impressions, revenue: d.revenue }))
+  const analysis = preAnalyze(dayData, lwDayData, adArr, campArr, account.target_cpl, isEcom, account.target_roas)
+
+  if (analysis.signals.length > 0) {
+    dataContext += `\n\nKEY SIGNALS (use these to guide the report narrative):\n${analysis.signals.map(s => `- ${s}`).join('\n')}`
+  }
+  if (analysis.scalingOpportunities.length > 0) {
+    dataContext += `\n\nSCALING OPPORTUNITIES:\n${analysis.scalingOpportunities.map(s => `- ${s}`).join('\n')}`
+  }
 
   // Client context
   if (client.business_description) dataContext += `\n\nBUSINESS: ${client.business_description}`

@@ -230,6 +230,48 @@ export function preAnalyze(
   }
 }
 
+// Analyze audience efficiency for targeting recommendations
+export function analyzeAudience(
+  ageData: Record<string, { spend: number; results: number }>,
+  targetCpl: number | null,
+): string[] {
+  const signals: string[] = []
+  const entries = Object.entries(ageData).filter(([, d]) => d.spend > 0)
+  if (entries.length < 2) return signals
+
+  const totalSpend = entries.reduce((s, [, d]) => s + d.spend, 0)
+  const totalResults = entries.reduce((s, [, d]) => s + d.results, 0)
+  if (totalSpend === 0 || totalResults === 0) return signals
+
+  const avgCpr = totalSpend / totalResults
+
+  // Find best and worst performing age groups
+  const withResults = entries.filter(([, d]) => d.results > 0).map(([name, d]) => ({
+    name, cpr: d.spend / d.results, spend: d.spend, results: d.results, pct: d.spend / totalSpend * 100,
+  }))
+
+  const noResults = entries.filter(([, d]) => d.results === 0 && d.spend > avgCpr * 0.5).map(([name, d]) => ({
+    name, spend: d.spend, pct: d.spend / totalSpend * 100,
+  }))
+
+  if (withResults.length > 0) {
+    const best = withResults.sort((a, b) => a.cpr - b.cpr)[0]
+    const worst = withResults.sort((a, b) => b.cpr - a.cpr)[0]
+    if (best.cpr < worst.cpr * 0.5 && withResults.length > 2) {
+      signals.push(`Age "${best.name}" converts at $${best.cpr.toFixed(2)} CPR vs "${worst.name}" at $${worst.cpr.toFixed(2)}. Consider shifting budget toward ${best.name}.`)
+    }
+  }
+
+  if (noResults.length > 0) {
+    const wastedPct = noResults.reduce((s, n) => s + n.pct, 0)
+    if (wastedPct > 10) {
+      signals.push(`${wastedPct.toFixed(0)}% of spend goes to age groups with 0 results: ${noResults.map(n => n.name).join(', ')}. Consider excluding or reducing.`)
+    }
+  }
+
+  return signals
+}
+
 function aggregate(days: DayData[]) {
   return days.reduce((s, d) => ({
     spend: s.spend + d.spend,
