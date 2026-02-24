@@ -185,10 +185,60 @@ export function ReportsHub({
     setEditNotes(report.notes || '')
   }
 
+  function markdownToHtml(text: string): string {
+    return text
+      .split('\n\n')
+      .map(block => {
+        const trimmed = block.trim()
+        if (!trimmed) return ''
+
+        // Check if block is a list (all lines start with -)
+        const lines = trimmed.split('\n')
+        const isList = lines.every(l => l.trim().startsWith('- ') || l.trim() === '')
+        if (isList) {
+          const items = lines
+            .filter(l => l.trim().startsWith('- '))
+            .map(l => `<li style="margin-bottom:4px">${formatInline(l.trim().slice(2))}</li>`)
+            .join('')
+          return `<ul style="margin:0 0 12px 20px;padding:0">${items}</ul>`
+        }
+
+        // ALL CAPS line = section header
+        if (/^[A-Z][A-Z\s']+$/.test(trimmed) || /^[A-Z][A-Z\s']+:?$/.test(trimmed)) {
+          return `<p style="margin:16px 0 8px 0;font-weight:600;font-size:14px">${trimmed}</p>`
+        }
+
+        // Regular paragraph
+        return `<p style="margin:0 0 12px 0">${formatInline(trimmed.replace(/\n/g, '<br>'))}</p>`
+      })
+      .filter(Boolean)
+      .join('')
+  }
+
+  function formatInline(text: string): string {
+    // Bold: **text**
+    return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  }
+
+  const [copyFeedback, setCopyFeedback] = useState(false)
+
   async function copyToClipboard(text: string) {
     try {
+      const html = markdownToHtml(text)
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' }),
+        })
+      ])
+      setCopyFeedback(true)
+      setTimeout(() => setCopyFeedback(false), 2000)
+    } catch {
+      // Fallback to plain text
       await navigator.clipboard.writeText(text)
-    } catch {}
+      setCopyFeedback(true)
+      setTimeout(() => setCopyFeedback(false), 2000)
+    }
   }
 
   // Filter reports
@@ -227,9 +277,13 @@ export function ReportsHub({
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             <button
               onClick={() => copyToClipboard(editContent)}
-              className="px-3 py-2 rounded border border-[#e8e8ec] text-[12px] font-medium text-[#111113] hover:bg-[#f8f8fa]"
+              className={`px-3 py-2 rounded border text-[12px] font-medium transition-colors ${
+                copyFeedback
+                  ? 'border-[#16a34a] text-[#16a34a] bg-[#f0fdf4]'
+                  : 'border-[#e8e8ec] text-[#111113] hover:bg-[#f8f8fa]'
+              }`}
             >
-              Copy
+              {copyFeedback ? 'Copied' : 'Copy for Email'}
             </button>
             <button
               onClick={() => regenerateReport(editingReport)}
@@ -283,9 +337,10 @@ export function ReportsHub({
               <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-semibold">Preview</p>
             </div>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="max-w-[600px] mx-auto bg-white rounded border border-[#e8e8ec] p-6 sm:p-8 text-[13px] leading-relaxed text-[#111113] whitespace-pre-wrap">
-                {editContent || 'No content yet.'}
-              </div>
+              <div
+                className="max-w-[600px] mx-auto bg-white rounded border border-[#e8e8ec] p-6 sm:p-8 text-[13px] leading-relaxed text-[#111113]"
+                dangerouslySetInnerHTML={{ __html: editContent ? markdownToHtml(editContent) : '<p style="color:#9d9da8">No content yet.</p>' }}
+              />
             </div>
           </div>
         </div>
