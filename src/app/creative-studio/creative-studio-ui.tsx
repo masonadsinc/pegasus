@@ -51,6 +51,9 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [showFeedback, setShowFeedback] = useState(false)
+  const [uploadedImages, setUploadedImages] = useState<{ name: string; dataUrl: string }[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   // Brand settings
   const [brandColors, setBrandColors] = useState<BrandColor[]>([])
   const [styleGuide, setStyleGuide] = useState('')
@@ -74,8 +77,29 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
       setError(null)
       setShowFeedback(false)
       setFeedback('')
+      setUploadedImages([])
     }
   }, [selectedClient])
+
+  async function handleFileUpload(files: FileList | null) {
+    if (!files?.length) return
+    setUploading(true)
+    const formData = new FormData()
+    for (let i = 0; i < Math.min(files.length, 6 - uploadedImages.length); i++) {
+      formData.append('images', files[i])
+    }
+    try {
+      const res = await fetch('/api/creative-studio/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (data.images) setUploadedImages(prev => [...prev, ...data.images].slice(0, 6))
+    } catch {}
+    setUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function removeUpload(index: number) {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index))
+  }
 
   async function loadWinningAds() {
     setLoadingAds(true)
@@ -158,6 +182,7 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
           winnerName: selectedWinner.name,
           winnerStats: { spend: selectedWinner.spend, results: selectedWinner.results, cpr: selectedWinner.cpr, ctr: selectedWinner.ctr },
           aspectRatio, resolution, mode, additionalDirection: direction, referenceImageUrls: refUrls,
+          uploadedImages: uploadedImages.map(img => img.dataUrl),
         }),
       })
 
@@ -358,6 +383,46 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                     </div>
                   </div>
                 )}
+
+                {/* Upload client photos */}
+                <div className="border border-[#e8e8ec] rounded-md bg-white">
+                  <div className="px-4 py-2 border-b border-[#e8e8ec] flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Client Photos</p>
+                      <p className="text-[10px] text-[#9d9da8]">Use real photos in the ad</p>
+                    </div>
+                    <span className="text-[10px] text-[#9d9da8]">{uploadedImages.length}/6</span>
+                  </div>
+                  <div className="p-3">
+                    {uploadedImages.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        {uploadedImages.map((img, i) => (
+                          <div key={i} className="relative aspect-square rounded overflow-hidden border border-[#e8e8ec] group">
+                            <img src={img.dataUrl} alt={img.name} className="w-full h-full object-cover" />
+                            <button onClick={() => removeUpload(i)}
+                              className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+                            </button>
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5">
+                              <p className="text-[8px] text-white truncate">{img.name}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={e => handleFileUpload(e.target.files)} className="hidden" />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading || uploadedImages.length >= 6}
+                      className="w-full py-2.5 border border-dashed border-[#e8e8ec] rounded text-[11px] text-[#9d9da8] hover:text-[#111113] hover:border-[#2563eb] transition-colors disabled:opacity-50"
+                    >
+                      {uploading ? 'Uploading...' : uploadedImages.length >= 6 ? 'Max 6 photos' : 'Upload Photos'}
+                    </button>
+                    {uploadedImages.length > 0 && (
+                      <p className="text-[10px] text-[#2563eb] mt-1.5">The winning ad's layout will be used as a template with your photos as the hero visual</p>
+                    )}
+                  </div>
+                </div>
 
                 {/* Brand context summary */}
                 {hasAssets && (

@@ -169,6 +169,7 @@ function buildGenerationPrompt(
   aspectRatio: string,
   resolution: string,
   additionalDirection: string,
+  hasUploadedImages: boolean = false,
 ): string {
   const parts: string[] = []
 
@@ -236,6 +237,30 @@ Create something that explores a DIFFERENT visual territory.`)
   // ─── HARD RULES FROM BRAND ASSETS ───
   if (brandAssets?.hard_rules) {
     parts.push(`HARD BRAND RULES — NEVER VIOLATE:\n${brandAssets.hard_rules}`)
+  }
+
+  // ─── UPLOADED CLIENT PHOTOS ───
+  if (hasUploadedImages) {
+    parts.push(`CLIENT PHOTOS PROVIDED — THIS IS CRITICAL:
+Real photos from the client's business have been provided. These are the PRIMARY VISUAL CONTENT for the ad.
+
+YOUR JOB: Take the winning ad's LAYOUT as a template and BUILD A NEW AD using the client's real photos as the hero visual.
+
+What to keep from the winner:
+- The overall layout structure (where headline sits, where CTA goes, spacing)
+- The typography style (font weight, size relationships, color application)
+- The text placement approach (overlay on image, separate section, etc.)
+- The general color scheme and brand feel
+
+What to change:
+- The hero visual — use the client's REAL PHOTO(S) instead
+- Write NEW headline text that fits the client's service/product
+- Write NEW CTA text
+- Adjust colors if needed to complement the client's photo
+
+The client's photo should be the dominant visual element — full-bleed, edge-to-edge. 
+Do NOT shrink it into a small box. Do NOT add AI-generated imagery on top of it.
+The photo IS the ad — you're adding text and design elements ON TOP of/around it.`)
   }
 
   // ─── MODE-SPECIFIC INSTRUCTIONS ───
@@ -318,11 +343,12 @@ export async function POST(req: NextRequest) {
     winnerName = 'Unknown Ad',
     winnerStats = {},
     aspectRatio = '1:1',
-    resolution = '4K',
+    resolution = '2K',
     additionalDirection = '',
-    mode = 'variation',
+    mode = 'variation', // variation | refresh | manual
     manualPrompt = '',
     referenceImageUrls = [],
+    uploadedImages = [], // base64 data URLs from client photo uploads
     concept = '',
   } = await req.json()
 
@@ -392,7 +418,8 @@ export async function POST(req: NextRequest) {
         } else {
           fullPrompt = buildGenerationPrompt(
             analysis, brandAssets, client, historyList,
-            mode, aspectRatio, resolution, additionalDirection
+            mode, aspectRatio, resolution, additionalDirection,
+            uploadedImages.length > 0
           )
         }
 
@@ -412,6 +439,19 @@ export async function POST(req: NextRequest) {
         }
         if (refImages.length > 0) {
           contents.push({ text: `Above are ${refImages.length} additional reference(s) from the same brand. Absorb their visual language.` })
+        }
+
+        // Uploaded client images (real photos to incorporate into the ad)
+        const parsedUploads: { data: string; mimeType: string }[] = []
+        for (const dataUrl of uploadedImages.slice(0, 6)) {
+          const match = (dataUrl as string).match(/^data:([^;]+);base64,(.+)$/)
+          if (match) {
+            parsedUploads.push({ mimeType: match[1], data: match[2] })
+            contents.push({ inlineData: { mimeType: match[1], data: match[2] } })
+          }
+        }
+        if (parsedUploads.length > 0) {
+          contents.push({ text: `Above are ${parsedUploads.length} REAL CLIENT PHOTO(S). These are actual images from the client's business — real work, real products, real environments. You MUST incorporate these photos as the primary visual content in the generated ad. Use the winning ad's LAYOUT, TYPOGRAPHY STYLE, TEXT PLACEMENT, and COLOR SCHEME, but replace the visual content with these real photos. The final ad should look like a professional designer took the client's photo and built a polished ad around it using the winning ad as a layout template.` })
         }
 
         // The generation prompt
