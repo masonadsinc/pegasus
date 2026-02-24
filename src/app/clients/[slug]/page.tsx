@@ -157,6 +157,7 @@ export default async function ClientDetailPage({ params, searchParams }: { param
           {/* Tabs */}
           <ClientTabs
             clientId={client.id}
+            initialPortalToken={(client as any).portal_token || null}
             daily={daily}
             campaigns={campaigns}
             adSets={adSets}

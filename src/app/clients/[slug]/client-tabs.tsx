@@ -14,6 +14,7 @@ import {
 
 interface ClientTabsProps {
   clientId: string
+  initialPortalToken: string | null
   daily: any[]
   campaigns: any[]
   adSets: any[]
@@ -289,7 +290,7 @@ const tooltipStyle = {
 }
 
 /* ── MAIN TABS ──────────────────────────────────── */
-export function ClientTabs({ clientId, daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
+export function ClientTabs({ clientId, initialPortalToken, daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
   const chartData = daily.map((d, i) => {
     // 7-day moving average
     const maWindow = daily.slice(Math.max(0, i - 6), i + 1)
@@ -317,6 +318,8 @@ export function ClientTabs({ clientId, daily, campaigns, adSets, ads, topAds, bo
   const [adStatusFilter, setAdStatusFilter] = useState<'all' | 'active' | 'paused'>('all')
   const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [portalToken, setPortalToken] = useState<string | null>(initialPortalToken)
+  const [portalLoading, setPortalLoading] = useState(false)
   const [drillLevel, setDrillLevel] = useState<'campaigns' | 'adsets' | 'ads'>('campaigns')
   const [drillCampaignId, setDrillCampaignId] = useState<string | null>(null)
   const [drillAdSetId, setDrillAdSetId] = useState<string | null>(null)
@@ -1978,6 +1981,56 @@ export function ClientTabs({ clientId, daily, campaigns, adSets, ads, topAds, bo
                 <span className="text-[#9d9da8]">Account Type</span>
                 <Badge variant={isEcom ? 'info' : 'success'}>{isEcom ? 'E-commerce' : 'Lead Gen'}</Badge>
               </div>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h3 className="text-[13px] font-semibold mb-4">Client Portal</h3>
+            <p className="text-[12px] text-[#9d9da8] mb-3">Generate a shareable link for your client to view their dashboard — no login required.</p>
+            <div className="space-y-3">
+              {portalToken ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/portal/${portalToken}`}
+                      className="flex-1 px-3 py-2 border border-[#e8e8ec] rounded text-[12px] text-[#111113] bg-[#f8f8fa] font-mono"
+                    />
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/portal/${portalToken}`); }}
+                      className="px-3 py-2 rounded border border-[#e8e8ec] text-[12px] font-medium text-[#111113] hover:bg-[#f8f8fa]"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!confirm('This will invalidate the current link. Continue?')) return
+                      setPortalLoading(true)
+                      const res = await fetch('/api/portal', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId }) })
+                      if (res.ok) setPortalToken(null)
+                      setPortalLoading(false)
+                    }}
+                    className="text-[11px] text-[#dc2626] hover:underline"
+                  >
+                    Revoke link
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    setPortalLoading(true)
+                    const res = await fetch('/api/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId }) })
+                    const data = await res.json()
+                    if (data.token) setPortalToken(data.token)
+                    setPortalLoading(false)
+                  }}
+                  disabled={portalLoading}
+                  className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50"
+                >
+                  {portalLoading ? 'Generating...' : 'Generate Portal Link'}
+                </button>
+              )}
             </div>
           </Card>
 

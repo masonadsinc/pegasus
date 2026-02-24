@@ -223,7 +223,7 @@ export async function getDashboardData(orgId: string, days: number = 7): Promise
 export async function getClientBySlug(slug: string) {
   const { data, error } = await supabaseAdmin
     .from('clients')
-    .select('id, name, slug, industry, status, ad_accounts(id, name, platform_account_id, objective, primary_action_type, target_cpl, target_roas, is_active, last_synced_at)')
+    .select('id, name, slug, industry, status, portal_token, ad_accounts(id, name, platform_account_id, objective, primary_action_type, target_cpl, target_roas, is_active, last_synced_at)')
     .eq('org_id', ORG_ID)
     .eq('slug', slug)
     .single()
