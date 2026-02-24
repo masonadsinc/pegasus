@@ -13,23 +13,33 @@ async function getGeminiKey(): Promise<string | null> {
   return data?.gemini_api_key || process.env.GEMINI_API_KEY || null
 }
 
-// Fetch image as base64
 async function fetchImageBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
     if (!res.ok) return null
     const buffer = await res.arrayBuffer()
-    return {
-      data: Buffer.from(buffer).toString('base64'),
-      mimeType: res.headers.get('content-type') || 'image/jpeg',
-    }
-  } catch {
-    return null
-  }
+    return { data: Buffer.from(buffer).toString('base64'), mimeType: res.headers.get('content-type') || 'image/jpeg' }
+  } catch { return null }
 }
 
-// Step 1: Analyze the winning ad with Gemini Flash (vision)
-async function analyzeWinner(apiKey: string, imageBase64: string, imageMime: string, adName: string, stats: { spend: number; results: number; cpr: number; ctr: number }): Promise<string> {
+// ============================================================
+// WINNER ANALYSIS — extracts structured + narrative data
+// ============================================================
+interface WinnerBreakdown {
+  raw: string
+  containsPeople: boolean
+  peopleDescription: string
+  exactText: string[]
+  visualStyle: string
+  dominantColors: string
+  layoutDescription: string
+  emotionalTrigger: string
+}
+
+async function analyzeWinner(
+  apiKey: string, imageBase64: string, imageMime: string,
+  adName: string, stats: { spend: number; results: number; cpr: number; ctr: number }
+): Promise<WinnerBreakdown> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
     {
@@ -40,23 +50,23 @@ async function analyzeWinner(apiKey: string, imageBase64: string, imageMime: str
           role: 'user',
           parts: [
             { inlineData: { mimeType: imageMime, data: imageBase64 } },
-            { text: `This is a top-performing Meta ad image called "${adName}". Performance: $${stats.spend.toFixed(0)} spend, ${stats.results} results, $${stats.cpr.toFixed(2)} CPR, ${stats.ctr.toFixed(2)}% CTR.
+            { text: `You are analyzing a top-performing Meta ad creative. This ad has proven results: $${stats.spend.toFixed(0)} spend, ${stats.results} results at $${stats.cpr.toFixed(2)} CPR, ${stats.ctr.toFixed(2)}% CTR.
 
-Analyze this ad image in detail. For each point, be SPECIFIC about what you see:
+Your analysis will directly drive AI image generation of a new variation. Be extremely specific and visual — describe what you SEE, not what you think.
 
-1. CONTAINS PEOPLE — Yes or No. If yes, describe (faces visible? just hands/torso?)
-2. VISUAL CONCEPT — Describe the scene, imagery, composition, style type (photorealistic, graphic, typographic, etc.)
-3. COLOR PALETTE — List the dominant colors with approximate hex codes. Note contrast and color hierarchy.
-4. HEADLINE & COPY — Transcribe ALL text exactly as it appears. Note the messaging angle.
-5. EMOTIONAL TRIGGER — What feeling does this ad create? Why would someone stop scrolling?
-6. LAYOUT — Describe the spatial arrangement: where is the headline, visual, CTA, supporting text? What percentage of space does each occupy?
-7. WHAT'S WORKING — Based on performance data and visual analysis, why does this ad convert?
-8. WHAT COULD BE IMPROVED — Specific opportunities for the variation.
+Respond in EXACTLY this format (keep the labels):
 
-Be detailed and specific. This analysis drives the next creative generation.` }
+PEOPLE: [Yes/No]. [If yes: "Faces visible" or "Hands/arms only" or "Silhouette" etc. If no: just "No"]
+EXACT_TEXT: [Transcribe EVERY piece of text exactly as written, line by line. Include headline, subtext, CTA button text, any badges or labels. Use | to separate lines]
+VISUAL_STYLE: [One paragraph. Describe the visual approach as if briefing a photographer. Is it photorealistic? Graphic design? Typography-driven? What's the composition — full-bleed photo, split layout, centered subject? What's the dominant visual element?]
+COLOR_PALETTE: [List the 3-5 most prominent colors with approximate hex codes. Note which is background, which is text, which is accent]
+LAYOUT: [Describe spatial arrangement top-to-bottom. What occupies the top 20%? The middle? The bottom? Is text overlaid on the image or in separate sections? How much whitespace?]
+CAMERA_FEEL: [If photorealistic: describe the apparent lens, angle, lighting, depth of field. "Shot from slightly above with a wide angle lens, soft diffused natural lighting, shallow depth of field blurring the background." If graphic: describe the design approach]
+SCROLL_STOPPER: [In one sentence: what makes someone stop scrolling? What's the immediate visual hook?]
+WHAT_WORKS: [Why does this specific combination of visual + text + layout convert? Be specific about the psychology]` }
           ]
         }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
       }),
     }
   )
@@ -67,10 +77,36 @@ Be detailed and specific. This analysis drives the next creative generation.` }
   }
 
   const result = await response.json()
-  return result.candidates?.[0]?.content?.parts?.[0]?.text || 'Analysis unavailable'
+  const raw = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+
+  // Parse structured fields from the analysis
+  const peopleMatch = raw.match(/PEOPLE:\s*(.+?)(?:\n|$)/i)
+  const textMatch = raw.match(/EXACT_TEXT:\s*([\s\S]+?)(?:\n[A-Z_]+:|$)/i)
+  const styleMatch = raw.match(/VISUAL_STYLE:\s*([\s\S]+?)(?:\n[A-Z_]+:|$)/i)
+  const colorMatch = raw.match(/COLOR_PALETTE:\s*([\s\S]+?)(?:\n[A-Z_]+:|$)/i)
+  const layoutMatch = raw.match(/LAYOUT:\s*([\s\S]+?)(?:\n[A-Z_]+:|$)/i)
+  const triggerMatch = raw.match(/SCROLL_STOPPER:\s*([\s\S]+?)(?:\n[A-Z_]+:|$)/i)
+
+  const peopleStr = (peopleMatch?.[1] || '').trim()
+  const containsPeople = /^yes/i.test(peopleStr)
+  const exactTextRaw = (textMatch?.[1] || '').trim()
+  const exactText = exactTextRaw.split('|').map((t: string) => t.trim()).filter(Boolean)
+
+  return {
+    raw: raw.replace(/\*\*(.+?)\*\*/g, '$1').replace(/#{1,4}\s*/g, '').replace(/`(.+?)`/g, '$1'),
+    containsPeople,
+    peopleDescription: peopleStr,
+    exactText,
+    visualStyle: (styleMatch?.[1] || '').trim(),
+    dominantColors: (colorMatch?.[1] || '').trim(),
+    layoutDescription: (layoutMatch?.[1] || '').trim(),
+    emotionalTrigger: (triggerMatch?.[1] || '').trim(),
+  }
 }
 
-// Step 2: QA check on generated image
+// ============================================================
+// QA CHECK — vision-based quality gate
+// ============================================================
 async function qaCheck(apiKey: string, imageBase64: string, imageMime: string): Promise<{ pass: boolean; issues: string[] }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
@@ -82,19 +118,22 @@ async function qaCheck(apiKey: string, imageBase64: string, imageMime: string): 
           role: 'user',
           parts: [
             { inlineData: { mimeType: imageMime, data: imageBase64 } },
-            { text: `You are a QA checker for AI-generated ad creatives. Check this image for FAILURES:
+            { text: `You are a strict QA checker for AI-generated ad creatives destined for Meta Ads. This image must be PERFECT for paid advertising.
 
-1. GIBBERISH TEXT — Any garbled, misspelled, or nonsensical text? (Look carefully at every word)
-2. PLACEHOLDER LABELS — Does it say "Headline", "Title", "Sub-headline", "CTA", "Logo" etc.?
-3. UNREADABLE TEXT — Any text too small, blurry, or obscured to read on a phone?
-4. CLUTTERED LAYOUT — More than 5-6 elements competing for attention?
-5. WRONG CTA PLACEMENT — Is the CTA missing or not in the bottom portion?
-6. SCREEN TEXT — Any laptop/phone screens showing illegible text?
-7. DISTORTED ELEMENTS — Any warped faces, hands, objects that look obviously AI-generated?
+Check for these specific failures:
+1. GIBBERISH TEXT — Any garbled, misspelled, or nonsensical text anywhere in the image? Read every single word carefully.
+2. PLACEHOLDER LABELS — Does any text say "Headline", "Title", "Subheadline", "CTA", "Logo", "Your Text Here", "Brand Name"?
+3. UNREADABLE TEXT — Any text too small, blurry, low-contrast, or obscured to read on a mobile phone?
+4. CLUTTERED LAYOUT — More than 5-6 visual elements competing? Does it feel overwhelming?
+5. DISTORTED ELEMENTS — Warped hands, extra fingers, melted faces, impossible physics?
+6. SCREEN TEXT — Laptop/phone screens with illegible or garbled text?
+7. LOGO ARTIFACTS — Any visible AI-generated logos, watermarks, or brand marks that look fake?
 
-Respond in this exact format:
+Be STRICT. This goes to paying clients. If in doubt, fail it.
+
+Respond EXACTLY:
 PASS: true OR PASS: false
-ISSUES: [comma-separated list of issues found, or "none"]` }
+ISSUES: [specific issues found, comma-separated, or "none"]` }
           ]
         }],
         generationConfig: { temperature: 0.1, maxOutputTokens: 500 },
@@ -102,17 +141,167 @@ ISSUES: [comma-separated list of issues found, or "none"]` }
     }
   )
 
-  if (!response.ok) return { pass: true, issues: [] } // Don't block on QA failure
+  if (!response.ok) return { pass: true, issues: [] }
 
   const result = await response.json()
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
   const pass = text.includes('PASS: true')
   const issueMatch = text.match(/ISSUES:\s*(.+)/i)
-  const issues = issueMatch ? issueMatch[1].split(',').map((s: string) => s.trim()).filter((s: string) => s && s !== 'none') : []
+  const issues = issueMatch ? issueMatch[1].split(',').map((s: string) => s.trim()).filter((s: string) => s && s.toLowerCase() !== 'none') : []
 
   return { pass, issues }
 }
 
+// ============================================================
+// PROMPT BUILDER — narrative, camera-aware, industry-smart
+// ============================================================
+function buildGenerationPrompt(
+  analysis: WinnerBreakdown | null,
+  brandAssets: any,
+  client: any,
+  historyList: string[],
+  mode: string,
+  aspectRatio: string,
+  resolution: string,
+  additionalDirection: string,
+): string {
+  const parts: string[] = []
+
+  // ─── PEOPLE CONSTRAINT (critical — from playbook) ───
+  if (analysis && !analysis.containsPeople) {
+    parts.push(`CRITICAL CONSTRAINT: The winning ad does NOT contain people. DO NOT add people, faces, portraits, hands, or human figures to the new ad. Match the winner — objects, environments, products, typography only.`)
+  } else if (analysis?.containsPeople) {
+    parts.push(`PEOPLE CONSTRAINT: The winning ad contains people (${analysis.peopleDescription}). You may include people in a similar way — match how they appear in the reference (faces visible vs. hands only, posed vs. candid).`)
+  }
+
+  // ─── WINNER CONTEXT (narrative, not structured) ───
+  if (analysis) {
+    parts.push(`THE WINNING AD — WHAT TO MATCH:
+This ad is a proven performer. Here's exactly what makes it work:
+
+Visual approach: ${analysis.visualStyle}
+
+The scroll-stopping element: ${analysis.emotionalTrigger}
+
+Color palette: ${analysis.dominantColors}
+
+Layout structure: ${analysis.layoutDescription}
+
+Why it converts: ${analysis.raw.match(/WHAT_WORKS:\s*([\s\S]+?)$/i)?.[1]?.trim() || 'Strong visual-copy alignment with clear CTA'}
+
+Text that appeared on the winning ad (for reference — create NEW text with the same messaging angle):
+${analysis.exactText.map(t => `"${t}"`).join('\n')}`)
+  }
+
+  // ─── BRAND COLORS (exact hex, mandatory) ───
+  if (brandAssets?.brand_colors?.length > 0) {
+    const colorLines = brandAssets.brand_colors.map((c: any) => `${c.name || 'Color'}: ${c.hex || c.value || c}`).join(', ')
+    parts.push(`BRAND COLORS — USE THESE EXACT HEX CODES, no approximation:
+${colorLines}
+Apply them as the winner used its colors: primary for headlines, accent for CTA buttons, secondary for supporting elements.`)
+  }
+
+  // ─── STYLE GUIDE ───
+  if (brandAssets?.style_guide) {
+    parts.push(`BRAND STYLE GUIDE:\n${brandAssets.style_guide}`)
+  }
+
+  // ─── CREATIVE PREFERENCES (what works / doesn't) ───
+  if (brandAssets?.creative_prefs) {
+    parts.push(`CREATIVE DIRECTION — FOLLOW CLOSELY:\n${brandAssets.creative_prefs}`)
+  }
+
+  // ─── VISUAL TONE ───
+  if (brandAssets?.visual_tone) {
+    parts.push(`VISUAL TONE: ${brandAssets.visual_tone}`)
+  }
+
+  // ─── BRAND VOICE ───
+  if (client?.brand_voice) {
+    parts.push(`BRAND VOICE FOR COPY: ${client.brand_voice}`)
+  }
+
+  // ─── CREATIVE HISTORY (anti-repetition) ───
+  if (historyList.length > 0) {
+    parts.push(`AVOID REPEATING — these concepts were generated in the last 30 days:
+${historyList.map(h => `- ${h}`).join('\n')}
+Create something that explores a DIFFERENT visual territory.`)
+  }
+
+  // ─── HARD RULES FROM BRAND ASSETS ───
+  if (brandAssets?.hard_rules) {
+    parts.push(`HARD BRAND RULES — NEVER VIOLATE:\n${brandAssets.hard_rules}`)
+  }
+
+  // ─── MODE-SPECIFIC INSTRUCTIONS ───
+  if (mode === 'refresh') {
+    parts.push(`GENERATION MODE: REFRESH — CREATIVE FATIGUE
+The audience has seen too much of this style. Create something that feels genuinely NEW:
+- Completely different visual approach (if the winner was photorealistic, try bold graphic design; if it was dark, try light; if it was busy, try minimal)
+- Different headline angle — same value proposition, completely different framing
+- Different emotional trigger — surprise them, don't repeat what they've already tuned out
+- CONTRAST is the goal. Make someone who's scrolled past the current ads 20 times actually stop.`)
+  } else {
+    parts.push(`GENERATION MODE: VARIATION — SAME FAMILY, FRESH EXECUTION
+Create a sibling creative that belongs in the same campaign:
+- KEEP the visual style, energy, and production quality
+- KEEP the general layout structure and color application
+- KEEP the same camera feel and lighting approach
+- CHANGE the headline to a different angle on the same value prop (same length, same impact, different words)
+- CHANGE the visual subject to a different scene/moment/composition in the same style
+- CHANGE the CTA wording slightly (same intent, fresh phrasing)
+
+Think: "If a creative director said 'give me another one like this' — what would a senior designer produce?"`)
+  }
+
+  // ─── THE NARRATIVE GENERATION BRIEF ───
+  // This is the core — describe the image as a scene, not a list of elements
+  parts.push(`NOW CREATE THE AD IMAGE.
+
+Describe what you're creating to yourself before generating — visualize the complete scene:
+
+The image should feel like a professional ad creative produced by a top-tier agency. It needs to stop someone mid-scroll on their phone. Every element must be intentional.
+
+TEXT RENDERING — THIS IS CRITICAL:
+- Write a headline of 3-7 words. Bold, clean sans-serif typeface. It must be the first thing the eye hits.
+- Write one line of supporting text (5-12 words). Smaller than the headline, positioned directly below.
+- Write a CTA button (2-4 words) as a pill/rounded rectangle in the brand accent color, positioned in the bottom 15% of the image.
+- ALL TEXT must be large enough to read on a phone at arm's length. If you're unsure, make it bigger.
+- Every word must be spelled correctly. Every letter must be crisp and legible.
+- The text should feel like it was designed by a typographer, not slapped on.
+
+COMPOSITION:
+- Full-bleed edge-to-edge. No white borders, no floating boxes, no clip art.
+- The visual should fill the frame like a magazine cover or billboard.
+- Create visual depth — use lighting, focus, and perspective to pull the eye in.
+
+PHOTOGRAPHY DIRECTION (if photorealistic):
+- Think in camera terms: what lens would capture this? (85mm for portraits/products with bokeh, 24mm wide angle for environments, 50mm for balanced scenes)
+- What's the lighting? (Natural golden hour, soft diffused studio, overhead fluorescent, dramatic side-light)
+- What's the angle? (Eye level for connection, slightly above for authority, low angle for power)
+- What's in focus vs. soft? (Subject sharp, background with pleasing bokeh)
+
+ABSOLUTE PROHIBITIONS:
+- NO LOGOS of any kind (AI logos always look fake)
+- NO placeholder text ("Headline", "CTA", "Your Brand")
+- NO gibberish or misspelled words
+- NO laptop/phone screens showing text (always illegible)
+- NO clip art, stock photo feel, or generic compositions
+- NO excessive elements — simplicity wins
+
+TECHNICAL: ${aspectRatio} aspect ratio, ${resolution} resolution.`)
+
+  // ─── USER DIRECTION (last, as override) ───
+  if (additionalDirection) {
+    parts.push(`SPECIFIC DIRECTION FROM THE USER (prioritize this):\n${additionalDirection}`)
+  }
+
+  return parts.join('\n\n')
+}
+
+// ============================================================
+// MAIN HANDLER
+// ============================================================
 export async function POST(req: NextRequest) {
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -128,7 +317,7 @@ export async function POST(req: NextRequest) {
     aspectRatio = '1:1',
     resolution = '4K',
     additionalDirection = '',
-    mode = 'variation', // variation | refresh | manual
+    mode = 'variation',
     manualPrompt = '',
     referenceImageUrls = [],
     concept = '',
@@ -136,7 +325,6 @@ export async function POST(req: NextRequest) {
 
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
-  // Use SSE for progress updates
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
@@ -145,23 +333,14 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        // Load brand assets
-        send({ type: 'status', message: 'Loading brand assets...' })
-        const { data: brandAssets } = await supabaseAdmin
-          .from('brand_assets')
-          .select('*')
-          .eq('org_id', ORG_ID)
-          .eq('client_id', clientId)
-          .single()
+        // Load brand assets + client info
+        send({ type: 'status', message: 'Loading brand context...' })
+        const [{ data: brandAssets }, { data: client }] = await Promise.all([
+          supabaseAdmin.from('brand_assets').select('*').eq('org_id', ORG_ID).eq('client_id', clientId).single(),
+          supabaseAdmin.from('clients').select('name, industry, brand_voice, ai_notes, business_description').eq('id', clientId).single(),
+        ])
 
-        // Load client info
-        const { data: client } = await supabaseAdmin
-          .from('clients')
-          .select('name, brand_voice, ai_notes')
-          .eq('id', clientId)
-          .single()
-
-        // Load creative history (last 30 days) for anti-repetition
+        // Load creative history for anti-repetition
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
         const { data: recentCreatives } = await supabaseAdmin
@@ -176,8 +355,8 @@ export async function POST(req: NextRequest) {
           .map(c => c.concept || c.metadata?.conceptSummary || '')
           .filter(Boolean)
 
-        // Fetch and analyze the winner image
-        let winnerAnalysis = ''
+        // Download and analyze the winner
+        let analysis: WinnerBreakdown | null = null
         let winnerImageData: { data: string; mimeType: string } | null = null
 
         if (winnerImageUrl && mode !== 'manual') {
@@ -185,15 +364,12 @@ export async function POST(req: NextRequest) {
           winnerImageData = await fetchImageBase64(winnerImageUrl)
 
           if (winnerImageData) {
-            send({ type: 'status', message: 'Analyzing what makes this ad work...' })
-            winnerAnalysis = await analyzeWinner(
-              apiKey,
-              winnerImageData.data,
-              winnerImageData.mimeType,
-              winnerName,
+            send({ type: 'status', message: 'Analyzing what makes this ad convert...' })
+            analysis = await analyzeWinner(
+              apiKey, winnerImageData.data, winnerImageData.mimeType, winnerName,
               { spend: winnerStats.spend || 0, results: winnerStats.results || 0, cpr: winnerStats.cpr || 0, ctr: winnerStats.ctr || 0 }
             )
-            send({ type: 'analysis', text: winnerAnalysis })
+            send({ type: 'analysis', text: analysis.raw })
           }
         }
 
@@ -204,107 +380,27 @@ export async function POST(req: NextRequest) {
           if (img) refImages.push(img)
         }
 
-        // Build the generation prompt
-        send({ type: 'status', message: 'Building creative brief...' })
-        let fullPrompt = ''
+        // Build the prompt
+        send({ type: 'status', message: 'Crafting creative brief...' })
+        let fullPrompt: string
 
         if (mode === 'manual' && manualPrompt) {
           fullPrompt = manualPrompt
         } else {
-          // === LAYER 1: Winner analysis ===
-          if (winnerAnalysis) {
-            fullPrompt += `WINNING AD ANALYSIS (this is what's already working — match this energy):\n${winnerAnalysis}\n\n`
-          }
-
-          // === LAYER 2: Brand colors ===
-          if (brandAssets?.brand_colors?.length > 0) {
-            fullPrompt += `EXACT COLORS TO USE (official brand colors):\n`
-            for (const color of brandAssets.brand_colors) {
-              fullPrompt += `- ${color.name || color.label || 'Color'}: ${color.hex || color.value || color}\n`
-            }
-            fullPrompt += `YOU MUST USE THESE EXACT HEX CODES. Do not approximate or substitute colors.\n\n`
-          }
-
-          // === LAYER 3: Style guide ===
-          if (brandAssets?.style_guide) {
-            fullPrompt += `BRAND STYLE GUIDE:\n${brandAssets.style_guide}\n\n`
-          }
-
-          // === LAYER 4: Creative preferences ===
-          if (brandAssets?.creative_prefs) {
-            fullPrompt += `CREATIVE DIRECTION (FOLLOW THESE RULES CLOSELY):\n${brandAssets.creative_prefs}\n\n`
-          }
-          if (client?.brand_voice) {
-            fullPrompt += `BRAND VOICE: ${client.brand_voice}\n\n`
-          }
-
-          // === LAYER 5: Creative history (anti-repetition) ===
-          if (historyList.length > 0) {
-            fullPrompt += `CREATIVE HISTORY (what's been generated in the last 30 days — AVOID repeating):\n`
-            for (const h of historyList) {
-              fullPrompt += `- ${h}\n`
-            }
-            fullPrompt += `Create something FRESH and different from these. Explore new visual territories.\n\n`
-          }
-
-          // === LAYER 6: Generation instructions ===
-          if (mode === 'refresh') {
-            fullPrompt += `MODE: REFRESH — The audience is FATIGUED on the current creative.
-DON'T just tweak the old concept. The audience needs something that feels NEW:
-- Different visual approach entirely
-- Different headline angle
-- Different emphasis
-- If the old ad was calm, try bold. If it was busy, try minimal.
-CONTRAST is key. The goal is to stop the scroll again for people who've seen the current ads too many times.\n\n`
-          } else {
-            fullPrompt += `MODE: VARIATION — Create a sibling creative that lives in the same visual family.
-
-MATCH THE WINNER'S STYLE — CREATE A VARIATION, NOT A COPY, NOT A COMPLETE DEPARTURE:
-- KEEP the same visual style and energy
-- KEEP the same general layout approach and color feel
-- CHANGE the headline — same value prop, different angle or wording
-- CHANGE the visual subject — same style but different scene/composition
-- CHANGE the CTA text — same intent, different words
-
-Think of it as: "What would a designer create if you said 'give me 3 more like this one but each slightly different'?"\n\n`
-          }
-
-          // === Layout specification ===
-          fullPrompt += `LAYOUT — follow this EXACTLY:
-1. TOP 20%: Real headline text — bold, clean, sans-serif. 3-7 words.
-2. BELOW HEADLINE: One line of supporting text. 5-12 words.
-3. MIDDLE 50-60%: Full-bleed visual that MATCHES the winner's style.
-4. BOTTOM 15%: CTA button — pill/rounded rectangle, brand accent color, 2-4 words.
-
-HARD RULES:
-- ${aspectRatio} aspect ratio, ${resolution} resolution
-- All text must be large, bold, and readable at phone size
-- Full-bleed background — no white boxes, no clip art, no floating elements
-- Professional, photorealistic quality
-- ABSOLUTELY NO LOGOS — no company logos, brand marks, watermarks
-- NO placeholder labels — every piece of text must be real ad copy
-- NO gibberish text — every word must be spelled correctly
-- NO laptop/phone screens with text on them\n\n`
-
-          // === Hard rules from brand assets ===
-          if (brandAssets?.hard_rules) {
-            fullPrompt += `ADDITIONAL BRAND RULES:\n${brandAssets.hard_rules}\n\n`
-          }
-
-          // === Additional user direction ===
-          if (additionalDirection) {
-            fullPrompt += `SPECIFIC DIRECTION FROM USER:\n${additionalDirection}\n\n`
-          }
+          fullPrompt = buildGenerationPrompt(
+            analysis, brandAssets, client, historyList,
+            mode, aspectRatio, resolution, additionalDirection
+          )
         }
 
-        // Build the API contents — winner/references FIRST (style anchor), then prompt
+        // Build API contents — images FIRST (style anchor), prompt LAST
         send({ type: 'status', message: 'Generating creative...' })
         const contents: any[] = []
 
-        // Winner image first (strongest style influence)
+        // Winner image first — strongest style influence
         if (winnerImageData) {
           contents.push({ inlineData: { mimeType: winnerImageData.mimeType, data: winnerImageData.data } })
-          contents.push({ text: 'Above is the reference/winning ad. Study its visual style, color palette, layout, typography, and overall aesthetic. The new creative should feel like it belongs in the same campaign.' })
+          contents.push({ text: 'Above is the winning ad — the proven performer. Study every detail of its visual style, typography, color usage, composition, and overall aesthetic. Your generation must feel like it belongs in the exact same campaign.' })
         }
 
         // Additional references
@@ -312,10 +408,10 @@ HARD RULES:
           contents.push({ inlineData: { mimeType: ref.mimeType, data: ref.data } })
         }
         if (refImages.length > 0) {
-          contents.push({ text: `Above are ${refImages.length} additional style reference(s). Match their visual language.` })
+          contents.push({ text: `Above are ${refImages.length} additional reference(s) from the same brand. Absorb their visual language.` })
         }
 
-        // The full prompt
+        // The generation prompt
         contents.push({ text: fullPrompt })
 
         // Call Nano Banana Pro
@@ -369,11 +465,19 @@ HARD RULES:
 
         if (!qa.pass) {
           send({ type: 'qa_warning', issues: qa.issues })
+          send({ type: 'status', message: 'QA issues detected — retrying with stricter constraints...' })
 
-          // Retry once with tighter constraints
-          send({ type: 'status', message: 'QA issues detected — retrying with tighter constraints...' })
-          const retryParts = [...contents]
-          retryParts.push({ text: '\n\nIMPORTANT RETRY: The previous generation had quality issues. This time:\n- Keep the design VERY SIMPLE\n- Every single word must be spelled correctly\n- NO placeholder text like "Headline" or "CTA"\n- Text must be LARGE and READABLE\n- Maximum 4-5 elements total' })
+          // Retry with tighter prompt
+          const retryContents = [...contents]
+          retryContents.push({ text: `\n\nRETRY — PREVIOUS GENERATION FAILED QA. Issues found: ${qa.issues.join(', ')}.
+
+This time, follow these STRICT rules:
+- Keep the design SIMPLE — maximum 4 visual elements total
+- Every single word must be spelled correctly — double-check before rendering
+- NO placeholder text whatsoever
+- Text must be VERY LARGE and HIGH CONTRAST (white on dark or dark on light)
+- If you're unsure about rendering text, make it bigger and bolder
+- Prioritize legibility over aesthetics` })
 
           const retryResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
@@ -381,7 +485,7 @@ HARD RULES:
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                contents: [{ role: 'user', parts: retryParts }],
+                contents: [{ role: 'user', parts: retryContents }],
                 generationConfig: { responseModalities: ['TEXT', 'IMAGE'], temperature: 0.8 },
               }),
             }
@@ -389,18 +493,17 @@ HARD RULES:
 
           if (retryResponse.ok) {
             const retryResult = await retryResponse.json()
-            const retryPartsResult = retryResult.candidates?.[0]?.content?.parts || []
-            for (const part of retryPartsResult) {
-              if (part.inlineData) {
-                imageData = part.inlineData.data
-                imageMime = part.inlineData.mimeType || 'image/png'
-              }
+            for (const part of (retryResult.candidates?.[0]?.content?.parts || [])) {
+              if (part.inlineData) { imageData = part.inlineData.data; imageMime = part.inlineData.mimeType || 'image/png' }
               if (part.text) modelNotes = part.text
             }
+            // Re-QA the retry
+            const qa2 = await qaCheck(apiKey, imageData!, imageMime)
+            if (qa2.pass) { qa.pass = true; qa.issues = [] }
           }
         }
 
-        // Get concept summary for history tracking
+        // Concept summary for history tracking
         send({ type: 'status', message: 'Saving creative...' })
         let conceptSummary = concept
         if (!conceptSummary && imageData) {
@@ -411,20 +514,17 @@ HARD RULES:
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  contents: [{
-                    role: 'user',
-                    parts: [
-                      { inlineData: { mimeType: imageMime, data: imageData } },
-                      { text: 'Describe this ad image in 10 words or less. Format: category/description. Example: "automotive/vehicle close-up with dramatic lighting" or "design/typographic bold headline on gradient"' }
-                    ]
-                  }],
+                  contents: [{ role: 'user', parts: [
+                    { inlineData: { mimeType: imageMime, data: imageData } },
+                    { text: 'Describe this ad image in exactly 8-12 words. Format: category/specific description. Examples: "automotive/glossy black sedan in professional garage bay", "design/bold white headline on dark gradient with red CTA", "service/technician applying film to vehicle hood close-up"' }
+                  ]}],
                   generationConfig: { temperature: 0.1, maxOutputTokens: 50 },
                 }),
               }
             )
             if (summaryRes.ok) {
-              const summaryResult = await summaryRes.json()
-              conceptSummary = summaryResult.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+              const sr = await summaryRes.json()
+              conceptSummary = sr.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
             }
           } catch {}
         }
@@ -447,7 +547,9 @@ HARD RULES:
             metadata: {
               modelNotes,
               winnerName,
-              winnerAnalysis: winnerAnalysis.replace(/\*\*(.+?)\*\*/g, '$1').replace(/#{1,4}\s*/g, '').replace(/`(.+?)`/g, '$1').slice(0, 3000),
+              winnerAnalysis: analysis?.raw?.slice(0, 3000) || null,
+              containsPeople: analysis?.containsPeople ?? null,
+              winnerText: analysis?.exactText || [],
               conceptSummary,
               qaPass: qa.pass,
               qaIssues: qa.issues,
@@ -476,7 +578,7 @@ HARD RULES:
           id: saved?.id,
           imageData: dataUrl,
           modelNotes,
-          winnerAnalysis,
+          winnerAnalysis: analysis?.raw || '',
           conceptSummary,
           qa: { pass: qa.pass, issues: qa.issues },
         })
@@ -490,10 +592,6 @@ HARD RULES:
   })
 
   return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    },
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
   })
 }
