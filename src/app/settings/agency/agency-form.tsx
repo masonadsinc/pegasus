@@ -78,25 +78,35 @@ export function GeminiKeyForm({ hasKey, maskedKey }: { hasKey: boolean; maskedKe
       return
     }
 
-    const res = await fetch('/api/agency', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gemini_api_key: key }),
-    })
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
 
-    if (res.ok) {
-      setSaved(true)
-      setKeyConfigured(true)
-      setDisplayMask(key.slice(0, 4) + '****' + key.slice(-4))
-      const input = e.currentTarget.querySelector('input[name="gemini_api_key"]') as HTMLInputElement
-      if (input) input.value = ''
-      setTimeout(() => setSaved(false), 2000)
-    } else {
-      try {
-        const err = await res.json()
-        alert(err.error || 'Failed to save')
-      } catch {
-        alert('Failed to save. Please try again.')
+      const res = await fetch('/api/agency', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gemini_api_key: key }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeout)
+
+      if (res.ok) {
+        setSaved(true)
+        setKeyConfigured(true)
+        setDisplayMask(key.slice(0, 4) + '****' + key.slice(-4))
+        const input = e.currentTarget.querySelector('input[name="gemini_api_key"]') as HTMLInputElement
+        if (input) input.value = ''
+        setTimeout(() => setSaved(false), 2000)
+      } else {
+        const text = await res.text()
+        try { alert(JSON.parse(text).error || 'Failed to save') } catch { alert('Failed to save: ' + res.status) }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        alert('Request timed out. Please try again.')
+      } else {
+        alert('Network error: ' + err.message)
       }
     }
     setSaving(false)
