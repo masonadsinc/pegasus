@@ -46,15 +46,16 @@ async function getClientContext(clientId: string, days = 7) {
   // Parallel data fetches for speed
   const [insightsRes, campaignRes, adInsightsRes, adSetInsightsRes, activeAdsRes, ageGenderRes, placementRes] = await Promise.all([
     // Account-level daily insights (current + previous period)
+    // Try account level first; will fall back to campaign if empty
     supabaseAdmin
       .from('insights')
-      .select('date, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
+      .select('date, level, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
       .eq('ad_account_id', account.id)
-      .eq('level', 'account')
+      .in('level', ['account', 'campaign'])
       .gte('date', pStart)
       .lte('date', yStr)
       .order('date')
-      .limit(500),
+      .limit(2000),
 
     // Campaign-level insights (current period)
     supabaseAdmin
@@ -115,9 +116,32 @@ async function getClientContext(clientId: string, days = 7) {
       .limit(500),
   ])
 
-  const insights = insightsRes.data || []
-  const thisWeek = insights.filter(i => i.date >= dStr && i.date <= yStr)
-  const lastWeek = insights.filter(i => i.date >= pStart && i.date <= pEnd)
+  const rawInsights = insightsRes.data || []
+  // Prefer account-level data; fall back to campaign-level aggregated by date
+  const hasAccountLevel = rawInsights.some(i => i.level === 'account')
+  let insights: any[]
+  if (hasAccountLevel) {
+    insights = rawInsights.filter(i => i.level === 'account')
+  } else {
+    // Aggregate campaign-level rows by date
+    const byDate: Record<string, any> = {}
+    for (const row of rawInsights.filter(i => i.level === 'campaign')) {
+      const d = typeof row.date === 'string' ? row.date : row.date?.toISOString?.()?.split('T')[0] || ''
+      if (!byDate[d]) byDate[d] = { date: d, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, purchase_value: 0, schedules: 0, landing_page_views: 0 }
+      byDate[d].spend += row.spend || 0
+      byDate[d].impressions += row.impressions || 0
+      byDate[d].clicks += row.clicks || 0
+      byDate[d].leads += row.leads || 0
+      byDate[d].purchases += row.purchases || 0
+      byDate[d].purchase_value += row.purchase_value || 0
+      byDate[d].schedules += row.schedules || 0
+      byDate[d].landing_page_views += row.landing_page_views || 0
+    }
+    insights = Object.values(byDate).sort((a: any, b: any) => a.date.localeCompare(b.date))
+  }
+  const toDateStr = (d: any) => typeof d === 'string' ? d.split('T')[0] : d?.toISOString?.()?.split('T')[0] || ''
+  const thisWeek = insights.filter(i => { const ds = toDateStr(i.date); return ds >= dStr && ds <= yStr })
+  const lastWeek = insights.filter(i => { const ds = toDateStr(i.date); return ds >= pStart && ds <= pEnd })
 
   const agg = (rows: any[]) => rows.reduce((s, i) => ({
     spend: s.spend + (i.spend || 0),

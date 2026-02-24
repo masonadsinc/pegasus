@@ -57,19 +57,40 @@ async function generateClientReport(clientId: string, apiKey: string, dates: Ret
 
   const isEcom = isEcomActionType(account.primary_action_type)
 
-  // This week + last week insights
-  const { data: insights } = await supabaseAdmin
+  // This week + last week insights — try account level, fall back to campaign
+  const { data: rawInsights } = await supabaseAdmin
     .from('insights')
-    .select('date, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
+    .select('date, level, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
     .eq('ad_account_id', account.id)
-    .eq('level', 'account')
+    .in('level', ['account', 'campaign'])
     .gte('date', dates.prevStart)
     .lte('date', dates.periodEnd)
     .order('date')
-    .limit(500)
+    .limit(2000)
 
-  const thisWeek = (insights || []).filter(i => i.date >= dates.periodStart && i.date <= dates.periodEnd)
-  const lastWeek = (insights || []).filter(i => i.date >= dates.prevStart && i.date < dates.periodStart)
+  const hasAccountLevel = (rawInsights || []).some(i => i.level === 'account')
+  let insights: any[]
+  if (hasAccountLevel) {
+    insights = (rawInsights || []).filter(i => i.level === 'account')
+  } else {
+    const byDate: Record<string, any> = {}
+    for (const row of (rawInsights || []).filter(i => i.level === 'campaign')) {
+      const d = typeof row.date === 'string' ? row.date : row.date?.toISOString?.()?.split('T')[0] || ''
+      if (!byDate[d]) byDate[d] = { date: d, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, purchase_value: 0, schedules: 0, landing_page_views: 0 }
+      byDate[d].spend += row.spend || 0
+      byDate[d].impressions += row.impressions || 0
+      byDate[d].clicks += row.clicks || 0
+      byDate[d].leads += row.leads || 0
+      byDate[d].purchases += row.purchases || 0
+      byDate[d].purchase_value += row.purchase_value || 0
+      byDate[d].schedules += row.schedules || 0
+      byDate[d].landing_page_views += row.landing_page_views || 0
+    }
+    insights = Object.values(byDate).sort((a: any, b: any) => String(a.date).localeCompare(String(b.date)))
+  }
+
+  const thisWeek = insights.filter(i => i.date >= dates.periodStart && i.date <= dates.periodEnd)
+  const lastWeek = insights.filter(i => i.date >= dates.prevStart && i.date < dates.periodStart)
 
   const agg = (rows: any[]) => rows.reduce((s, i) => ({
     spend: s.spend + (i.spend || 0),
