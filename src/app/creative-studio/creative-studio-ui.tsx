@@ -61,6 +61,8 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
   const [viewMode, setViewMode] = useState<'generate' | 'gallery'>('generate')
   const [previewCreative, setPreviewCreative] = useState<GeneratedCreative | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [feedback, setFeedback] = useState('')
+  const [showFeedback, setShowFeedback] = useState(false)
   const outputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -468,14 +470,14 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
 
                 {/* Winner analysis (shows during/after generation) */}
                 {winnerAnalysis && (
-                  <div className="border border-[#e8e8ec] rounded-md bg-white">
-                    <div className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa]">
-                      <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Winner Analysis</p>
+                  <details className="border border-[#e8e8ec] rounded-md bg-white" open>
+                    <summary className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] cursor-pointer">
+                      <span className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Winner Analysis</span>
+                    </summary>
+                    <div className="p-4 text-[12px] text-[#111113] leading-relaxed whitespace-pre-line">
+                      {stripMarkdown(winnerAnalysis)}
                     </div>
-                    <div className="p-4 text-[12px] text-[#111113] leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-line">
-                      {winnerAnalysis}
-                    </div>
-                  </div>
+                  </details>
                 )}
 
                 {/* Error */}
@@ -516,9 +518,53 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                     {modelNotes && (
                       <div className="px-4 py-3 border-t border-[#e8e8ec]">
                         <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1">Model Notes</p>
-                        <p className="text-[12px] text-[#111113] whitespace-pre-line">{modelNotes}</p>
+                        <p className="text-[12px] text-[#111113] whitespace-pre-line">{stripMarkdown(modelNotes)}</p>
                       </div>
                     )}
+
+                    {/* Feedback + Regenerate */}
+                    <div className="px-4 py-3 border-t border-[#e8e8ec]">
+                      {!showFeedback ? (
+                        <button
+                          onClick={() => setShowFeedback(true)}
+                          className="text-[12px] text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors"
+                        >
+                          Give feedback and regenerate
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block">Feedback</label>
+                          <textarea
+                            value={feedback}
+                            onChange={e => setFeedback(e.target.value)}
+                            rows={3}
+                            placeholder="What should change? e.g. 'Make the headline larger', 'Use warmer colors', 'The text is hard to read', 'Try a different angle — show the service being performed'"
+                            className="w-full px-3 py-2 rounded border border-[#e8e8ec] text-[12px] text-[#111113] placeholder:text-[#9d9da8] resize-none focus:outline-none focus:border-[#2563eb]"
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setDirection(prev => prev ? `${prev}\n\nFEEDBACK ON PREVIOUS VERSION: ${feedback}` : `FEEDBACK ON PREVIOUS VERSION: ${feedback}`)
+                                setShowFeedback(false)
+                                setFeedback('')
+                                generate()
+                              }}
+                              disabled={!feedback.trim() || generating}
+                              className="px-4 py-1.5 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors"
+                            >
+                              Regenerate with Feedback
+                            </button>
+                            <button
+                              onClick={() => { setShowFeedback(false); setFeedback('') }}
+                              className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[12px] text-[#9d9da8] hover:text-[#111113] transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -587,10 +633,10 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                     </div>
                     <div className="p-4 border-t border-[#e8e8ec] space-y-3">
                       {previewCreative.metadata?.winnerAnalysis && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1">Winner Analysis</p>
-                          <p className="text-[12px] text-[#111113] whitespace-pre-line leading-relaxed max-h-[150px] overflow-y-auto">{previewCreative.metadata.winnerAnalysis}</p>
-                        </div>
+                        <details>
+                          <summary className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1 cursor-pointer">Winner Analysis</summary>
+                          <p className="text-[12px] text-[#111113] whitespace-pre-line leading-relaxed mt-2">{stripMarkdown(previewCreative.metadata.winnerAnalysis)}</p>
+                        </details>
                       )}
                       <div className="flex flex-wrap gap-4">
                         {previewCreative.metadata?.winnerName && (
@@ -626,6 +672,17 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
       )}
     </div>
   )
+}
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/#{1,4}\s*/g, '')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/^\s*[-*]\s+/gm, '- ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function formatTimeAgo(dateStr: string): string {

@@ -447,7 +447,7 @@ HARD RULES:
             metadata: {
               modelNotes,
               winnerName,
-              winnerAnalysis: winnerAnalysis.slice(0, 2000),
+              winnerAnalysis: winnerAnalysis.replace(/\*\*(.+?)\*\*/g, '$1').replace(/#{1,4}\s*/g, '').replace(/`(.+?)`/g, '$1').slice(0, 3000),
               conceptSummary,
               qaPass: qa.pass,
               qaIssues: qa.issues,
