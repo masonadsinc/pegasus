@@ -1,6 +1,7 @@
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
+import { maskApiKey, isEncrypted, decrypt } from '@/lib/encryption'
 import Link from 'next/link'
 import { AgencyForm, GeminiKeyForm } from './agency-form'
 
@@ -10,10 +11,34 @@ const ORG_ID = process.env.ADSINC_ORG_ID!
 async function getOrg() {
   const { data } = await supabaseAdmin
     .from('organizations')
-    .select('*')
+    .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key')
     .eq('id', ORG_ID)
     .single()
-  return data
+  
+  if (!data) return null
+
+  // Build safe org object — never send raw key to client
+  let maskedKey = ''
+  const hasKey = !!data.gemini_api_key
+  if (hasKey) {
+    try {
+      const raw = isEncrypted(data.gemini_api_key) ? decrypt(data.gemini_api_key) : data.gemini_api_key
+      maskedKey = maskApiKey(raw)
+    } catch {
+      maskedKey = '****configured****'
+    }
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    slug: data.slug,
+    logo_url: data.logo_url,
+    primary_color: data.primary_color,
+    plan: data.plan,
+    has_gemini_key: hasKey,
+    gemini_key_masked: maskedKey,
+  }
 }
 
 export default async function AgencySettingsPage() {
@@ -40,7 +65,7 @@ export default async function AgencySettingsPage() {
 
             <Card className="p-6">
               <h3 className="text-[13px] font-semibold text-[#111113] mb-4">Pegasus AI</h3>
-              <GeminiKeyForm org={org} />
+              <GeminiKeyForm hasKey={org?.has_gemini_key || false} maskedKey={org?.gemini_key_masked || ''} />
             </Card>
 
             <Card className="p-6">
