@@ -59,8 +59,17 @@ function MarkdownContent({ content }: { content: string }) {
   )
 }
 
+const DATE_RANGES = [
+  { label: '7 days', value: 7 },
+  { label: '14 days', value: 14 },
+  { label: '30 days', value: 30 },
+  { label: '60 days', value: 60 },
+  { label: '90 days', value: 90 },
+]
+
 export function PegasusChat({ clients }: { clients: ClientOption[] }) {
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null)
+  const [days, setDays] = useState(7)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -104,6 +113,7 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
         body: JSON.stringify({
           messages: newMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           clientId: selectedClient.id,
+          days,
         }),
       })
 
@@ -255,12 +265,29 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
             </p>
           </div>
         </div>
-        <button
-          onClick={switchClient}
-          className="px-3 py-1.5 rounded text-[11px] font-medium text-[#6b6b76] hover:text-[#111113] hover:bg-[#f4f4f6] transition-colors"
-        >
-          Switch Client
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded border border-[#e8e8ec] overflow-hidden">
+            {DATE_RANGES.map(r => (
+              <button
+                key={r.value}
+                onClick={() => setDays(r.value)}
+                className={`px-2.5 py-1.5 text-[10px] font-medium transition-colors ${
+                  days === r.value
+                    ? 'bg-[#111113] text-white'
+                    : 'text-[#9d9da8] hover:text-[#111113] hover:bg-[#f4f4f6]'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={switchClient}
+            className="px-3 py-1.5 rounded text-[11px] font-medium text-[#6b6b76] hover:text-[#111113] hover:bg-[#f4f4f6] transition-colors"
+          >
+            Switch
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
