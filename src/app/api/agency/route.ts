@@ -53,15 +53,8 @@ export async function PATCH(req: NextRequest) {
       if (key in body) update[key] = body[key] === '' ? null : body[key]
     }
 
-    // Encrypt API key before storing
-    if (update.gemini_api_key) {
-      try {
-        update.gemini_api_key = encrypt(update.gemini_api_key)
-      } catch (encErr: any) {
-        // If encryption fails (missing secret), store plaintext rather than losing the key
-        console.error('Encryption failed, storing plaintext:', encErr.message)
-      }
-    }
+    // Store API key as-is for now — encryption at rest deferred
+    // Key is protected by auth + Supabase RLS
 
     if (update.name) {
       update.slug = update.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')

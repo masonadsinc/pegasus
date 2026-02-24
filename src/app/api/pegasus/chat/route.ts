@@ -2,8 +2,6 @@ import { NextRequest } from 'next/server'
 import { getUser, getUserOrgRole } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isEcomActionType } from '@/lib/utils'
-import { decrypt, isEncrypted } from '@/lib/encryption'
-
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
 async function getOrgGeminiKey() {
@@ -14,11 +12,7 @@ async function getOrgGeminiKey() {
     .single()
   const stored = data?.gemini_api_key
   if (!stored) return process.env.GEMINI_API_KEY || null
-  try {
-    return isEncrypted(stored) ? decrypt(stored) : stored
-  } catch {
-    return process.env.GEMINI_API_KEY || null
-  }
+  return stored || process.env.GEMINI_API_KEY || null
 }
 
 async function getClientContext(clientId: string, days = 7) {

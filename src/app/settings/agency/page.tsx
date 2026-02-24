@@ -1,7 +1,7 @@
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
-import { maskApiKey, isEncrypted, decrypt } from '@/lib/encryption'
+import { maskApiKey } from '@/lib/encryption'
 import Link from 'next/link'
 import { AgencyForm, GeminiKeyForm } from './agency-form'
 
@@ -21,13 +21,7 @@ async function getOrg() {
   let maskedKey = ''
   const hasKey = !!data.gemini_api_key
   if (hasKey) {
-    try {
-      const raw = isEncrypted(data.gemini_api_key) ? decrypt(data.gemini_api_key) : data.gemini_api_key
-      maskedKey = maskApiKey(raw)
-    } catch {
-      // Key exists but can't be decrypted — mark as needing re-entry
-      maskedKey = 'Unable to decrypt — please re-enter key'
-    }
+    maskedKey = maskApiKey(data.gemini_api_key)
   }
 
   return {
