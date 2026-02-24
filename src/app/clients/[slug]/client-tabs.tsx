@@ -13,8 +13,9 @@ import {
 } from 'recharts'
 
 interface ClientTabsProps {
-  clientId: string
-  initialPortalToken: string | null
+  clientId?: string
+  initialPortalToken?: string | null
+  portalMode?: boolean
   daily: any[]
   campaigns: any[]
   adSets: any[]
@@ -290,7 +291,7 @@ const tooltipStyle = {
 }
 
 /* ── MAIN TABS ──────────────────────────────────── */
-export function ClientTabs({ clientId, initialPortalToken, daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
+export function ClientTabs({ clientId, initialPortalToken, portalMode = false, daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
   const chartData = daily.map((d, i) => {
     // 7-day moving average
     const maWindow = daily.slice(Math.max(0, i - 6), i + 1)
@@ -318,7 +319,7 @@ export function ClientTabs({ clientId, initialPortalToken, daily, campaigns, adS
   const [adStatusFilter, setAdStatusFilter] = useState<'all' | 'active' | 'paused'>('all')
   const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
-  const [portalToken, setPortalToken] = useState<string | null>(initialPortalToken)
+  const [portalToken, setPortalToken] = useState<string | null>(initialPortalToken || null)
   const [portalLoading, setPortalLoading] = useState(false)
   const [drillLevel, setDrillLevel] = useState<'campaigns' | 'adsets' | 'ads'>('campaigns')
   const [drillCampaignId, setDrillCampaignId] = useState<string | null>(null)
@@ -509,8 +510,8 @@ export function ClientTabs({ clientId, initialPortalToken, daily, campaigns, adS
         {ageGender.length > 0 && <TabsTrigger value="audience">Audience</TabsTrigger>}
         {placement.length > 0 && <TabsTrigger value="placements">Placements</TabsTrigger>}
         {region.length > 0 && <TabsTrigger value="geographic">Geographic</TabsTrigger>}
-        <TabsTrigger value="creative-analysis">Creative Studio</TabsTrigger>
-        <TabsTrigger value="settings">Settings</TabsTrigger>
+        {!portalMode && <TabsTrigger value="creative-analysis">Creative Studio</TabsTrigger>}
+        {!portalMode && <TabsTrigger value="settings">Settings</TabsTrigger>}
       </TabsList>
 
       {/* ═══════════════════ OVERVIEW ═══════════════════ */}
@@ -1944,11 +1945,13 @@ export function ClientTabs({ clientId, initialPortalToken, daily, campaigns, adS
         )
       })()}
       {/* ═══════════════════ SETTINGS ═══════════════════ */}
-      <TabsContent value="creative-analysis">
-        <CreativeAnalysis clientId={clientId} />
-      </TabsContent>
+      {!portalMode && clientId && (
+        <TabsContent value="creative-analysis">
+          <CreativeAnalysis clientId={clientId} />
+        </TabsContent>
+      )}
 
-      <TabsContent value="settings">
+      {!portalMode && <TabsContent value="settings">
         <div className="space-y-5 max-w-2xl">
           <Card className="p-5">
             <h3 className="text-[13px] font-semibold mb-4">Account Configuration</h3>
@@ -2060,7 +2063,7 @@ export function ClientTabs({ clientId, initialPortalToken, daily, campaigns, adS
             </div>
           </Card>
         </div>
-      </TabsContent>
+      </TabsContent>}
     </Tabs>
     <AdDetailModal
       ad={selectedAd}
