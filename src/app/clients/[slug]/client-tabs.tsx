@@ -506,7 +506,7 @@ export function ClientTabs({ clientId, daily, campaigns, adSets, ads, topAds, bo
         {ageGender.length > 0 && <TabsTrigger value="audience">Audience</TabsTrigger>}
         {placement.length > 0 && <TabsTrigger value="placements">Placements</TabsTrigger>}
         {region.length > 0 && <TabsTrigger value="geographic">Geographic</TabsTrigger>}
-        <TabsTrigger value="creative-analysis">Creative AI</TabsTrigger>
+        <TabsTrigger value="creative-analysis">Creative Studio</TabsTrigger>
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
 
