@@ -52,7 +52,7 @@ export function ClientEditForm({ client }: { client: any }) {
       <div>
         <h3 className={sectionClass}>General</h3>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Client Name</label>
               <input name="name" defaultValue={client.name} required className={inputClass} />
@@ -67,7 +67,7 @@ export function ClientEditForm({ client }: { client: any }) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Industry</label>
               <input name="industry" defaultValue={client.industry || ''} placeholder="e.g. Healthcare, E-commerce" className={inputClass} />
@@ -88,7 +88,7 @@ export function ClientEditForm({ client }: { client: any }) {
       <div>
         <h3 className={sectionClass}>Contact</h3>
         <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className={labelClass}>Contact Name</label>
               <input name="primary_contact_name" defaultValue={client.primary_contact_name || ''} className={inputClass} />
@@ -109,7 +109,7 @@ export function ClientEditForm({ client }: { client: any }) {
       <div>
         <h3 className={sectionClass}>Billing & Contract</h3>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Monthly Retainer ($)</label>
               <input name="monthly_retainer" type="number" step="0.01" defaultValue={client.monthly_retainer || ''} className={inputClass} />
@@ -119,7 +119,7 @@ export function ClientEditForm({ client }: { client: any }) {
               <input name="rev_share_pct" type="number" step="0.01" defaultValue={client.rev_share_pct || ''} className={inputClass} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className={labelClass}>Onboarding Date</label>
               <input name="onboarding_date" type="date" defaultValue={client.onboarding_date || ''} className={inputClass} />
@@ -155,7 +155,7 @@ export function ClientEditForm({ client }: { client: any }) {
             <label className={labelClass}>Target Audience</label>
             <textarea name="target_audience" defaultValue={client.target_audience || ''} rows={2} placeholder="Who are we trying to reach? Demographics, interests, pain points" className={inputClass + ' resize-none'} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Brand Voice / Tone</label>
               <input name="brand_voice" defaultValue={client.brand_voice || ''} placeholder="e.g. Professional, friendly, urgent" className={inputClass} />

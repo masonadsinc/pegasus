@@ -232,7 +232,7 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
   return (
     <div className="flex flex-col h-[calc(100vh-44px)]">
       {/* Client header bar */}
-      <div className="border-b border-[#e8e8ec] px-6 py-2.5 bg-white flex items-center justify-between">
+      <div className="border-b border-[#e8e8ec] px-4 sm:px-6 py-2.5 bg-white flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={switchClient} className="text-[#9d9da8] hover:text-[#111113] transition-colors" title="Switch client">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6" /></svg>
@@ -262,7 +262,7 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
               </div>
               <p className="text-[13px] text-[#9d9da8] mb-6">What do you want to know about {selectedClient.name}?</p>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {QUICK_ACTIONS.map(action => (
                   <button
                     key={action.label}
@@ -276,7 +276,7 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
             </div>
           </div>
         ) : (
-          <div className="max-w-[720px] mx-auto px-6 py-6 space-y-6">
+          <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-6 space-y-6">
             {messages.map(msg => (
               <div key={msg.id} className="flex gap-3">
                 <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
@@ -319,7 +319,7 @@ export function PegasusChat({ clients }: { clients: ClientOption[] }) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-[#e8e8ec] px-6 py-4 bg-white">
+      <div className="border-t border-[#e8e8ec] px-4 sm:px-6 py-4 bg-white">
         <div className="max-w-[720px] mx-auto">
           <div className="relative">
             <textarea

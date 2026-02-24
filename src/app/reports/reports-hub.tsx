@@ -177,19 +177,19 @@ export function ReportsHub({
     return (
       <div className="flex flex-col h-[calc(100vh-44px)]">
         {/* Editor header */}
-        <div className="border-b border-[#e8e8ec] px-6 py-3 bg-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setEditingReport(null)} className="text-[#9d9da8] hover:text-[#111113]">
+        <div className="border-b border-[#e8e8ec] px-4 sm:px-6 py-3 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => setEditingReport(null)} className="text-[#9d9da8] hover:text-[#111113] flex-shrink-0">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6" /></svg>
             </button>
-            <div>
-              <p className="text-[13px] font-semibold text-[#111113]">{editingReport.client_name}</p>
-              <p className="text-[10px] text-[#9d9da8]">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-[#111113] truncate">{editingReport.client_name}</p>
+              <p className="text-[10px] text-[#9d9da8] truncate">
                 {editingReport.subject} &middot; <StatusBadge status={editingReport.status} />
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={saveReport} disabled={saving} className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50">
               {saving ? 'Saving...' : 'Save'}
             </button>
@@ -207,9 +207,9 @@ export function ReportsHub({
         </div>
 
         {/* Editor body */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Edit pane */}
-          <div className="flex-1 flex flex-col border-r border-[#e8e8ec]">
+          <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-[#e8e8ec] min-h-[40vh] lg:min-h-0">
             <div className="px-4 py-2 border-b border-[#f4f4f6] bg-[#fafafb]">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Edit Report</p>
             </div>
@@ -264,7 +264,7 @@ export function ReportsHub({
   return (
     <div className="p-6 lg:p-8 max-w-[1440px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="text-[20px] font-semibold text-[#111113] tracking-tight">Weekly Reports</h2>
           <p className="text-[13px] text-[#9d9da8] mt-0.5">Generate, review, and track client reports</p>
@@ -318,7 +318,7 @@ export function ReportsHub({
       </div>
 
       {/* Week picker + Stats */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
           <label className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Week</label>
           <select
@@ -374,7 +374,7 @@ export function ReportsHub({
               key={report.id}
               className="rounded-md border border-[#e8e8ec] bg-white hover:bg-[#fafafb] transition-colors"
             >
-              <div className="px-5 py-4 flex items-center justify-between">
+              <div className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">

@@ -277,7 +277,7 @@ export default async function Dashboard() {
                           <HealthBar score={h.score} />
                         </div>
 
-                        <div className="grid grid-cols-4 gap-3 mb-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                           <div>
                             <p className="text-[9px] text-[#9d9da8] uppercase tracking-wider">Spend</p>
                             <p className="text-[13px] font-semibold tabular-nums">{formatCurrency(h.twSpend)}</p>

@@ -948,7 +948,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                         return (
                           <div key={w.week} className="flex items-center gap-4 py-2 border-b border-[#f4f4f6] last:border-0">
                             <span className="text-[12px] font-medium w-8">{w.week}</span>
-                            <div className="flex-1 grid grid-cols-3 gap-4 text-[12px]">
+                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[12px]">
                               <div><span className="text-[#9d9da8] text-[10px]">Spend</span><p className="font-semibold tabular-nums">{formatCurrency(w.spend)}</p></div>
                               <div><span className="text-[#9d9da8] text-[10px]">{resultLabel}</span><p className="font-semibold tabular-nums">{w.results}</p></div>
                               <div>
@@ -1261,7 +1261,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-[13px] font-medium truncate flex-1">{ad.ad_name}</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                         <div>
                           <span className="text-[#9d9da8]">Spend</span>
                           <p className="font-semibold tabular-nums">{formatCurrency(ad.spend)}</p>
@@ -1448,7 +1448,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
                       <AdImage src={imageUrl} alt={ad.ad_name} className="w-full h-[160px]" />
                       <div className="p-3">
                         <p className="text-[12px] font-medium truncate mb-2">{ad.ad_name}</p>
-                        <div className="grid grid-cols-3 gap-2 text-[11px]">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                           <div><span className="text-[#9d9da8]">Spend</span><p className="font-semibold tabular-nums">{formatCurrency(ad.spend)}</p></div>
                           <div><span className="text-[#9d9da8]">{resultLabel}</span><p className="font-semibold tabular-nums">{ad.results}</p></div>
                           <div><span className="text-[#9d9da8]">CPR</span><p className={`font-semibold tabular-nums ${ad.cpr > 0 ? (targetCpl && ad.cpr > targetCpl ? 'text-[#dc2626]' : 'text-[#16a34a]') : 'text-[#c4c4cc]'}`}>{ad.cpr > 0 ? formatCurrency(ad.cpr) : '—'}</p></div>
@@ -1699,7 +1699,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         <TabsContent value="placements">
           <div className="space-y-5">
             {/* Overview + Platform + Distribution */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-[13px] font-semibold">Placements Overview</h3>

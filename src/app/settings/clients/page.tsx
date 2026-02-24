@@ -57,7 +57,7 @@ export default async function ClientsSettingsPage() {
           </div>
 
           {/* Summary bar */}
-          <div className="grid grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {Object.entries(grouped).map(([status, group]) => (
               <div key={status} className="px-4 py-3 rounded bg-[#fafafb] border border-[#e8e8ec]">
                 <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">{status}</p>
