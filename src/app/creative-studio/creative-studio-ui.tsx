@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface Client {
   id: string
@@ -34,57 +34,43 @@ interface GeneratedCreative {
 }
 
 const ASPECT_RATIOS = [
-  { label: '1:1', value: '1:1', desc: 'Square (Feed)' },
-  { label: '4:5', value: '4:5', desc: 'Portrait (Feed)' },
-  { label: '9:16', value: '9:16', desc: 'Vertical (Stories/Reels)' },
+  { label: '1:1', value: '1:1', desc: 'Feed' },
+  { label: '4:5', value: '4:5', desc: 'Portrait' },
+  { label: '9:16', value: '9:16', desc: 'Stories' },
   { label: '16:9', value: '16:9', desc: 'Landscape' },
 ]
 
-const RESOLUTIONS = ['1K', '2K', '4K']
-
-const PROMPT_TEMPLATES = [
-  {
-    name: 'Photorealistic Service',
-    template: `A photorealistic [shot type] of [subject], [action], set in [environment]. Illuminated by [lighting]. Captured with [camera/lens details]. Text overlay: "[HEADLINE]" in [font style] at [position]. Subtext: "[SUBHEAD/CTA]" below. Brand colors: [colors] accents.`,
-  },
-  {
-    name: 'Direct Response Offer',
-    template: `A professional advertisement for [brand/service]. Headline: "[HEADLINE]" in [font style] — large, prominent, [position]. Secondary: "[SUBHEAD]" — smaller, supporting. CTA button: "[CTA TEXT]" in [color] at [position]. Visual: [subject description]. Background: [color/gradient]. Brand colors: [colors].`,
-  },
-  {
-    name: 'Before/After',
-    template: `A split-screen before-and-after comparison for [service]. Left side: [before state description]. Right side: [after state description]. Clean dividing line in the center. Headline: "[HEADLINE]" at top. CTA: "[CTA TEXT]" at bottom. Professional photography, natural lighting.`,
-  },
-  {
-    name: 'Social Proof / Testimonial',
-    template: `A clean, professional ad featuring a customer testimonial for [service]. Large quote text: "[TESTIMONIAL]" in [font style]. Star rating: 5 stars. Customer context: "[Name, Location]". Background: [clean solid or gradient]. CTA: "[CTA TEXT]" at bottom. Brand colors: [colors].`,
-  },
-]
-
 export function CreativeStudioUI({ clients }: { clients: Client[] }) {
-  const [selectedClient, setSelectedClient] = useState<string>('')
+  const [selectedClient, setSelectedClient] = useState('')
   const [winningAds, setWinningAds] = useState<WinningAd[]>([])
-  const [selectedRefs, setSelectedRefs] = useState<Set<string>>(new Set())
-  const [prompt, setPrompt] = useState('')
-  const [concept, setConcept] = useState('')
+  const [selectedWinner, setSelectedWinner] = useState<WinningAd | null>(null)
+  const [additionalRefs, setAdditionalRefs] = useState<Set<string>>(new Set())
   const [aspectRatio, setAspectRatio] = useState('1:1')
   const [resolution, setResolution] = useState('4K')
+  const [mode, setMode] = useState<'variation' | 'refresh'>('variation')
+  const [direction, setDirection] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [statusMsg, setStatusMsg] = useState('')
+  const [winnerAnalysis, setWinnerAnalysis] = useState('')
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [modelNotes, setModelNotes] = useState('')
+  const [qaResult, setQaResult] = useState<{ pass: boolean; issues: string[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<GeneratedCreative[]>([])
   const [loadingAds, setLoadingAds] = useState(false)
-  const [loadingHistory, setLoadingHistory] = useState(false)
   const [viewMode, setViewMode] = useState<'generate' | 'gallery'>('generate')
   const [previewCreative, setPreviewCreative] = useState<GeneratedCreative | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const outputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (selectedClient) {
       loadWinningAds()
       loadHistory()
-      setSelectedRefs(new Set())
+      setSelectedWinner(null)
+      setAdditionalRefs(new Set())
       setGeneratedImage(null)
+      setWinnerAnalysis('')
       setError(null)
     }
   }, [selectedClient])
@@ -100,35 +86,43 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
   }
 
   async function loadHistory() {
-    setLoadingHistory(true)
     try {
       const res = await fetch(`/api/creative-studio/history?clientId=${selectedClient}`)
       const data = await res.json()
       setHistory(data.creatives || [])
     } catch {}
-    setLoadingHistory(false)
   }
 
-  function toggleRef(adId: string) {
-    const next = new Set(selectedRefs)
+  function toggleAdditionalRef(adId: string) {
+    if (selectedWinner?.platformAdId === adId) return
+    const next = new Set(additionalRefs)
     if (next.has(adId)) next.delete(adId)
-    else if (next.size < 6) next.add(adId)
-    setSelectedRefs(next)
+    else if (next.size < 5) next.add(adId)
+    setAdditionalRefs(next)
   }
 
-  function applyTemplate(template: string) {
-    setPrompt(template)
+  function selectWinner(ad: WinningAd) {
+    setSelectedWinner(ad)
+    setAdditionalRefs(new Set())
+    setGeneratedImage(null)
+    setWinnerAnalysis('')
+    setError(null)
+    setQaResult(null)
+    setModelNotes('')
   }
 
   async function generate() {
-    if (!prompt.trim()) return
+    if (!selectedWinner) return
     setGenerating(true)
     setGeneratedImage(null)
+    setWinnerAnalysis('')
     setModelNotes('')
     setError(null)
+    setQaResult(null)
+    setStatusMsg('Starting...')
 
-    const referenceImageUrls = winningAds
-      .filter(a => selectedRefs.has(a.platformAdId))
+    const refUrls = winningAds
+      .filter(a => additionalRefs.has(a.platformAdId))
       .map(a => a.imageUrl)
 
     try {
@@ -137,38 +131,67 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: selectedClient,
-          prompt,
+          winnerImageUrl: selectedWinner.imageUrl,
+          winnerName: selectedWinner.name,
+          winnerStats: {
+            spend: selectedWinner.spend,
+            results: selectedWinner.results,
+            cpr: selectedWinner.cpr,
+            ctr: selectedWinner.ctr,
+          },
           aspectRatio,
           resolution,
-          referenceImageUrls,
-          concept,
+          mode,
+          additionalDirection: direction,
+          referenceImageUrls: refUrls,
         }),
       })
 
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Generation failed')
-      } else {
-        setGeneratedImage(data.imageData)
-        setModelNotes(data.modelNotes || '')
-        await loadHistory()
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            if (data.type === 'status') setStatusMsg(data.message)
+            else if (data.type === 'analysis') setWinnerAnalysis(data.text)
+            else if (data.type === 'qa_warning') setQaResult({ pass: false, issues: data.issues })
+            else if (data.type === 'error') { setError(data.message); break }
+            else if (data.type === 'complete') {
+              setGeneratedImage(data.imageData)
+              setModelNotes(data.modelNotes || '')
+              setQaResult(data.qa)
+              if (data.winnerAnalysis) setWinnerAnalysis(data.winnerAnalysis)
+              outputRef.current?.scrollIntoView({ behavior: 'smooth' })
+              await loadHistory()
+            }
+          } catch {}
+        }
       }
     } catch (e: any) {
       setError(e.message || 'Generation failed')
     }
     setGenerating(false)
+    setStatusMsg('')
   }
 
   async function deleteCreative(id: string) {
-    try {
-      await fetch('/api/creative-studio/history', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-      setHistory(prev => prev.filter(c => c.id !== id))
-      if (previewCreative?.id === id) setPreviewCreative(null)
-    } catch {}
+    await fetch('/api/creative-studio/history', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setHistory(prev => prev.filter(c => c.id !== id))
+    if (previewCreative?.id === id) setPreviewCreative(null)
   }
 
   function downloadImage(dataUrl: string, name: string) {
@@ -179,6 +202,7 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
   }
 
   const clientName = clients.find(c => c.id === selectedClient)?.name || ''
+  const imageAds = winningAds.filter(a => !a.isVideo)
 
   return (
     <div className="p-6 lg:p-8 max-w-[1440px] mx-auto">
@@ -186,7 +210,7 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-[20px] font-semibold text-[#111113]">Creative Studio</h1>
-          <p className="text-[12px] text-[#9d9da8] mt-0.5">Generate ad creatives from your winning ads</p>
+          <p className="text-[12px] text-[#9d9da8] mt-0.5">Select a winning ad to generate variations automatically</p>
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -224,204 +248,289 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
         </div>
       )}
 
+      {/* GENERATE VIEW */}
       {selectedClient && viewMode === 'generate' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: References + Settings */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* Reference Ads */}
-            <div className="border border-[#e8e8ec] rounded-md bg-white">
-              <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
-                <h3 className="text-[13px] font-semibold text-[#111113]">Reference Images</h3>
-                <span className="text-[10px] text-[#9d9da8]">{selectedRefs.size}/6 selected</span>
+        <div className="space-y-6">
+          {/* Step 1: Select Winner */}
+          <div className="border border-[#e8e8ec] rounded-md bg-white">
+            <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
+              <div>
+                <h3 className="text-[13px] font-semibold text-[#111113]">Step 1: Select a Winning Ad</h3>
+                <p className="text-[11px] text-[#9d9da8] mt-0.5">Top performers from the last 60 days, ranked by CPR. Click to use as the style anchor.</p>
               </div>
-              {loadingAds ? (
-                <div className="p-4 text-[12px] text-[#9d9da8]">Loading winning ads...</div>
-              ) : winningAds.length === 0 ? (
-                <div className="p-4 text-[12px] text-[#9d9da8]">No winning ads with images found</div>
-              ) : (
-                <div className="p-3 grid grid-cols-3 gap-2 max-h-[400px] overflow-y-auto">
-                  {winningAds.filter(a => !a.isVideo).map(ad => (
-                    <button
-                      key={ad.platformAdId}
-                      onClick={() => toggleRef(ad.platformAdId)}
-                      className={`relative aspect-square rounded overflow-hidden border-2 transition-all ${
-                        selectedRefs.has(ad.platformAdId)
-                          ? 'border-[#2563eb] ring-2 ring-[#2563eb]/20'
-                          : 'border-transparent hover:border-[#e8e8ec]'
-                      }`}
-                    >
+              <span className="text-[10px] text-[#9d9da8]">{imageAds.length} image ads</span>
+            </div>
+            {loadingAds ? (
+              <div className="p-6 text-[12px] text-[#9d9da8] text-center">Loading winning ads...</div>
+            ) : imageAds.length === 0 ? (
+              <div className="p-6 text-[12px] text-[#9d9da8] text-center">No winning image ads found for this client</div>
+            ) : (
+              <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {imageAds.map((ad, i) => (
+                  <button
+                    key={ad.platformAdId}
+                    onClick={() => selectWinner(ad)}
+                    className={`relative rounded-md overflow-hidden border-2 transition-all text-left ${
+                      selectedWinner?.platformAdId === ad.platformAdId
+                        ? 'border-[#2563eb] ring-2 ring-[#2563eb]/20'
+                        : additionalRefs.has(ad.platformAdId)
+                        ? 'border-[#16a34a] ring-1 ring-[#16a34a]/20'
+                        : 'border-transparent hover:border-[#e8e8ec]'
+                    }`}
+                  >
+                    <div className="aspect-square bg-[#f8f8fa] relative">
                       <img src={ad.imageUrl} alt={ad.name} className="w-full h-full object-cover" />
-                      {selectedRefs.has(ad.platformAdId) && (
-                        <div className="absolute top-1 right-1 w-5 h-5 bg-[#2563eb] rounded-full flex items-center justify-center">
-                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M3 8l4 4 6-7" /></svg>
+                      <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] font-semibold rounded">
+                        #{i + 1}
+                      </div>
+                      {selectedWinner?.platformAdId === ad.platformAdId && (
+                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#2563eb] text-white text-[9px] font-semibold rounded">
+                          SELECTED
                         </div>
                       )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
-                        <span className="text-[9px] text-white font-medium">${ad.cpr.toFixed(2)} CPR</span>
+                      {additionalRefs.has(ad.platformAdId) && (
+                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#16a34a] text-white text-[9px] font-semibold rounded">
+                          REF
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                        <p className="text-[10px] text-white font-semibold">${ad.cpr.toFixed(2)} CPR</p>
+                        <p className="text-[9px] text-white/70">${ad.spend.toFixed(0)} / {ad.results} results</p>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Settings */}
-            <div className="border border-[#e8e8ec] rounded-md bg-white p-4 space-y-4">
-              <div>
-                <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Aspect Ratio</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {ASPECT_RATIOS.map(ar => (
-                    <button
-                      key={ar.value}
-                      onClick={() => setAspectRatio(ar.value)}
-                      className={`px-3 py-2 rounded border text-left transition-colors ${
-                        aspectRatio === ar.value
-                          ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]'
-                          : 'border-[#e8e8ec] text-[#111113] hover:border-[#9d9da8]'
-                      }`}
-                    >
-                      <span className="text-[12px] font-medium block">{ar.label}</span>
-                      <span className="text-[10px] text-[#9d9da8]">{ar.desc}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Resolution</label>
-                <div className="flex gap-2">
-                  {RESOLUTIONS.map(r => (
-                    <button
-                      key={r}
-                      onClick={() => setResolution(r)}
-                      className={`px-4 py-1.5 rounded border text-[12px] font-medium transition-colors ${
-                        resolution === r
-                          ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]'
-                          : 'border-[#e8e8ec] text-[#111113] hover:border-[#9d9da8]'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Concept Name (optional)</label>
-                <input
-                  type="text"
-                  value={concept}
-                  onChange={e => setConcept(e.target.value)}
-                  placeholder="e.g. ceramic-coating-v1"
-                  className="w-full px-3 py-1.5 rounded border border-[#e8e8ec] text-[13px] text-[#111113] placeholder:text-[#9d9da8]"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Prompt + Output */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Templates */}
-            <div className="border border-[#e8e8ec] rounded-md bg-white">
-              <div className="px-4 py-3 border-b border-[#e8e8ec]">
-                <h3 className="text-[13px] font-semibold text-[#111113]">Prompt Templates</h3>
-              </div>
-              <div className="p-3 flex flex-wrap gap-2">
-                {PROMPT_TEMPLATES.map(t => (
-                  <button
-                    key={t.name}
-                    onClick={() => applyTemplate(t.template)}
-                    className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors"
-                  >
-                    {t.name}
+                    </div>
+                    <div className="p-2 bg-white">
+                      <p className="text-[10px] text-[#111113] truncate">{ad.name}</p>
+                    </div>
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Prompt input */}
-            <div className="border border-[#e8e8ec] rounded-md bg-white">
-              <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
-                <h3 className="text-[13px] font-semibold text-[#111113]">Prompt</h3>
-                <span className="text-[10px] text-[#9d9da8]">{prompt.length} chars</span>
-              </div>
-              <textarea
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                rows={8}
-                placeholder="Describe the ad creative you want to generate. Be specific about the scene, lighting, text overlays, colors, and composition..."
-                className="w-full px-4 py-3 text-[13px] text-[#111113] placeholder:text-[#9d9da8] resize-none border-0 focus:outline-none leading-relaxed"
-              />
-              <div className="px-4 py-3 border-t border-[#e8e8ec] flex items-center justify-between">
-                <div className="flex items-center gap-3 text-[11px] text-[#9d9da8]">
-                  {selectedRefs.size > 0 && <span>{selectedRefs.size} reference(s) attached</span>}
-                  <span>{aspectRatio} / {resolution}</span>
-                </div>
-                <button
-                  onClick={generate}
-                  disabled={generating || !prompt.trim()}
-                  className="px-5 py-2 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors"
-                >
-                  {generating ? 'Generating...' : 'Generate Creative'}
-                </button>
-              </div>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="bg-[#fef2f2] border border-[#fecaca] rounded-md p-3 text-[12px] text-[#dc2626]">
-                {error}
-              </div>
             )}
+          </div>
 
-            {/* Generating state */}
-            {generating && (
-              <div className="border border-[#e8e8ec] rounded-md bg-white p-8 flex flex-col items-center justify-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#2563eb] border-t-transparent rounded-full animate-spin" />
-                <p className="text-[13px] text-[#111113]">Generating creative for {clientName}...</p>
-                <p className="text-[11px] text-[#9d9da8]">This usually takes 10-30 seconds</p>
-              </div>
-            )}
-
-            {/* Generated output */}
-            {generatedImage && !generating && (
-              <div className="border border-[#e8e8ec] rounded-md bg-white overflow-hidden">
-                <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
-                  <h3 className="text-[13px] font-semibold text-[#111113]">Generated Creative</h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => downloadImage(generatedImage, concept || `${clientName}-creative`)}
-                      className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors"
-                    >
-                      Download
-                    </button>
+          {/* Step 2: Configure + Generate (only if winner selected) */}
+          {selectedWinner && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: Selected winner + additional refs */}
+              <div className="space-y-4">
+                {/* Selected winner preview */}
+                <div className="border border-[#2563eb] rounded-md bg-white overflow-hidden">
+                  <div className="px-4 py-2 bg-[#2563eb]/5 border-b border-[#2563eb]/20">
+                    <p className="text-[11px] font-semibold text-[#2563eb]">STYLE ANCHOR</p>
+                  </div>
+                  <div className="aspect-square bg-[#f8f8fa]">
+                    <img src={selectedWinner.imageUrl} alt={selectedWinner.name} className="w-full h-full object-contain" />
+                  </div>
+                  <div className="p-3 space-y-1">
+                    <p className="text-[12px] font-semibold text-[#111113] truncate">{selectedWinner.name}</p>
+                    <div className="flex gap-3 text-[10px] text-[#9d9da8]">
+                      <span>${selectedWinner.cpr.toFixed(2)} CPR</span>
+                      <span>{selectedWinner.results} results</span>
+                      <span>{selectedWinner.ctr.toFixed(2)}% CTR</span>
+                    </div>
+                    {selectedWinner.headline && (
+                      <p className="text-[11px] text-[#6b6b76] italic">"{selectedWinner.headline}"</p>
+                    )}
                   </div>
                 </div>
-                <div className="p-4 flex justify-center bg-[#f8f8fa]">
-                  <img
-                    src={generatedImage}
-                    alt="Generated creative"
-                    className="max-w-full max-h-[600px] object-contain rounded"
-                  />
-                </div>
-                {modelNotes && (
-                  <div className="px-4 py-3 border-t border-[#e8e8ec]">
-                    <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1">Model Notes</p>
-                    <p className="text-[12px] text-[#111113] whitespace-pre-line">{modelNotes}</p>
+
+                {/* Additional references */}
+                {imageAds.length > 1 && (
+                  <div className="border border-[#e8e8ec] rounded-md bg-white">
+                    <div className="px-4 py-2 border-b border-[#e8e8ec] flex items-center justify-between">
+                      <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Additional References (optional)</p>
+                      <span className="text-[10px] text-[#9d9da8]">{additionalRefs.size}/5</span>
+                    </div>
+                    <div className="p-2 grid grid-cols-4 gap-1.5 max-h-[200px] overflow-y-auto">
+                      {imageAds.filter(a => a.platformAdId !== selectedWinner.platformAdId).map(ad => (
+                        <button
+                          key={ad.platformAdId}
+                          onClick={() => toggleAdditionalRef(ad.platformAdId)}
+                          className={`relative aspect-square rounded overflow-hidden border-2 transition-all ${
+                            additionalRefs.has(ad.platformAdId) ? 'border-[#16a34a]' : 'border-transparent hover:border-[#e8e8ec]'
+                          }`}
+                        >
+                          <img src={ad.imageUrl} alt="" className="w-full h-full object-cover" />
+                          {additionalRefs.has(ad.platformAdId) && (
+                            <div className="absolute inset-0 bg-[#16a34a]/20 flex items-center justify-center">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><path d="M3 8l4 4 6-7" /></svg>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-            )}
-          </div>
+
+              {/* Right: Settings + Output */}
+              <div className="lg:col-span-2 space-y-4">
+                {/* Generation settings */}
+                <div className="border border-[#e8e8ec] rounded-md bg-white p-4">
+                  <div className="flex flex-wrap gap-4 items-end">
+                    {/* Mode */}
+                    <div>
+                      <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Mode</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setMode('variation')}
+                          className={`px-3 py-1.5 rounded border text-[12px] font-medium transition-colors ${
+                            mode === 'variation' ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]' : 'border-[#e8e8ec] text-[#111113]'
+                          }`}
+                        >
+                          Variation
+                        </button>
+                        <button
+                          onClick={() => setMode('refresh')}
+                          className={`px-3 py-1.5 rounded border text-[12px] font-medium transition-colors ${
+                            mode === 'refresh' ? 'border-[#f59e0b] bg-[#f59e0b]/5 text-[#f59e0b]' : 'border-[#e8e8ec] text-[#111113]'
+                          }`}
+                        >
+                          Refresh (New Direction)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Aspect ratio */}
+                    <div>
+                      <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Ratio</label>
+                      <div className="flex gap-1">
+                        {ASPECT_RATIOS.map(ar => (
+                          <button
+                            key={ar.value}
+                            onClick={() => setAspectRatio(ar.value)}
+                            className={`px-2.5 py-1.5 rounded border text-[11px] font-medium transition-colors ${
+                              aspectRatio === ar.value ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]' : 'border-[#e8e8ec] text-[#111113]'
+                            }`}
+                            title={ar.desc}
+                          >
+                            {ar.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Resolution */}
+                    <div>
+                      <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Quality</label>
+                      <div className="flex gap-1">
+                        {['1K', '2K', '4K'].map(r => (
+                          <button
+                            key={r}
+                            onClick={() => setResolution(r)}
+                            className={`px-2.5 py-1.5 rounded border text-[11px] font-medium transition-colors ${
+                              resolution === r ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]' : 'border-[#e8e8ec] text-[#111113]'
+                            }`}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Generate button */}
+                    <button
+                      onClick={generate}
+                      disabled={generating}
+                      className="px-6 py-2 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors ml-auto"
+                    >
+                      {generating ? 'Generating...' : mode === 'refresh' ? 'Generate Refresh' : 'Generate Variation'}
+                    </button>
+                  </div>
+
+                  {/* Advanced: additional direction */}
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      className="text-[11px] text-[#9d9da8] hover:text-[#111113] transition-colors flex items-center gap-1"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`transition-transform ${showAdvanced ? 'rotate-90' : ''}`}><path d="M6 4l4 4-4 4" /></svg>
+                      Additional direction (optional)
+                    </button>
+                    {showAdvanced && (
+                      <textarea
+                        value={direction}
+                        onChange={e => setDirection(e.target.value)}
+                        rows={3}
+                        placeholder="Add specific creative direction... e.g. 'Use a before/after split', 'Focus on the pricing angle', 'Show the service being performed'"
+                        className="w-full mt-2 px-3 py-2 rounded border border-[#e8e8ec] text-[12px] text-[#111113] placeholder:text-[#9d9da8] resize-none focus:outline-none focus:border-[#2563eb]"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Status during generation */}
+                {generating && statusMsg && (
+                  <div className="flex items-center gap-3 px-4 py-3 border border-[#e8e8ec] rounded-md bg-[#f8f8fa]">
+                    <div className="w-2 h-2 bg-[#2563eb] rounded-full animate-pulse flex-shrink-0" />
+                    <span className="text-[12px] text-[#111113]">{statusMsg}</span>
+                  </div>
+                )}
+
+                {/* Winner analysis (shows during/after generation) */}
+                {winnerAnalysis && (
+                  <div className="border border-[#e8e8ec] rounded-md bg-white">
+                    <div className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa]">
+                      <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Winner Analysis</p>
+                    </div>
+                    <div className="p-4 text-[12px] text-[#111113] leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-line">
+                      {winnerAnalysis}
+                    </div>
+                  </div>
+                )}
+
+                {/* Error */}
+                {error && (
+                  <div className="bg-[#fef2f2] border border-[#fecaca] rounded-md p-3 text-[12px] text-[#dc2626]">{error}</div>
+                )}
+
+                {/* Generated output */}
+                {generatedImage && !generating && (
+                  <div ref={outputRef} className="border border-[#e8e8ec] rounded-md bg-white overflow-hidden">
+                    <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-[13px] font-semibold text-[#111113]">Generated Creative</h3>
+                        {qaResult && (
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${qaResult.pass ? 'bg-[#16a34a]/10 text-[#16a34a]' : 'bg-[#f59e0b]/10 text-[#f59e0b]'}`}>
+                            {qaResult.pass ? 'QA Passed' : `QA Warning: ${qaResult.issues.join(', ')}`}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={generate}
+                          className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors"
+                        >
+                          Regenerate
+                        </button>
+                        <button
+                          onClick={() => downloadImage(generatedImage, `${clientName}-${mode}`)}
+                          className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors"
+                        >
+                          Download
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-4 flex justify-center bg-[#f8f8fa]">
+                      <img src={generatedImage} alt="Generated creative" className="max-w-full max-h-[600px] object-contain rounded" />
+                    </div>
+                    {modelNotes && (
+                      <div className="px-4 py-3 border-t border-[#e8e8ec]">
+                        <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1">Model Notes</p>
+                        <p className="text-[12px] text-[#111113] whitespace-pre-line">{modelNotes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Gallery View */}
+      {/* GALLERY VIEW */}
       {selectedClient && viewMode === 'gallery' && (
         <div>
-          {loadingHistory ? (
-            <div className="text-[13px] text-[#9d9da8] p-8 text-center">Loading gallery...</div>
-          ) : history.length === 0 ? (
+          {history.length === 0 ? (
             <div className="border border-dashed border-[#e8e8ec] rounded-md p-12 text-center">
               <p className="text-[14px] text-[#9d9da8]">No creatives generated yet for this client</p>
             </div>
@@ -441,6 +550,9 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                         <div className="w-full h-full flex items-center justify-center text-[11px] text-[#9d9da8]">No preview</div>
                       )}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                      {c.metadata?.qaPass === false && (
+                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#f59e0b] text-white text-[9px] font-semibold rounded">QA WARNING</div>
+                      )}
                     </div>
                     <div className="p-3">
                       <p className="text-[12px] font-semibold text-[#111113] truncate">{c.concept || 'Untitled'}</p>
@@ -448,6 +560,9 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                         <span className="text-[10px] text-[#9d9da8]">{c.aspect_ratio} / {c.resolution}</span>
                         <span className="text-[10px] text-[#9d9da8]">{formatTimeAgo(c.created_at)}</span>
                       </div>
+                      {c.metadata?.winnerName && (
+                        <p className="text-[10px] text-[#9d9da8] mt-0.5 truncate">From: {c.metadata.winnerName}</p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -460,19 +575,9 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                     <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
                       <h3 className="text-[14px] font-semibold text-[#111113]">{previewCreative.concept || 'Creative'}</h3>
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => downloadImage(previewCreative.image_data, previewCreative.concept || 'creative')}
-                          className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors"
-                        >
-                          Download
-                        </button>
-                        <button
-                          onClick={() => { deleteCreative(previewCreative.id); setPreviewCreative(null) }}
-                          className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#dc2626] hover:border-[#dc2626] transition-colors"
-                        >
-                          Delete
-                        </button>
-                        <button onClick={() => setPreviewCreative(null)} className="text-[#9d9da8] hover:text-[#111113] transition-colors">
+                        <button onClick={() => downloadImage(previewCreative.image_data, previewCreative.concept || 'creative')} className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors">Download</button>
+                        <button onClick={() => { deleteCreative(previewCreative.id); setPreviewCreative(null) }} className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#dc2626] hover:border-[#dc2626] transition-colors">Delete</button>
+                        <button onClick={() => setPreviewCreative(null)} className="text-[#9d9da8] hover:text-[#111113]">
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
                         </button>
                       </div>
@@ -481,11 +586,19 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                       <img src={previewCreative.image_data} alt="" className="max-w-full max-h-[500px] object-contain" />
                     </div>
                     <div className="p-4 border-t border-[#e8e8ec] space-y-3">
-                      <div>
-                        <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1">Prompt</p>
-                        <p className="text-[12px] text-[#111113] whitespace-pre-line leading-relaxed">{previewCreative.prompt}</p>
-                      </div>
-                      <div className="flex gap-4">
+                      {previewCreative.metadata?.winnerAnalysis && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1">Winner Analysis</p>
+                          <p className="text-[12px] text-[#111113] whitespace-pre-line leading-relaxed max-h-[150px] overflow-y-auto">{previewCreative.metadata.winnerAnalysis}</p>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-4">
+                        {previewCreative.metadata?.winnerName && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Based On</p>
+                            <p className="text-[12px] text-[#111113]">{previewCreative.metadata.winnerName}</p>
+                          </div>
+                        )}
                         <div>
                           <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Ratio</p>
                           <p className="text-[12px] text-[#111113]">{previewCreative.aspect_ratio}</p>
@@ -493,6 +606,10 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                         <div>
                           <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Resolution</p>
                           <p className="text-[12px] text-[#111113]">{previewCreative.resolution}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Mode</p>
+                          <p className="text-[12px] text-[#111113]">{previewCreative.metadata?.mode || 'variation'}</p>
                         </div>
                         <div>
                           <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Generated</p>
