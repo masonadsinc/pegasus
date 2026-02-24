@@ -33,7 +33,7 @@ async function getAccountContext(days = 7) {
 
   const { data: accounts } = await supabaseAdmin
     .from('ad_accounts')
-    .select('id, name, platform_account_id, primary_action_type, target_cpl, target_roas, objective, clients!inner(name, slug, monthly_retainer, industry)')
+    .select('id, name, platform_account_id, primary_action_type, target_cpl, target_roas, objective, clients!inner(name, slug, monthly_retainer, industry, location, business_description, target_audience, offer_service, kpi_goals, ai_notes, brand_voice, competitors)')
     .eq('org_id', ORG_ID)
     .eq('is_active', true)
 
@@ -99,7 +99,13 @@ async function getAccountContext(days = 7) {
     if (isEcom) context += `- ROAS: ${roas.toFixed(2)}x | Revenue: $${tw.purchase_value.toFixed(0)}\n`
     context += `- CTR: ${ctr.toFixed(2)}% | CPC: $${cpc.toFixed(2)} | Conv Rate: ${convRate.toFixed(2)}%\n`
     if (client.monthly_retainer) context += `- Retainer: $${client.monthly_retainer}/mo\n`
-    context += `- Action type: ${acc.primary_action_type || 'lead'}\n\n`
+    context += `- Action type: ${acc.primary_action_type || 'lead'}\n`
+    if (client.business_description) context += `- Business: ${client.business_description}\n`
+    if (client.target_audience) context += `- Target audience: ${client.target_audience}\n`
+    if (client.offer_service) context += `- Offer: ${client.offer_service}\n`
+    if (client.kpi_goals) context += `- KPI goals: ${client.kpi_goals}\n`
+    if (client.ai_notes) context += `- AI notes: ${client.ai_notes}\n`
+    context += '\n'
   }
 
   context += `\n## Agency Totals\n`
@@ -132,8 +138,15 @@ async function getClientDetail(clientName: string) {
     .limit(10)
 
   let detail = `\n## ${client.name} — Detail\n`
-  detail += `- Industry: ${client.industry || 'N/A'} | Status: ${client.status}\n`
+  detail += `- Industry: ${client.industry || 'N/A'} | Location: ${client.location || 'N/A'} | Status: ${client.status}\n`
   detail += `- Retainer: $${client.monthly_retainer || 0}/mo | Rev share: ${client.rev_share_pct || 0}%\n`
+  if (client.business_description) detail += `- Business: ${client.business_description}\n`
+  if (client.offer_service) detail += `- Offer/Service: ${client.offer_service}\n`
+  if (client.target_audience) detail += `- Target audience: ${client.target_audience}\n`
+  if (client.brand_voice) detail += `- Brand voice: ${client.brand_voice}\n`
+  if (client.competitors) detail += `- Competitors: ${client.competitors}\n`
+  if (client.kpi_goals) detail += `- KPI goals: ${client.kpi_goals}\n`
+  if (client.ai_notes) detail += `- AI notes: ${client.ai_notes}\n`
   detail += `- Account: ${account.name} (act_${account.platform_account_id})\n`
   detail += `- Target CPL: $${account.target_cpl || 'not set'} | Objective: ${account.objective || 'N/A'}\n`
 

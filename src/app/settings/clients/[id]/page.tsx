@@ -43,81 +43,73 @@ export default async function ClientSettingPage({ params }: { params: Promise<{ 
     <>
       <Nav current="settings" />
       <PageWrapper>
-        <div className="p-6 max-w-[1200px] mx-auto">
+        <div className="p-6 max-w-[1000px] mx-auto">
           {/* Breadcrumb */}
           <div className="text-[12px] text-[#9d9da8] mb-2">
             <Link href="/settings" className="hover:text-[#111113]">Settings</Link>
             <span className="mx-1.5">/</span>
             <Link href="/settings/clients" className="hover:text-[#111113]">Clients</Link>
             <span className="mx-1.5">/</span>
-            <span className="text-[#111113]">{client.name}</span>
+            <span className="text-[#6b6b76]">{client.name}</span>
           </div>
 
           <div className="flex items-center gap-3 mb-6">
             <h1 className="text-[20px] font-semibold text-[#111113]">{client.name}</h1>
-            <Badge variant={client.status === 'active' ? 'success' : client.status === 'churned' ? 'danger' : 'neutral'}>{client.status}</Badge>
-            {client.monthly_retainer && (
-              <span className="text-[12px] text-[#9d9da8]">{formatCurrency(client.monthly_retainer)}/mo</span>
-            )}
+            <Badge variant={client.status === 'active' ? 'success' : client.status === 'churned' ? 'danger' : client.status === 'pipeline' ? 'info' : 'neutral'}>{client.status}</Badge>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Client Details */}
-            <div className="lg:col-span-1">
-              <h2 className="text-[13px] font-semibold text-[#9d9da8] mb-3">Client Details</h2>
-              <Card className="p-5">
-                <ClientEditForm client={client} />
-              </Card>
+          <div className="space-y-6">
+            {/* Client Form */}
+            <Card className="p-6">
+              <ClientEditForm client={client} />
+            </Card>
+
+            {/* Ad Accounts */}
+            <div>
+              <h2 className="text-[13px] font-semibold text-[#9d9da8] mb-3">Ad Accounts ({accounts.length})</h2>
+              <div className="space-y-3">
+                {accounts.map((acc: any) => (
+                  <Card key={acc.id} className="p-5">
+                    <AccountEditor account={acc} />
+                  </Card>
+                ))}
+                {accounts.length === 0 && (
+                  <Card className="p-5">
+                    <p className="text-[13px] text-[#9d9da8]">No ad accounts connected to this client.</p>
+                    <p className="text-[12px] text-[#c4c4cc] mt-1">Ad accounts are linked during the Meta sync process.</p>
+                  </Card>
+                )}
+              </div>
             </div>
 
-            {/* Ad Accounts + Activity */}
-            <div className="lg:col-span-2 space-y-6">
-              <div>
-                <h2 className="text-[13px] font-semibold text-[#9d9da8] mb-3">Ad Accounts ({accounts.length})</h2>
-                <div className="space-y-3">
-                  {accounts.map((acc: any) => (
-                    <Card key={acc.id} className="p-5">
-                      <AccountEditor account={acc} />
-                    </Card>
-                  ))}
-                  {accounts.length === 0 && (
-                    <Card className="p-5">
-                      <p className="text-[13px] text-[#9d9da8]">No ad accounts connected to this client.</p>
-                      <p className="text-[12px] text-[#c4c4cc] mt-1">Ad accounts are linked during the Meta sync process.</p>
-                    </Card>
-                  )}
-                </div>
-              </div>
-
-              {/* Activity Log */}
-              <div>
-                <h2 className="text-[13px] font-semibold text-[#9d9da8] mb-3">Activity Log</h2>
-                <Card>
-                  {activity.length > 0 ? (
-                    <div className="divide-y divide-[#f4f4f6]">
-                      {activity.map((a: any) => (
-                        <div key={a.id} className="px-5 py-3 flex items-center justify-between">
-                          <div>
-                            <p className="text-[12px] text-[#111113]">
-                              <span className="font-medium">{a.actor_name || 'System'}</span>
-                              {' '}{a.action}{' '}
-                              {a.target_name && <span className="text-[#6b6b76]">{a.target_name}</span>}
-                            </p>
-                            {a.details && <p className="text-[11px] text-[#9d9da8] mt-0.5">{typeof a.details === 'string' ? a.details : JSON.stringify(a.details)}</p>}
-                          </div>
-                          <span className="text-[11px] text-[#9d9da8] flex-shrink-0 ml-4">
-                            {new Date(a.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                          </span>
+            {/* Activity Log */}
+            <div>
+              <h2 className="text-[13px] font-semibold text-[#9d9da8] mb-3">Activity Log</h2>
+              <Card>
+                {activity.length > 0 ? (
+                  <div className="divide-y divide-[#f4f4f6]">
+                    {activity.map((a: any) => (
+                      <div key={a.id} className="px-5 py-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-[12px] text-[#111113]">
+                            <span className="font-medium">{a.actor_name || 'System'}</span>
+                            {' '}{a.action}{' '}
+                            {a.target_name && <span className="text-[#6b6b76]">{a.target_name}</span>}
+                          </p>
+                          {a.details && <p className="text-[11px] text-[#9d9da8] mt-0.5">{typeof a.details === 'string' ? a.details : JSON.stringify(a.details)}</p>}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="px-5 py-8 text-center">
-                      <p className="text-[13px] text-[#9d9da8]">No activity recorded yet</p>
-                    </div>
-                  )}
-                </Card>
-              </div>
+                        <span className="text-[11px] text-[#9d9da8] flex-shrink-0 ml-4">
+                          {new Date(a.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-5 py-8 text-center">
+                    <p className="text-[13px] text-[#9d9da8]">No activity recorded yet</p>
+                  </div>
+                )}
+              </Card>
             </div>
           </div>
         </div>

@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params
     const body = await req.json()
 
-    const allowed = ['name', 'industry', 'website', 'monthly_retainer', 'rev_share_pct', 'primary_contact_name', 'primary_contact_email', 'status', 'notes', 'contract_start', 'contract_end']
+    const allowed = ['name', 'industry', 'website', 'monthly_retainer', 'rev_share_pct', 'primary_contact_name', 'primary_contact_email', 'primary_contact_phone', 'status', 'notes', 'contract_start', 'contract_end', 'business_description', 'target_audience', 'offer_service', 'brand_voice', 'kpi_goals', 'competitors', 'location', 'onboarding_date', 'ai_notes']
     const update: any = {}
     for (const key of allowed) {
       if (key in body) {
