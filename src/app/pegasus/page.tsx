@@ -1,35 +1,35 @@
 import { Nav, PageWrapper } from '@/components/nav'
-import { getDashboardData } from '@/lib/queries'
+import { supabaseAdmin } from '@/lib/supabase'
 import { PegasusChat } from './pegasus-chat'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 export const revalidate = 300
 
-export default async function PegasusPage() {
-  const accounts = await getDashboardData(ORG_ID, 7)
-  const active = accounts.filter(a => a.spend > 0).sort((a, b) => b.spend - a.spend)
+async function getClients() {
+  const { data } = await supabaseAdmin
+    .from('clients')
+    .select('id, name, slug, industry, location, status, ad_accounts(id, is_active)')
+    .eq('org_id', ORG_ID)
+    .order('name')
+  return (data || []).filter(c => 
+    c.status === 'active' && (c.ad_accounts as any[])?.some((a: any) => a.is_active)
+  ).map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    industry: c.industry,
+    location: c.location,
+  }))
+}
 
-  const summary = {
-    totalSpend: active.reduce((s, a) => s + a.spend, 0),
-    totalResults: active.reduce((s, a) => s + a.results, 0),
-    activeCount: active.length,
-    criticalCount: active.filter(a => a.target_cpl && a.results > 0 && (a.spend / a.results) > a.target_cpl * 1.25).length,
-    clients: active.map(a => ({
-      name: a.client_name,
-      slug: a.client_slug,
-      spend: a.spend,
-      results: a.results,
-      cpr: a.results > 0 ? a.spend / a.results : 0,
-      target: a.target_cpl,
-      onTarget: a.target_cpl && a.results > 0 ? (a.spend / a.results) <= a.target_cpl : null,
-    })),
-  }
+export default async function PegasusPage() {
+  const clients = await getClients()
 
   return (
     <>
       <Nav current="pegasus" />
       <PageWrapper>
-        <PegasusChat summary={summary} />
+        <PegasusChat clients={clients} />
       </PageWrapper>
     </>
   )
