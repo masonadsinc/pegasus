@@ -427,6 +427,8 @@ Rules:
             }
           )
 
+          let fullAnalysis = ''
+
           if (!response.ok) {
             const err = await response.text()
             console.error('Gemini creative analysis error:', err)
@@ -450,7 +452,10 @@ Rules:
                   try {
                     const parsed = JSON.parse(jsonStr)
                     const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
-                    if (text) send({ type: 'text', text })
+                    if (text) {
+                      fullAnalysis += text
+                      send({ type: 'text', text })
+                    }
                   } catch {}
                 }
               }
@@ -460,6 +465,22 @@ Rules:
           // Cleanup Gemini files
           for (const uri of geminiFiles) {
             await deleteGeminiFile(uri, apiKey)
+          }
+
+          // Save analysis to DB
+          if (fullAnalysis) {
+            await supabaseAdmin.from('creative_analyses').insert({
+              org_id: ORG_ID,
+              client_id: clientId,
+              period_days: days,
+              ads_analyzed: allAdsForAnalysis.map(a => ({
+                name: a.name, isVideo: a.isVideo, spend: a.spend, results: a.results,
+                cpr: a.cpr, ctr: a.ctr, age: a.age, headline: a.headline,
+                imageUrl: a.imageUrl, thumbnailUrl: a.thumbnailUrl,
+              })),
+              analysis_text: fullAnalysis,
+              created_by: user.id,
+            })
           }
 
           send({ type: 'done' })

@@ -822,6 +822,30 @@ async function getClientContext(clientId: string, days = 7) {
     }
   }
 
+  // === LATEST CREATIVE ANALYSIS (from Creative Studio) ===
+  const { data: latestAnalysis } = await supabaseAdmin
+    .from('creative_analyses')
+    .select('analysis_text, period_days, ads_analyzed, created_at')
+    .eq('client_id', client.id)
+    .eq('org_id', ORG_ID)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (latestAnalysis?.analysis_text) {
+    const ageHours = Math.round((Date.now() - new Date(latestAnalysis.created_at).getTime()) / 3600000)
+    const ageDays = Math.round(ageHours / 24)
+    const ageLabel = ageDays > 0 ? `${ageDays}d ago` : `${ageHours}h ago`
+    const adsCount = Array.isArray(latestAnalysis.ads_analyzed) ? latestAnalysis.ads_analyzed.length : 0
+
+    ctx += `\n## ===== CREATIVE STUDIO INSIGHTS (${latestAnalysis.period_days}d analysis, ${adsCount} ads, ${ageLabel}) =====\n`
+    // Include a summary — truncate if very long
+    const analysisText = latestAnalysis.analysis_text.length > 3000
+      ? latestAnalysis.analysis_text.slice(0, 3000) + '\n[... analysis truncated — full version in Creative Studio]'
+      : latestAnalysis.analysis_text
+    ctx += analysisText + '\n\n'
+  }
+
   return { client, context: ctx }
 }
 

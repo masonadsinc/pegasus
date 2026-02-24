@@ -17,6 +17,14 @@ interface AdCreative {
   isTop: boolean
 }
 
+interface SavedAnalysis {
+  id: string
+  period_days: number
+  ads_analyzed: AdCreative[]
+  analysis_text: string
+  created_at: string
+}
+
 const PERIOD_OPTIONS = [
   { label: '7d', value: 7 },
   { label: '14d', value: 14 },
@@ -32,13 +40,43 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
   const [days, setDays] = useState(30)
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [history, setHistory] = useState<SavedAnalysis[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
   const analysisRef = useRef<HTMLDivElement>(null)
+
+  // Load history on mount
+  useEffect(() => {
+    loadHistory()
+  }, [clientId])
 
   useEffect(() => {
     if (analysisRef.current) {
       analysisRef.current.scrollTop = analysisRef.current.scrollHeight
     }
   }, [analysis])
+
+  async function loadHistory() {
+    setLoadingHistory(true)
+    try {
+      const res = await fetch(`/api/creatives/history?clientId=${clientId}`)
+      const data = await res.json()
+      setHistory(data.analyses || [])
+      // Auto-load the latest analysis if available
+      if (data.analyses?.length > 0 && !analysis) {
+        const latest = data.analyses[0]
+        setAds(latest.ads_analyzed || [])
+        setAnalysis(latest.analysis_text || '')
+      }
+    } catch {}
+    setLoadingHistory(false)
+  }
+
+  function loadSavedAnalysis(saved: SavedAnalysis) {
+    setAds(saved.ads_analyzed || [])
+    setAnalysis(saved.analysis_text || '')
+    setError(null)
+    setStatusMessage(null)
+  }
 
   async function runAnalysis() {
     setAnalyzing(true)
@@ -58,6 +96,7 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
         const data = await res.json()
         setError(data.error || 'Analysis failed')
         setAnalyzing(false)
+        setStatusMessage(null)
         return
       }
 
@@ -85,10 +124,14 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
           }
         }
       }
+
+      // Reload history after new analysis
+      await loadHistory()
     } catch (e: any) {
       setError(e.message || 'Analysis failed')
     }
     setAnalyzing(false)
+    setStatusMessage(null)
   }
 
   function formatAnalysis(text: string): string {
@@ -97,10 +140,18 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
       .replace(/^### (.+)$/gm, '<h4 class="text-[13px] font-semibold text-[#111113] mt-4 mb-2">$1</h4>')
       .replace(/^## (.+)$/gm, '<h3 class="text-[14px] font-semibold text-[#111113] mt-5 mb-2">$1</h3>')
       .replace(/^# (.+)$/gm, '<h3 class="text-[14px] font-semibold text-[#111113] mt-5 mb-2">$1</h3>')
-      .replace(/^([A-Z][A-Z\s']+)$/gm, '<h3 class="text-[13px] font-semibold text-[#111113] mt-5 mb-2 uppercase tracking-wide">$1</h3>')
+      .replace(/^([A-Z][A-Z\s'/:]+)$/gm, '<h3 class="text-[13px] font-semibold text-[#111113] mt-5 mb-2 uppercase tracking-wide">$1</h3>')
       .replace(/^- (.+)$/gm, '<li class="ml-4 mb-1">$1</li>')
       .replace(/\n\n/g, '<br><br>')
       .replace(/\n/g, '<br>')
+  }
+
+  function formatTimeAgo(dateStr: string): string {
+    const hours = Math.round((Date.now() - new Date(dateStr).getTime()) / 3600000)
+    if (hours < 1) return 'just now'
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.round(hours / 24)
+    return `${days}d ago`
   }
 
   return (
@@ -132,7 +183,7 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
             disabled={analyzing}
             className="px-4 py-1.5 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50"
           >
-            {analyzing ? 'Analyzing...' : 'Analyze Creatives'}
+            {analyzing ? 'Analyzing...' : 'New Analysis'}
           </button>
         </div>
       </div>
@@ -143,13 +194,52 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
         </div>
       )}
 
+      {/* Criteria + History */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 bg-[#f8f8fa] border border-[#e8e8ec] rounded px-4 py-3">
+          <p className="text-[11px] text-[#9d9da8]">
+            <span className="font-semibold text-[#111113]">Selection criteria:</span> Top 3 videos + top 3 images ranked by lowest CPR. Ads must have spend, at least 1 result, and be live for 7+ days.
+          </p>
+        </div>
+        {history.length > 0 && (
+          <div className="sm:w-64 border border-[#e8e8ec] rounded bg-white">
+            <div className="px-3 py-2 border-b border-[#e8e8ec]">
+              <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Previous Analyses</p>
+            </div>
+            <div className="max-h-32 overflow-y-auto">
+              {history.map((h, i) => (
+                <button
+                  key={h.id}
+                  onClick={() => loadSavedAnalysis(h)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-[#f8f8fa] border-b border-[#e8e8ec] last:border-b-0 flex items-center justify-between"
+                >
+                  <span className="text-[11px] text-[#111113]">
+                    {h.period_days}d analysis ({(h.ads_analyzed || []).length} ads)
+                  </span>
+                  <span className="text-[10px] text-[#9d9da8]">{formatTimeAgo(h.created_at)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Status message during processing */}
+      {statusMessage && analyzing && (
+        <div className="flex items-center gap-3 px-4 py-3 border border-[#e8e8ec] rounded bg-[#f8f8fa]">
+          <div className="w-2 h-2 bg-[#2563eb] rounded-full animate-pulse flex-shrink-0" />
+          <span className="text-[12px] text-[#111113]">{statusMessage}</span>
+        </div>
+      )}
+
       {/* Creatives grid */}
       {ads.length > 0 && (
         <div>
-          <div className="mb-3">
+          <div className="mb-3 flex items-center gap-2">
             <h3 className="text-[13px] font-semibold text-[#111113]">Creatives Analyzed</h3>
+            <span className="text-[10px] text-[#9d9da8] bg-[#f4f4f6] px-1.5 py-0.5 rounded">{ads.filter(a => a.isVideo).length} videos, {ads.filter(a => !a.isVideo).length} images</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {ads.map((ad, i) => (
               <div key={i} className="border border-[#e8e8ec] rounded overflow-hidden bg-white">
                 <div className="relative aspect-square bg-[#f8f8fa]">
@@ -191,14 +281,6 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {/* Status message during processing */}
-      {statusMessage && analyzing && (
-        <div className="flex items-center gap-3 px-4 py-3 border border-[#e8e8ec] rounded bg-[#f8f8fa]">
-          <div className="w-2 h-2 bg-[#2563eb] rounded-full animate-pulse flex-shrink-0" />
-          <span className="text-[12px] text-[#111113]">{statusMessage}</span>
-        </div>
-      )}
-
       {/* Analysis output */}
       {(analysis || (analyzing && !statusMessage)) && (
         <div className="border border-[#e8e8ec] rounded bg-white">
@@ -219,17 +301,10 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {/* Criteria info */}
-      <div className="bg-[#f8f8fa] border border-[#e8e8ec] rounded px-4 py-3">
-        <p className="text-[11px] text-[#9d9da8]">
-          <span className="font-semibold text-[#111113]">Selection criteria:</span> Top 3 videos + top 3 images ranked by lowest CPR. Ads must have spend, at least 1 result, and be live for 7+ days. Videos are downloaded and analyzed frame-by-frame.
-        </p>
-      </div>
-
       {/* Empty state */}
-      {!analyzing && !analysis && ads.length === 0 && !error && (
+      {!analyzing && !analysis && ads.length === 0 && !error && !loadingHistory && (
         <div className="border border-dashed border-[#e8e8ec] rounded p-8 text-center">
-          <p className="text-[13px] text-[#9d9da8]">Select a time period and click "Analyze Creatives" to start.</p>
+          <p className="text-[13px] text-[#9d9da8]">No analyses yet. Select a time period and click "New Analysis" to start.</p>
         </div>
       )}
     </div>
