@@ -4,10 +4,12 @@ import { Badge } from '@/components/ui/badge'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import { PortalTabs } from './portal-tabs'
+import { PortalDatePicker } from './portal-date-picker'
 
 export const revalidate = 0
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
+const VALID_DAYS = [7, 14, 30, 60, 90]
 
 function KpiCard({ label, value, target, sub, status, progressPct }: {
   label: string; value: string; target?: string; sub?: string; status?: boolean; progressPct?: number
@@ -38,8 +40,11 @@ function KpiCard({ label, value, target, sub, status, progressPct }: {
   )
 }
 
-export default async function PortalPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function PortalPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ days?: string }> }) {
   const { token } = await params
+  const sp = await searchParams
+  const rawDays = parseInt(sp.days || '30', 10)
+  const days = VALID_DAYS.includes(rawDays) ? rawDays : 30
 
   // Look up client by portal token
   const { data: client } = await supabaseAdmin
@@ -56,7 +61,6 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
 
   const pat = activeAccount.primary_action_type
   const isEcom = isEcomActionType(pat)
-  const days = 30
 
   const [daily, campaigns, adSets, ads, ageGender, placement, device, region] = await Promise.all([
     getClientInsights(activeAccount.id, days, pat),
@@ -103,10 +107,10 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             <h1 className="text-[20px] font-semibold text-[#111113]">{client.name}</h1>
             <Badge variant="success">Active</Badge>
           </div>
-          <div className="text-right">
-            <p className="text-[11px] text-[#9d9da8]">Last {days} days</p>
+          <div className="flex items-center gap-3">
+            <PortalDatePicker currentDays={days} />
             {activeAccount.last_synced_at && (
-              <p className="text-[10px] text-[#9d9da8]">
+              <p className="text-[10px] text-[#9d9da8] hidden sm:block">
                 Synced {new Date(activeAccount.last_synced_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
               </p>
             )}
