@@ -63,6 +63,7 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
   const [savingAssets, setSavingAssets] = useState(false)
   const [assetsSaved, setAssetsSaved] = useState(false)
   const [assetsLoaded, setAssetsLoaded] = useState(false)
+  const [autoConfiguring, setAutoConfiguring] = useState(false)
   const outputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -146,6 +147,28 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
       setTimeout(() => setAssetsSaved(false), 2000)
     } catch {}
     setSavingAssets(false)
+  }
+
+  async function autoConfigure() {
+    setAutoConfiguring(true)
+    try {
+      const res = await fetch('/api/creative-studio/auto-configure', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: selectedClient }),
+      })
+      const data = await res.json()
+      if (data.success && data.assets) {
+        setBrandColors(data.assets.brand_colors || [])
+        setVisualTone(data.assets.visual_tone || '')
+        setStyleGuide(data.assets.style_guide || '')
+        setCreativePrefs(data.assets.creative_prefs || '')
+        setHardRules(data.assets.hard_rules || '')
+        setViewMode('settings')
+      } else {
+        alert(data.error || 'Auto-configuration failed')
+      }
+    } catch { alert('Auto-configuration failed') }
+    setAutoConfiguring(false)
   }
 
   function addColor() { setBrandColors(prev => [...prev, { name: '', hex: '#000000' }]) }
@@ -280,9 +303,15 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
         <div className="space-y-6">
           {/* Brand context banner */}
           {assetsLoaded && !hasAssets && (
-            <div className="bg-[#fef9c3] border border-[#fde68a] rounded-md px-4 py-2.5 flex items-center justify-between">
-              <p className="text-[12px] text-[#92400e]">No brand assets configured for {clientName}. Set up colors, style guide, and creative preferences for better results.</p>
-              <button onClick={() => setViewMode('settings')} className="text-[12px] font-medium text-[#92400e] hover:text-[#78350f] underline flex-shrink-0 ml-3">Configure</button>
+            <div className="bg-[#fef9c3] border border-[#fde68a] rounded-md px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <p className="text-[12px] text-[#92400e]">No brand assets configured for {clientName}. Auto-detect from winning ads or set up manually.</p>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={autoConfigure} disabled={autoConfiguring}
+                  className="px-3 py-1.5 rounded bg-[#111113] text-white text-[11px] font-medium hover:bg-[#2a2a2e] disabled:opacity-50 transition-colors">
+                  {autoConfiguring ? 'Analyzing ads...' : 'Auto-Configure from Winners'}
+                </button>
+                <button onClick={() => setViewMode('settings')} className="text-[11px] font-medium text-[#92400e] hover:text-[#78350f] underline">Manual</button>
+              </div>
             </div>
           )}
 
@@ -686,8 +715,16 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
         <div className="max-w-[800px]">
           <div className="border border-[#e8e8ec] rounded-md bg-white">
             <div className="px-5 py-4 border-b border-[#e8e8ec]">
-              <h2 className="text-[14px] font-semibold text-[#111113]">Brand Assets for {clientName}</h2>
-              <p className="text-[11px] text-[#9d9da8] mt-0.5">These settings are automatically applied when generating creatives</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-[14px] font-semibold text-[#111113]">Brand Assets for {clientName}</h2>
+                  <p className="text-[11px] text-[#9d9da8] mt-0.5">These settings are automatically applied when generating creatives</p>
+                </div>
+                <button onClick={autoConfigure} disabled={autoConfiguring}
+                  className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] disabled:opacity-50 transition-colors flex-shrink-0">
+                  {autoConfiguring ? 'Analyzing...' : 'Auto-Detect from Winners'}
+                </button>
+              </div>
             </div>
             <div className="p-5 space-y-6">
               {/* Colors */}
