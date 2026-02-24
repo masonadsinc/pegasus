@@ -433,14 +433,7 @@ export function ReportsHub({
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#9d9da8" strokeWidth="1.5" strokeLinecap="round"><path d="M4 2h12v16H4z" /><path d="M7 6h6M7 9h6M7 12h4" /></svg>
           </div>
           <h3 className="text-[14px] font-semibold text-[#111113] mb-1">No reports yet</h3>
-          <p className="text-[12px] text-[#9d9da8] mb-4">Generate your first batch of weekly client reports.</p>
-          <button
-            onClick={generateAll}
-            disabled={generating}
-            className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50"
-          >
-            Generate Reports
-          </button>
+          <p className="text-[12px] text-[#9d9da8]">Generate your first batch of weekly client reports.</p>
         </div>
       ) : null}
 
