@@ -109,7 +109,7 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-[16px] font-semibold text-[#111113]">Creative Studio</h2>
-          <p className="text-[12px] text-[#9d9da8] mt-0.5">AI-powered visual analysis of your top and bottom performing ad creatives</p>
+          <p className="text-[12px] text-[#9d9da8] mt-0.5">AI visual analysis of your top 3 videos + top 3 images by CPR</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center border border-[#e8e8ec] rounded overflow-hidden">
@@ -169,10 +169,8 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
                       VIDEO
                     </div>
                   )}
-                  <div className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                    ad.isTop ? 'bg-[#16a34a]/90 text-white' : 'bg-[#dc2626]/90 text-white'
-                  }`}>
-                    {ad.isTop ? 'TOP' : 'LOW'}
+                  <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#16a34a]/90 text-white">
+                    #{i + 1}
                   </div>
                 </div>
                 <div className="p-2">
@@ -221,11 +219,17 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
         </div>
       )}
 
+      {/* Criteria info */}
+      <div className="bg-[#f8f8fa] border border-[#e8e8ec] rounded px-4 py-3">
+        <p className="text-[11px] text-[#9d9da8]">
+          <span className="font-semibold text-[#111113]">Selection criteria:</span> Top 3 videos + top 3 images ranked by lowest CPR. Ads must have spend, at least 1 result, and be live for 7+ days. Videos are downloaded and analyzed frame-by-frame.
+        </p>
+      </div>
+
       {/* Empty state */}
-      {!analyzing && !analysis && ads.length === 0 && (
+      {!analyzing && !analysis && ads.length === 0 && !error && (
         <div className="border border-dashed border-[#e8e8ec] rounded p-8 text-center">
-          <p className="text-[13px] text-[#9d9da8]">Select a time period and click "Analyze Creatives" to get AI-powered visual analysis of your ad creatives.</p>
-          <p className="text-[11px] text-[#9d9da8] mt-2">Gemini will analyze your top performers and underperformers, identifying visual patterns that drive results.</p>
+          <p className="text-[13px] text-[#9d9da8]">Select a time period and click "Analyze Creatives" to start.</p>
         </div>
       )}
     </div>

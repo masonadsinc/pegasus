@@ -220,15 +220,16 @@ export async function POST(req: NextRequest) {
       .filter(ad => ad.spend > 0)
       .sort((a, b) => a.cpr - b.cpr)
 
-    const withResults = adsWithCreatives.filter(a => a.results > 0)
-    const withoutResults = adsWithCreatives.filter(a => a.results === 0 && a.spend > 20).sort((a, b) => b.spend - a.spend)
+    // Filters: must have spend + results + live for 7+ days
+    const qualified = adsWithCreatives.filter(a => a.results > 0 && a.spend > 0 && a.age !== null && a.age >= 7)
 
-    const topAds = withResults.slice(0, 5)
-    const worstAds = withoutResults.slice(0, 3)
-    const allAdsForAnalysis = [...topAds, ...worstAds]
+    // Split into videos and images, take top 3 of each by lowest CPR
+    const topVideos = qualified.filter(a => a.isVideo).slice(0, 3)
+    const topImages = qualified.filter(a => !a.isVideo).slice(0, 3)
+    const allAdsForAnalysis = [...topVideos, ...topImages]
 
     if (allAdsForAnalysis.length === 0) {
-      return NextResponse.json({ error: 'No ads with creative assets found' }, { status: 404 })
+      return NextResponse.json({ error: 'No qualifying ads found. Ads must have spend, at least 1 result, and be live for 7+ days.' }, { status: 404 })
     }
 
     const targetMetric = isEcom ? `Target ROAS: ${account.target_roas || 'not set'}x` : `Target CPL: $${account.target_cpl || 'not set'}`
@@ -247,7 +248,7 @@ export async function POST(req: NextRequest) {
             ads: allAdsForAnalysis.map(a => ({
               name: a.name, imageUrl: a.imageUrl, videoUrl: a.videoUrl, thumbnailUrl: a.thumbnailUrl,
               isVideo: a.isVideo, spend: a.spend, results: a.results, cpr: a.cpr, ctr: a.ctr,
-              headline: a.headline, age: a.age, isTop: topAds.includes(a),
+              headline: a.headline, age: a.age, isTop: true,
             })),
           })
 
@@ -259,8 +260,8 @@ export async function POST(req: NextRequest) {
 
           for (let i = 0; i < allAdsForAnalysis.length; i++) {
             const ad = allAdsForAnalysis[i]
-            const isTop = i < topAds.length
-            const label = isTop ? 'TOP PERFORMER' : 'UNDERPERFORMER'
+            const isVideo = allAdsForAnalysis[i].isVideo
+            const label = isVideo ? 'TOP VIDEO' : 'TOP IMAGE'
             const cprStr = ad.results > 0 ? `$${ad.cpr.toFixed(2)}` : 'N/A (0 results)'
 
             adContext.push(`[Ad ${i + 1}] "${ad.name}" — ${label}
