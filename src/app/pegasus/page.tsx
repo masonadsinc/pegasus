@@ -27,7 +27,7 @@ export default async function PegasusPage() {
 
   return (
     <>
-      <Nav current="dashboard" />
+      <Nav current="pegasus" />
       <PageWrapper>
         <PegasusChat summary={summary} />
       </PageWrapper>
