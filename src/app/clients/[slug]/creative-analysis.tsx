@@ -159,7 +159,7 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-[16px] font-semibold text-[#111113]">Creative Studio</h2>
+          <h2 className="text-[16px] font-semibold text-[#111113]">Creative Analysis</h2>
           <p className="text-[12px] text-[#9d9da8] mt-0.5">AI visual analysis of your top 3 videos + top 3 images by CPR</p>
         </div>
         <div className="flex items-center gap-2">

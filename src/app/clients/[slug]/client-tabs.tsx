@@ -510,7 +510,7 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
         {ageGender.length > 0 && <TabsTrigger value="audience">Audience</TabsTrigger>}
         {placement.length > 0 && <TabsTrigger value="placements">Placements</TabsTrigger>}
         {region.length > 0 && <TabsTrigger value="geographic">Geographic</TabsTrigger>}
-        {!portalMode && <TabsTrigger value="creative-analysis">Creative Studio</TabsTrigger>}
+        {!portalMode && <TabsTrigger value="creative-analysis">Creative Analysis</TabsTrigger>}
         {!portalMode && <TabsTrigger value="settings">Settings</TabsTrigger>}
       </TabsList>
 
