@@ -49,7 +49,7 @@ async function getClientContext(clientId: string, days = 7) {
     // Try account level first; will fall back to campaign if empty
     supabaseAdmin
       .from('insights')
-      .select('date, level, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
+      .select('date, level, spend, impressions, clicks, reach, leads, purchases, purchase_value, schedules, landing_page_views')
       .eq('ad_account_id', account.id)
       .in('level', ['account', 'campaign'])
       .gte('date', pStart)
@@ -60,7 +60,7 @@ async function getClientContext(clientId: string, days = 7) {
     // Campaign-level insights (current period)
     supabaseAdmin
       .from('insights')
-      .select('campaign_name, spend, impressions, clicks, leads, purchases, purchase_value, schedules')
+      .select('platform_campaign_id, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
       .eq('ad_account_id', account.id)
       .eq('level', 'campaign')
       .gte('date', dStr)
@@ -70,7 +70,7 @@ async function getClientContext(clientId: string, days = 7) {
     // Ad-level insights (current period) — for performance ranking
     supabaseAdmin
       .from('insights')
-      .select('ad_name, campaign_name, ad_set_name, spend, impressions, clicks, leads, purchases, schedules, purchase_value')
+      .select('platform_ad_id, platform_campaign_id, platform_ad_set_id, spend, impressions, clicks, leads, purchases, schedules, purchase_value')
       .eq('ad_account_id', account.id)
       .eq('level', 'ad')
       .gte('date', dStr)
@@ -80,7 +80,7 @@ async function getClientContext(clientId: string, days = 7) {
     // Ad set level insights (current period)
     supabaseAdmin
       .from('insights')
-      .select('ad_set_name, campaign_name, spend, impressions, clicks, leads, purchases, schedules, purchase_value')
+      .select('platform_ad_set_id, platform_campaign_id, spend, impressions, clicks, leads, purchases, schedules, purchase_value')
       .eq('ad_account_id', account.id)
       .eq('level', 'adset')
       .gte('date', dStr)
@@ -90,7 +90,7 @@ async function getClientContext(clientId: string, days = 7) {
     // Active ads with creative info + creation date
     supabaseAdmin
       .from('ads')
-      .select('name, campaign_name, ad_set_name, creative_headline, creative_body, creative_cta, creative_url, effective_status, created_time')
+      .select('platform_ad_id, ad_set_id, name, creative_headline, creative_body, creative_cta, creative_url, effective_status, created_time')
       .eq('ad_account_id', account.id)
       .in('effective_status', ['ACTIVE', 'PAUSED'])
       .limit(100),
@@ -118,7 +118,7 @@ async function getClientContext(clientId: string, days = 7) {
     // Campaign-level reach for frequency calculation
     supabaseAdmin
       .from('insights')
-      .select('campaign_name, spend, impressions, reach, clicks, leads, purchases, schedules, landing_page_views')
+      .select('platform_campaign_id, spend, impressions, reach, clicks, leads, purchases, schedules, landing_page_views')
       .eq('ad_account_id', account.id)
       .eq('level', 'campaign')
       .gte('date', dStr)
@@ -140,6 +140,31 @@ async function getClientContext(clientId: string, days = 7) {
       .in('status', ['ACTIVE', 'PAUSED']),
   ])
 
+  // Build name maps from entity tables
+  const { data: campaignEntities } = await supabaseAdmin
+    .from('campaigns')
+    .select('platform_campaign_id, name')
+    .eq('ad_account_id', account.id)
+  const { data: adSetEntities } = await supabaseAdmin
+    .from('ad_sets')
+    .select('platform_ad_set_id, name, campaign_id')
+    .eq('ad_account_id', account.id)
+  const { data: adEntities } = await supabaseAdmin
+    .from('ads')
+    .select('platform_ad_id, name, ad_set_id')
+    .eq('ad_account_id', account.id)
+
+  const campNameMap = new Map<string, string>()
+  for (const c of (campaignEntities || [])) campNameMap.set(c.platform_campaign_id, c.name)
+  const adSetNameMap = new Map<string, string>()
+  const adSetToCampMap = new Map<string, string>()
+  for (const as of (adSetEntities || [])) {
+    adSetNameMap.set(as.platform_ad_set_id, as.name)
+    if (as.campaign_id) adSetToCampMap.set(as.platform_ad_set_id, as.campaign_id)
+  }
+  const adNameMap = new Map<string, string>()
+  for (const a of (adEntities || [])) adNameMap.set(a.platform_ad_id, a.name)
+
   const rawInsights = insightsRes.data || []
   // Prefer account-level data; fall back to campaign-level aggregated by date
   const hasAccountLevel = rawInsights.some(i => i.level === 'account')
@@ -151,10 +176,11 @@ async function getClientContext(clientId: string, days = 7) {
     const byDate: Record<string, any> = {}
     for (const row of rawInsights.filter(i => i.level === 'campaign')) {
       const d = typeof row.date === 'string' ? row.date : row.date?.toISOString?.()?.split('T')[0] || ''
-      if (!byDate[d]) byDate[d] = { date: d, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, purchase_value: 0, schedules: 0, landing_page_views: 0 }
+      if (!byDate[d]) byDate[d] = { date: d, spend: 0, impressions: 0, clicks: 0, reach: 0, leads: 0, purchases: 0, purchase_value: 0, schedules: 0, landing_page_views: 0 }
       byDate[d].spend += row.spend || 0
       byDate[d].impressions += row.impressions || 0
       byDate[d].clicks += row.clicks || 0
+      byDate[d].reach += row.reach || 0
       byDate[d].leads += row.leads || 0
       byDate[d].purchases += row.purchases || 0
       byDate[d].purchase_value += row.purchase_value || 0
@@ -183,20 +209,22 @@ async function getClientContext(clientId: string, days = 7) {
   // Aggregate campaign data
   const campaigns: Record<string, any> = {}
   for (const ci of (campaignRes.data || [])) {
-    const name = ci.campaign_name || 'Unknown'
-    if (!campaigns[name]) campaigns[name] = { spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
+    const name = campNameMap.get(ci.platform_campaign_id) || ci.platform_campaign_id || 'Unknown'
+    if (!campaigns[name]) campaigns[name] = { spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0, lpv: 0 }
     campaigns[name].spend += ci.spend || 0
     campaigns[name].results += (ci.leads || 0) + (ci.purchases || 0) + (ci.schedules || 0)
     campaigns[name].clicks += ci.clicks || 0
     campaigns[name].impressions += ci.impressions || 0
     campaigns[name].revenue += ci.purchase_value || 0
+    campaigns[name].lpv += ci.landing_page_views || 0
   }
 
   // Aggregate ad set data
   const adSets: Record<string, any> = {}
   for (const as of (adSetInsightsRes.data || [])) {
-    const name = as.ad_set_name || 'Unknown'
-    if (!adSets[name]) adSets[name] = { campaign: as.campaign_name, spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
+    const name = adSetNameMap.get(as.platform_ad_set_id) || as.platform_ad_set_id || 'Unknown'
+    const campName = campNameMap.get(as.platform_campaign_id) || as.platform_campaign_id || 'Unknown'
+    if (!adSets[name]) adSets[name] = { campaign: campName, spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
     adSets[name].spend += as.spend || 0
     adSets[name].results += (as.leads || 0) + (as.purchases || 0) + (as.schedules || 0)
     adSets[name].clicks += as.clicks || 0
@@ -207,8 +235,10 @@ async function getClientContext(clientId: string, days = 7) {
   // Aggregate ad-level data
   const ads: Record<string, any> = {}
   for (const ai of (adInsightsRes.data || [])) {
-    const name = ai.ad_name || 'Unknown'
-    if (!ads[name]) ads[name] = { campaign: ai.campaign_name, adSet: ai.ad_set_name, spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
+    const name = adNameMap.get(ai.platform_ad_id) || ai.platform_ad_id || 'Unknown'
+    const campName = campNameMap.get(ai.platform_campaign_id) || ai.platform_campaign_id || 'Unknown'
+    const adSetName = adSetNameMap.get(ai.platform_ad_set_id) || ai.platform_ad_set_id || ''
+    if (!ads[name]) ads[name] = { campaign: campName, adSet: adSetName, spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
     ads[name].spend += ai.spend || 0
     ads[name].results += (ai.leads || 0) + (ai.purchases || 0) + (ai.schedules || 0)
     ads[name].clicks += ai.clicks || 0
@@ -216,10 +246,15 @@ async function getClientContext(clientId: string, days = 7) {
     ads[name].revenue += ai.purchase_value || 0
   }
 
-  // Creative lookup map from active ads
+  // Creative lookup map from active ads (by name for matching with insights-derived ad names)
   const creativeMap = new Map<string, any>()
   for (const ad of (activeAdsRes.data || [])) {
     creativeMap.set(ad.name, ad)
+  }
+  // Also map by platform_ad_id for the active ads list
+  const creativeByPlatformId = new Map<string, any>()
+  for (const ad of (activeAdsRes.data || [])) {
+    creativeByPlatformId.set(ad.platform_ad_id, ad)
   }
 
   const sortedAds = Object.entries(ads).sort((a, b) => b[1].spend - a[1].spend)
@@ -251,7 +286,7 @@ async function getClientContext(clientId: string, days = 7) {
   // Campaign-level frequency + reach
   const campaignReach: Record<string, { impressions: number; reach: number; spend: number; results: number; clicks: number; lpv: number }> = {}
   for (const row of (campaignReachRes.data || [])) {
-    const name = row.campaign_name || 'Unknown'
+    const name = campNameMap.get(row.platform_campaign_id) || row.platform_campaign_id || 'Unknown'
     if (!campaignReach[name]) campaignReach[name] = { impressions: 0, reach: 0, spend: 0, results: 0, clicks: 0, lpv: 0 }
     campaignReach[name].impressions += row.impressions || 0
     campaignReach[name].reach += row.reach || 0
