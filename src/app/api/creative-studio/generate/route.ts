@@ -292,9 +292,7 @@ ABSOLUTE PROHIBITIONS:
 - NO gibberish or misspelled words
 - NO laptop/phone screens showing text (always illegible)
 - NO clip art, stock photo feel, or generic compositions
-- NO excessive elements — simplicity wins
-
-TECHNICAL: ${aspectRatio} aspect ratio, ${resolution} resolution.`)
+- NO excessive elements — simplicity wins`)
 
   // ─── USER DIRECTION (last, as override) ───
   if (additionalDirection) {
@@ -419,7 +417,11 @@ export async function POST(req: NextRequest) {
         // The generation prompt
         contents.push({ text: fullPrompt })
 
-        // Call Nano Banana Pro
+        // Map resolution to imageSize
+        const imageSizeMap: Record<string, string> = { '1K': '1K', '2K': '2K', '4K': '4K' }
+        const imageSize = imageSizeMap[resolution] || '2K'
+
+        // Call Nano Banana Pro with proper imageConfig (per Google best practices)
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
           {
@@ -430,6 +432,10 @@ export async function POST(req: NextRequest) {
               generationConfig: {
                 responseModalities: ['TEXT', 'IMAGE'],
                 temperature: 1.0,
+                imageConfig: {
+                  aspectRatio: aspectRatio,
+                  imageSize: imageSize,
+                },
               },
             }),
           }
@@ -493,7 +499,7 @@ This time, follow these STRICT rules:
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents: [{ role: 'user', parts: retryContents }],
-                generationConfig: { responseModalities: ['TEXT', 'IMAGE'], temperature: 0.8 },
+                generationConfig: { responseModalities: ['TEXT', 'IMAGE'], temperature: 0.8, imageConfig: { aspectRatio, imageSize } },
               }),
             }
           )
