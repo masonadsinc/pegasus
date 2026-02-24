@@ -4,6 +4,8 @@ import { getUser } from '@/lib/auth'
 import { isEcomActionType } from '@/lib/utils'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
+const META_TOKEN = process.env.META_ACCESS_TOKEN!
+const META_VERSION = process.env.META_API_VERSION || 'v21.0'
 
 async function getGeminiKey() {
   const { data } = await supabaseAdmin
@@ -12,6 +14,118 @@ async function getGeminiKey() {
     .eq('id', ORG_ID)
     .single()
   return data?.gemini_api_key || process.env.GEMINI_API_KEY || null
+}
+
+// Get video source URL from Meta API
+async function getVideoSourceUrl(adPlatformId: string): Promise<{ videoUrl: string | null; videoId: string | null }> {
+  try {
+    // Step 1: Get creative details with video ID
+    const adRes = await fetch(
+      `https://graph.facebook.com/${META_VERSION}/${adPlatformId}?fields=creative{object_story_spec,asset_feed_spec}&access_token=${META_TOKEN}`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+    if (!adRes.ok) return { videoUrl: null, videoId: null }
+    const adData = await adRes.json()
+
+    // Try to extract video_id
+    let videoId: string | null = null
+    const creative = adData.creative
+    if (creative?.object_story_spec?.video_data?.video_id) {
+      videoId = creative.object_story_spec.video_data.video_id
+    } else if (creative?.asset_feed_spec?.videos?.[0]?.video_id) {
+      videoId = creative.asset_feed_spec.videos[0].video_id
+    }
+
+    if (!videoId) return { videoUrl: null, videoId: null }
+
+    // Step 2: Get video source URL
+    const vidRes = await fetch(
+      `https://graph.facebook.com/${META_VERSION}/${videoId}?fields=source&access_token=${META_TOKEN}`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+    if (!vidRes.ok) return { videoUrl: null, videoId }
+    const vidData = await vidRes.json()
+    return { videoUrl: vidData.source || null, videoId }
+  } catch {
+    return { videoUrl: null, videoId: null }
+  }
+}
+
+// Upload video to Gemini Files API (resumable upload)
+async function uploadVideoToGemini(videoBuffer: ArrayBuffer, filename: string, apiKey: string): Promise<string | null> {
+  try {
+    // Step 1: Initiate resumable upload
+    const initRes = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'start',
+          'X-Goog-Upload-Header-Content-Length': String(videoBuffer.byteLength),
+          'X-Goog-Upload-Header-Content-Type': 'video/mp4',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ file: { display_name: filename } }),
+      }
+    )
+
+    const uploadUrl = initRes.headers.get('x-goog-upload-url')
+    if (!uploadUrl) {
+      console.error('No upload URL returned from Gemini')
+      return null
+    }
+
+    // Step 2: Upload binary data
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Offset': '0',
+        'X-Goog-Upload-Command': 'upload, finalize',
+        'Content-Length': String(videoBuffer.byteLength),
+      },
+      body: videoBuffer,
+    })
+
+    if (!uploadRes.ok) {
+      console.error('Video upload failed:', await uploadRes.text())
+      return null
+    }
+
+    const result = await uploadRes.json()
+    const fileUri = result.file?.uri
+    const fileName = result.file?.name
+
+    if (!fileUri || !fileName) return null
+
+    // Step 3: Poll until processing is complete
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      const statusRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
+      )
+      if (statusRes.ok) {
+        const statusData = await statusRes.json()
+        if (statusData.state === 'ACTIVE') return fileUri
+        if (statusData.state === 'FAILED') {
+          console.error('Video processing failed')
+          return null
+        }
+      }
+    }
+    return null
+  } catch (e) {
+    console.error('Video upload error:', e)
+    return null
+  }
+}
+
+// Delete file from Gemini after analysis
+async function deleteGeminiFile(fileUri: string, apiKey: string) {
+  try {
+    const fileName = fileUri.split('/').slice(-2).join('/')
+    await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`, { method: 'DELETE' })
+  } catch {}
 }
 
 export async function POST(req: NextRequest) {
@@ -25,7 +139,6 @@ export async function POST(req: NextRequest) {
     const { clientId, days = 30 } = await req.json()
     if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
-    // Get client + account
     const { data: client } = await supabaseAdmin
       .from('clients')
       .select('*, ad_accounts(*)')
@@ -39,7 +152,7 @@ export async function POST(req: NextRequest) {
 
     const isEcom = isEcomActionType(account.primary_action_type)
 
-    // Date range
+    // Date range (PST)
     const now = new Date()
     const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
     const yesterday = new Date(pst); yesterday.setDate(pst.getDate() - 1)
@@ -69,27 +182,27 @@ export async function POST(req: NextRequest) {
       adPerf[id].revenue += row.purchase_value || 0
     }
 
-    // Get ad details with creatives
     const adIds = Object.keys(adPerf)
     if (adIds.length === 0) return NextResponse.json({ error: 'No ad data for this period' }, { status: 404 })
 
+    // Get ad details
     const { data: adDetails } = await supabaseAdmin
       .from('ads')
       .select('platform_ad_id, name, creative_url, creative_video_url, creative_thumbnail_url, creative_headline, creative_body, creative_cta, created_time')
       .eq('ad_account_id', account.id)
       .in('platform_ad_id', adIds)
 
-    // Merge performance + creative data
+    // Merge and sort
     const adsWithCreatives = (adDetails || [])
       .filter(ad => ad.creative_url || ad.creative_video_url)
       .map(ad => {
         const perf = adPerf[ad.platform_ad_id] || { spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
         const cpr = perf.results > 0 ? perf.spend / perf.results : Infinity
         const ctr = perf.impressions > 0 ? (perf.clicks / perf.impressions * 100) : 0
-        const isVideo = !!ad.creative_video_url
+        const isVideo = !!(ad.creative_video_url && ad.creative_video_url.includes('/video'))
         const age = ad.created_time ? Math.floor((yesterday.getTime() - new Date(ad.created_time).getTime()) / 86400000) : null
         return {
-          id: ad.platform_ad_id,
+          platformId: ad.platform_ad_id,
           name: ad.name,
           imageUrl: ad.creative_url,
           videoUrl: ad.creative_video_url,
@@ -107,164 +220,253 @@ export async function POST(req: NextRequest) {
       .filter(ad => ad.spend > 0)
       .sort((a, b) => a.cpr - b.cpr)
 
-    // Split into top performers and worst performers
     const withResults = adsWithCreatives.filter(a => a.results > 0)
     const withoutResults = adsWithCreatives.filter(a => a.results === 0 && a.spend > 20).sort((a, b) => b.spend - a.spend)
 
-    const topAds = withResults.slice(0, 8)
-    const worstAds = withoutResults.slice(0, 5)
+    const topAds = withResults.slice(0, 5)
+    const worstAds = withoutResults.slice(0, 3)
     const allAdsForAnalysis = [...topAds, ...worstAds]
 
     if (allAdsForAnalysis.length === 0) {
       return NextResponse.json({ error: 'No ads with creative assets found' }, { status: 404 })
     }
 
-    // Build Gemini request with images
-    // Gemini can handle image URLs directly via inlineData or fileData
-    // For images, we'll use the image URLs; for videos, we'll use thumbnail + note it's a video
-    const imageParts: any[] = []
-    const adContext: string[] = []
+    const targetMetric = isEcom ? `Target ROAS: ${account.target_roas || 'not set'}x` : `Target CPL: $${account.target_cpl || 'not set'}`
 
-    for (let i = 0; i < allAdsForAnalysis.length; i++) {
-      const ad = allAdsForAnalysis[i]
-      const isTop = i < topAds.length
-      const label = isTop ? 'TOP PERFORMER' : 'UNDERPERFORMER'
-      const cprStr = ad.results > 0 ? `$${ad.cpr.toFixed(2)}` : 'N/A (0 results)'
+    // Stream response
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        const send = (data: any) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+        const geminiFiles: string[] = [] // Track for cleanup
 
-      adContext.push(`[Ad ${i + 1}] "${ad.name}" — ${label}
+        try {
+          // Send ad metadata to UI first
+          send({
+            type: 'ads',
+            ads: allAdsForAnalysis.map(a => ({
+              name: a.name, imageUrl: a.imageUrl, videoUrl: a.videoUrl, thumbnailUrl: a.thumbnailUrl,
+              isVideo: a.isVideo, spend: a.spend, results: a.results, cpr: a.cpr, ctr: a.ctr,
+              headline: a.headline, age: a.age, isTop: topAds.includes(a),
+            })),
+          })
+
+          send({ type: 'status', message: 'Preparing creatives for analysis...' })
+
+          // Build content parts for Gemini
+          const contentParts: any[] = []
+          const adContext: string[] = []
+
+          for (let i = 0; i < allAdsForAnalysis.length; i++) {
+            const ad = allAdsForAnalysis[i]
+            const isTop = i < topAds.length
+            const label = isTop ? 'TOP PERFORMER' : 'UNDERPERFORMER'
+            const cprStr = ad.results > 0 ? `$${ad.cpr.toFixed(2)}` : 'N/A (0 results)'
+
+            adContext.push(`[Ad ${i + 1}] "${ad.name}" — ${label}
 - Spend: $${ad.spend.toFixed(0)} | Results: ${ad.results} | CPR: ${cprStr} | CTR: ${ad.ctr.toFixed(2)}%
 - Headline: "${ad.headline || 'N/A'}" | CTA: ${ad.cta || 'N/A'}
 - Type: ${ad.isVideo ? 'VIDEO' : 'IMAGE'}${ad.age !== null ? ` | Age: ${ad.age} days` : ''}
 ${ad.body ? `- Body copy: "${ad.body.slice(0, 200)}"` : ''}`)
 
-      // Add image URL for Gemini to analyze
-      const imageUrl = ad.imageUrl || ad.thumbnailUrl
-      if (imageUrl) {
-        // Fetch image and convert to base64 for Gemini inline_data
-        try {
-          const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) })
-          if (imgRes.ok) {
-            const buffer = await imgRes.arrayBuffer()
-            const base64 = Buffer.from(buffer).toString('base64')
-            const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
-            imageParts.push({
-              inlineData: { mimeType: contentType, data: base64 },
-            })
-            imageParts.push({
-              text: `[This is the creative for Ad ${i + 1}: "${ad.name}" — ${label}]`,
-            })
-          }
-        } catch {
-          // Skip if image fetch fails
-        }
-      }
-    }
+            // Handle video ads — try to get actual video
+            if (ad.isVideo) {
+              send({ type: 'status', message: `Downloading video for "${ad.name}"...` })
 
-    const targetMetric = isEcom ? `Target ROAS: ${account.target_roas || 'not set'}x` : `Target CPL: $${account.target_cpl || 'not set'}`
+              const { videoUrl } = await getVideoSourceUrl(ad.platformId)
+              let videoUploaded = false
 
-    const systemPrompt = `You are Pegasus, an expert Meta ads creative strategist analyzing ad creatives for ${client.name}. You can SEE the actual ad images/thumbnails.
-
-Your job is to analyze WHAT is working visually and WHAT is not, then give specific creative recommendations.
-
-For each creative, analyze:
-1. **Visual composition** — layout, colors, contrast, focal point, text overlay readability
-2. **Hook strength** — does it stop the scroll? What makes it compelling (or not)?
-3. **Message clarity** — can you understand the offer in 2 seconds?
-4. **Format fit** — is it optimized for mobile feed/stories/reels?
-5. **Brand consistency** — do the creatives feel cohesive?
-
-Structure your response:
-
-WHAT'S WINNING
-- Analyze the top performers: what visual elements, angles, formats are driving results?
-- Be specific about colors, imagery style, text placement, emotional triggers
-
-WHAT'S FAILING
-- Analyze the underperformers: why aren't they converting?
-- Compare them to the winners — what's different?
-
-CREATIVE RECOMMENDATIONS
-- Give 3-5 specific new creative concepts to test, based on patterns in the winning ads
-- For each concept, describe: visual direction, headline angle, format (static/video/carousel), and why it should work
-
-QUICK WINS
-- Simple changes to existing ads that could improve performance (e.g., "Ad 3's headline is too small — increase font size and add contrast")
-
-Rules:
-- Reference ads by name and number
-- Be specific about visual elements — "the blue background with white text" not "nice design"
-- ${targetMetric}
-- No emojis, no fluff
-- ${isEcom ? 'Focus on purchase-driving creative elements' : 'Focus on lead-gen creative — what makes someone fill out a form'}`
-
-    const contents = [
-      {
-        role: 'user',
-        parts: [
-          { text: `Analyze these ${allAdsForAnalysis.length} ad creatives for ${client.name}. Here's the performance data:\n\n${adContext.join('\n\n')}\n\nThe images follow. Analyze each one visually and connect the visual elements to the performance data above.` },
-          ...imageParts,
-        ],
-      },
-    ]
-
-    // Call Gemini with streaming
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse&key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
-        }),
-      }
-    )
-
-    if (!response.ok) {
-      const err = await response.text()
-      console.error('Gemini creative analysis error:', err)
-      return NextResponse.json({ error: 'AI analysis failed' }, { status: 502 })
-    }
-
-    // Stream SSE back to client
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      async start(controller) {
-        // First send the ads data so the UI can render them
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'ads', ads: allAdsForAnalysis.map(a => ({ name: a.name, imageUrl: a.imageUrl, videoUrl: a.videoUrl, thumbnailUrl: a.thumbnailUrl, isVideo: a.isVideo, spend: a.spend, results: a.results, cpr: a.cpr, ctr: a.ctr, headline: a.headline, age: a.age, isTop: withResults.includes(a) })) })}\n\n`))
-
-        const reader = response.body!.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const jsonStr = line.slice(6).trim()
-                if (jsonStr === '[DONE]') continue
+              if (videoUrl) {
                 try {
-                  const parsed = JSON.parse(jsonStr)
-                  const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
-                  if (text) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'text', text })}\n\n`))
+                  const vidRes = await fetch(videoUrl, { signal: AbortSignal.timeout(30000) })
+                  if (vidRes.ok) {
+                    const buffer = await vidRes.arrayBuffer()
+                    if (buffer.byteLength > 10240) { // > 10KB
+                      send({ type: 'status', message: `Uploading "${ad.name}" to Gemini (${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB)...` })
+                      const fileUri = await uploadVideoToGemini(buffer, `${ad.platformId}.mp4`, apiKey)
+                      if (fileUri) {
+                        geminiFiles.push(fileUri)
+                        contentParts.push({
+                          fileData: { mimeType: 'video/mp4', fileUri },
+                        })
+                        contentParts.push({
+                          text: `[This is the FULL VIDEO for Ad ${i + 1}: "${ad.name}" — ${label}. Analyze the hook (first 3 seconds), pacing, scene transitions, and overall storytelling.]`,
+                        })
+                        videoUploaded = true
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error(`Video download failed for ${ad.name}:`, e)
+                }
+              }
+
+              // Fallback to thumbnail if video failed
+              if (!videoUploaded) {
+                send({ type: 'status', message: `Video unavailable for "${ad.name}", using thumbnail...` })
+                const thumbUrl = ad.imageUrl || ad.thumbnailUrl
+                if (thumbUrl) {
+                  try {
+                    const imgRes = await fetch(thumbUrl, { signal: AbortSignal.timeout(8000) })
+                    if (imgRes.ok) {
+                      const buffer = await imgRes.arrayBuffer()
+                      const base64 = Buffer.from(buffer).toString('base64')
+                      contentParts.push({
+                        inlineData: { mimeType: imgRes.headers.get('content-type') || 'image/jpeg', data: base64 },
+                      })
+                      contentParts.push({
+                        text: `[This is a THUMBNAIL for Ad ${i + 1}: "${ad.name}" — ${label}. The actual video could not be downloaded. Analyze what's visible in this frame.]`,
+                      })
+                    }
+                  } catch {}
+                }
+              }
+            } else {
+              // Image ad — inline base64
+              const imageUrl = ad.imageUrl || ad.thumbnailUrl
+              if (imageUrl) {
+                try {
+                  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) })
+                  if (imgRes.ok) {
+                    const buffer = await imgRes.arrayBuffer()
+                    const base64 = Buffer.from(buffer).toString('base64')
+                    contentParts.push({
+                      inlineData: { mimeType: imgRes.headers.get('content-type') || 'image/jpeg', data: base64 },
+                    })
+                    contentParts.push({
+                      text: `[This is the IMAGE for Ad ${i + 1}: "${ad.name}" — ${label}]`,
+                    })
                   }
                 } catch {}
               }
             }
           }
-        } catch (e) {
-          console.error('Stream error:', e)
+
+          send({ type: 'status', message: 'Running AI analysis...' })
+
+          // System prompt — deep analysis
+          const systemPrompt = `You are Pegasus, an elite Meta ads creative strategist analyzing ad creatives for ${client.name}. You can SEE the actual ad images and videos.
+
+You have two types of creatives:
+- **IMAGE ADS**: Analyze the static visual
+- **VIDEO ADS**: If you received the full video, analyze the hook (first 3 seconds), pacing, scene transitions, audio cues, and storytelling arc. If only a thumbnail, note that and analyze the visible frame.
+
+## Analysis Structure
+
+For each creative, evaluate these 10 points:
+
+**FOR IMAGE ADS:**
+1. TEXT/COPY — All visible text on the image, readability, font choices
+2. VISUAL ELEMENTS — Subject, background, objects, photography vs illustration
+3. COLOR PALETTE — Dominant/accent colors, mood, contrast
+4. LAYOUT & COMPOSITION — Text placement, hierarchy, whitespace, focal point
+5. HOOK STRENGTH — Does it stop the scroll? What grabs attention?
+6. MESSAGE CLARITY — Can you understand the offer in 2 seconds?
+7. EMOTIONAL APPEAL — Trust, urgency, aspiration, fear, social proof
+8. FORMAT FIT — Optimized for mobile feed? Stories? Square vs vertical?
+9. STRENGTHS — What works well?
+10. WEAKNESSES — What could improve?
+
+**FOR VIDEO ADS:**
+1. TRANSCRIPT — Key spoken words/text overlays
+2. HOOK (first 3 seconds) — What grabs attention? How effective?
+3. VISUAL BREAKDOWN — Key scenes, transitions, b-roll
+4. MESSAGING — Core value props, persuasion tactics
+5. CTA — What action are they driving? Clear and compelling?
+6. PACING & EDITING — Energy level, cut frequency, music/sound
+7. EMOTIONAL ARC — How does the viewer's emotion shift?
+8. FORMAT FIT — Mobile-optimized? Works with sound off?
+9. STRENGTHS
+10. WEAKNESSES
+
+## Output Format
+
+INDIVIDUAL CREATIVE BREAKDOWN
+[For each ad, give a 10-point analysis referencing it by name]
+
+PATTERNS: WHAT'S WINNING
+- Visual/creative patterns across top performers
+- Be specific: "blue backgrounds with white sans-serif text" not "clean design"
+
+PATTERNS: WHAT'S FAILING
+- What the underperformers have in common vs the winners
+
+CREATIVE RECOMMENDATIONS
+- 5 specific new creative concepts based on winning patterns
+- For each: describe the visual direction, headline angle, format (static/video/carousel), and WHY it should work based on data
+
+QUICK WINS
+- Simple edits to existing ads that could improve performance
+
+Rules:
+- Reference ads by name
+- Be extremely specific about visual elements
+- ${targetMetric}
+- No emojis, no fluff
+- ${isEcom ? 'Focus on purchase-driving elements' : 'Focus on lead-gen elements — what makes someone fill out a form'}
+- If analyzing a video, comment on the hook effectiveness and whether the story structure leads to action`
+
+          // Call Gemini with streaming
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse&key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  role: 'user',
+                  parts: [
+                    { text: `Analyze these ${allAdsForAnalysis.length} ad creatives for ${client.name}.\n\nPerformance data:\n${adContext.join('\n\n')}\n\nThe creative assets (images and videos) follow. Give a deep 10-point analysis of each creative, then identify patterns and give recommendations.` },
+                    ...contentParts,
+                  ],
+                }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
+              }),
+            }
+          )
+
+          if (!response.ok) {
+            const err = await response.text()
+            console.error('Gemini creative analysis error:', err)
+            send({ type: 'error', message: 'AI analysis failed' })
+          } else {
+            const reader = response.body!.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ''
+
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              buffer += decoder.decode(value, { stream: true })
+              const lines = buffer.split('\n')
+              buffer = lines.pop() || ''
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const jsonStr = line.slice(6).trim()
+                  if (jsonStr === '[DONE]') continue
+                  try {
+                    const parsed = JSON.parse(jsonStr)
+                    const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
+                    if (text) send({ type: 'text', text })
+                  } catch {}
+                }
+              }
+            }
+          }
+
+          // Cleanup Gemini files
+          for (const uri of geminiFiles) {
+            await deleteGeminiFile(uri, apiKey)
+          }
+
+          send({ type: 'done' })
+        } catch (e: any) {
+          console.error('Creative analysis error:', e)
+          send({ type: 'error', message: e.message || 'Analysis failed' })
         }
 
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`))
         controller.close()
       },
     })

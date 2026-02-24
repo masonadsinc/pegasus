@@ -31,6 +31,7 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
   const [ads, setAds] = useState<AdCreative[]>([])
   const [days, setDays] = useState(30)
   const [error, setError] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const analysisRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
     setAnalysis('')
     setAds([])
     setError(null)
+    setStatusMessage('Starting analysis...')
 
     try {
       const res = await fetch('/api/creatives/analyze', {
@@ -75,7 +77,9 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
             try {
               const data = JSON.parse(line.slice(6))
               if (data.type === 'ads') setAds(data.ads)
-              else if (data.type === 'text') setAnalysis(prev => prev + data.text)
+              else if (data.type === 'status') setStatusMessage(data.message)
+              else if (data.type === 'text') { setStatusMessage(null); setAnalysis(prev => prev + data.text) }
+              else if (data.type === 'error') setError(data.message)
               else if (data.type === 'done') break
             } catch {}
           }
@@ -189,8 +193,16 @@ export function CreativeAnalysis({ clientId }: { clientId: string }) {
         </div>
       )}
 
+      {/* Status message during processing */}
+      {statusMessage && analyzing && (
+        <div className="flex items-center gap-3 px-4 py-3 border border-[#e8e8ec] rounded bg-[#f8f8fa]">
+          <div className="w-2 h-2 bg-[#2563eb] rounded-full animate-pulse flex-shrink-0" />
+          <span className="text-[12px] text-[#111113]">{statusMessage}</span>
+        </div>
+      )}
+
       {/* Analysis output */}
-      {(analysis || analyzing) && (
+      {(analysis || (analyzing && !statusMessage)) && (
         <div className="border border-[#e8e8ec] rounded bg-white">
           <div className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] flex items-center justify-between">
             <h3 className="text-[11px] font-semibold text-[#9d9da8] uppercase tracking-wider">Analysis</h3>
