@@ -334,7 +334,7 @@ RULES:
 - Reference specific numbers, ad names, and campaigns by name
 - 300-500 words total
 - If previous report exists, reference what changed
-- Sign off with just "Brianna"
+- Always sign off with exactly: "Thanks,\nBrianna" (on two lines)
 - No emojis anywhere
 - Format must look clean in email (Gmail, Outlook, Apple Mail)
 
