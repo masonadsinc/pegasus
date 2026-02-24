@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 
 interface Client {
   id: string
@@ -46,81 +45,81 @@ function formatDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+const PERIOD_OPTIONS = [
+  { label: '7 Days', value: 7 },
+  { label: '14 Days', value: 14 },
+  { label: '30 Days', value: 30 },
+  { label: '60 Days', value: 60 },
+  { label: '90 Days', value: 90 },
+]
+
 export function ReportsHub({
-  weeks,
   activeClients,
   initialReports,
-  initialWeek,
 }: {
-  weeks: string[]
   activeClients: Client[]
   initialReports: Report[]
-  initialWeek: string | null
 }) {
-  const [selectedWeek, setSelectedWeek] = useState<string | null>(initialWeek)
   const [reports, setReports] = useState<Report[]>(initialReports)
+  const [selectedDays, setSelectedDays] = useState(7)
   const [generating, setGenerating] = useState(false)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [editingReport, setEditingReport] = useState<Report | null>(null)
   const [editContent, setEditContent] = useState('')
   const [editNotes, setEditNotes] = useState('')
   const [saving, setSaving] = useState(false)
-  const [loadingWeek, setLoadingWeek] = useState(false)
-  const [allWeeks, setAllWeeks] = useState(weeks)
-  const [genDropdownOpen, setGenDropdownOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  async function loadWeek(week: string) {
-    setLoadingWeek(true)
-    setSelectedWeek(week)
-    try {
-      const res = await fetch(`/api/reports?week=${week}`)
-      const data = await res.json()
-      setReports(data.reports || [])
-    } catch {
-      setReports([])
-    }
-    setLoadingWeek(false)
-  }
-
-  async function generateAll() {
-    if (!confirm('Generate reports for all active clients? This will use AI credits.')) return
-    setGenerating(true)
-    try {
-      const res = await fetch('/api/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientIds: null }),
-      })
-      const data = await res.json()
-      if (data.week) {
-        if (!allWeeks.includes(data.week)) setAllWeeks([data.week, ...allWeeks])
-        await loadWeek(data.week)
-      }
-    } catch (e) {
-      alert('Generation failed. Check console.')
-      console.error(e)
-    }
-    setGenerating(false)
-  }
-
-  async function generateOne(clientId: string) {
+  async function generateReport(clientId: string) {
     setGeneratingId(clientId)
     try {
       const res = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientIds: [clientId] }),
+        body: JSON.stringify({ clientIds: [clientId], days: selectedDays }),
       })
       const data = await res.json()
-      if (data.week) {
-        if (!allWeeks.includes(data.week)) setAllWeeks([data.week, ...allWeeks])
-        await loadWeek(data.week)
+      if (data.results?.[0]?.status === 'error') {
+        alert(`Error: ${data.results[0].error}`)
+      } else {
+        // Reload reports
+        await reloadReports()
       }
     } catch (e) {
       alert('Generation failed.')
       console.error(e)
     }
     setGeneratingId(null)
+  }
+
+  async function generateAll() {
+    if (!confirm(`Generate ${selectedDays}-day reports for all active clients? This will use AI credits.`)) return
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientIds: null, days: selectedDays }),
+      })
+      const data = await res.json()
+      const succeeded = data.results?.filter((r: any) => r.status === 'generated').length || 0
+      const failed = data.results?.filter((r: any) => r.status === 'error').length || 0
+      if (failed > 0) alert(`Generated ${succeeded} reports, ${failed} failed.`)
+      await reloadReports()
+    } catch (e) {
+      alert('Generation failed.')
+      console.error(e)
+    }
+    setGenerating(false)
+  }
+
+  async function reloadReports() {
+    try {
+      const res = await fetch('/api/reports')
+      const data = await res.json()
+      setReports(data.reports || [])
+    } catch {}
   }
 
   async function updateStatus(reportId: string, status: string) {
@@ -156,21 +155,57 @@ export function ReportsHub({
     setSaving(false)
   }
 
+  async function regenerateReport(report: Report) {
+    setGeneratingId(report.client_id)
+    try {
+      // Parse days from the report period
+      const start = new Date(report.period_start + 'T12:00:00')
+      const end = new Date(report.period_end + 'T12:00:00')
+      const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+
+      const res = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientIds: [report.client_id], days }),
+      })
+      if (res.ok) {
+        await reloadReports()
+        // If editing this report, close editor
+        if (editingReport?.id === report.id) setEditingReport(null)
+      }
+    } catch (e) {
+      alert('Regeneration failed.')
+    }
+    setGeneratingId(null)
+  }
+
   function openEditor(report: Report) {
     setEditingReport(report)
     setEditContent(report.content || '')
     setEditNotes(report.notes || '')
   }
 
-  // Stats
-  const totalClients = activeClients.length
-  const generated = reports.filter(r => r.status !== 'pending').length
-  const reviewed = reports.filter(r => r.status === 'reviewed' || r.status === 'sent').length
-  const sent = reports.filter(r => r.status === 'sent').length
+  async function copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {}
+  }
 
-  // Find clients without reports this week
-  const reportedClientIds = new Set(reports.map(r => r.client_id))
-  const missingClients = activeClients.filter(c => !reportedClientIds.has(c.id))
+  // Filter reports
+  const filteredReports = reports
+    .filter(r => selectedClient === 'all' || r.client_id === selectedClient)
+    .filter(r => !searchQuery || r.client_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      // Most recent first
+      if (a.period_end !== b.period_end) return b.period_end.localeCompare(a.period_end)
+      return a.client_name.localeCompare(b.client_name)
+    })
+
+  // Stats
+  const totalReports = reports.length
+  const draftCount = reports.filter(r => r.status === 'draft').length
+  const reviewedCount = reports.filter(r => r.status === 'reviewed').length
+  const sentCount = reports.filter(r => r.status === 'sent').length
 
   // EDITOR VIEW
   if (editingReport) {
@@ -185,73 +220,71 @@ export function ReportsHub({
             <div className="min-w-0">
               <p className="text-[13px] font-semibold text-[#111113] truncate">{editingReport.client_name}</p>
               <p className="text-[10px] text-[#9d9da8] truncate">
-                {editingReport.subject} &middot; <StatusBadge status={editingReport.status} />
+                {formatDate(editingReport.period_start)} - {formatDate(editingReport.period_end)} &middot; <StatusBadge status={editingReport.status} />
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <button
+              onClick={() => copyToClipboard(editContent)}
+              className="px-3 py-2 rounded border border-[#e8e8ec] text-[12px] font-medium text-[#111113] hover:bg-[#f8f8fa]"
+            >
+              Copy
+            </button>
+            <button
+              onClick={() => regenerateReport(editingReport)}
+              disabled={generatingId === editingReport.client_id}
+              className="px-3 py-2 rounded border border-[#e8e8ec] text-[12px] font-medium text-[#111113] hover:bg-[#f8f8fa] disabled:opacity-50"
+            >
+              {generatingId === editingReport.client_id ? 'Regenerating...' : 'Regenerate'}
+            </button>
             <button onClick={saveReport} disabled={saving} className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50">
               {saving ? 'Saving...' : 'Save'}
             </button>
             {editingReport.status === 'draft' && (
-              <button onClick={() => updateStatus(editingReport.id, 'reviewed')} className="px-4 py-2 rounded bg-[#ca8a04] text-white text-[12px] font-medium hover:bg-[#a16207]">
+              <button onClick={() => updateStatus(editingReport.id, 'reviewed')} className="px-3 py-2 rounded bg-[#ca8a04] text-white text-[12px] font-medium hover:bg-[#a16207]">
                 Mark Reviewed
               </button>
             )}
-            {(editingReport.status === 'draft' || editingReport.status === 'reviewed') && (
-              <button onClick={() => updateStatus(editingReport.id, 'sent')} className="px-4 py-2 rounded bg-[#16a34a] text-white text-[12px] font-medium hover:bg-[#15803d]">
+            {editingReport.status === 'reviewed' && (
+              <button onClick={() => updateStatus(editingReport.id, 'sent')} className="px-3 py-2 rounded bg-[#16a34a] text-white text-[12px] font-medium hover:bg-[#15803d]">
                 Mark Sent
               </button>
             )}
           </div>
         </div>
 
-        {/* Editor body */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          {/* Edit pane */}
-          <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-[#e8e8ec] min-h-[40vh] lg:min-h-0">
-            <div className="px-4 py-2 border-b border-[#f4f4f6] bg-[#fafafb]">
-              <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Edit Report</p>
+        {/* Split pane: editor + preview */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* Editor */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa]">
+              <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-semibold">Edit</p>
             </div>
             <textarea
               value={editContent}
               onChange={e => setEditContent(e.target.value)}
-              className="flex-1 p-4 text-[13px] text-[#111113] leading-relaxed font-mono resize-none focus:outline-none bg-white"
+              className="flex-1 p-4 text-[13px] leading-relaxed text-[#111113] resize-none focus:outline-none font-mono"
               placeholder="Report content..."
             />
-            <div className="px-4 py-3 border-t border-[#f4f4f6] bg-[#fafafb]">
-              <label className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider block mb-1">Internal Notes</label>
+            <div className="px-4 py-2 border-t border-[#e8e8ec]">
               <input
                 value={editNotes}
                 onChange={e => setEditNotes(e.target.value)}
-                placeholder="Notes about this report (not sent to client)"
-                className="w-full px-3 py-2 rounded bg-white border border-[#e8e8ec] text-[12px] focus:outline-none focus:border-[#2563eb]"
+                placeholder="Internal notes (not included in report)..."
+                className="w-full text-[12px] text-[#9d9da8] focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Preview pane */}
-          <div className="flex-1 flex flex-col">
-            <div className="px-4 py-2 border-b border-[#f4f4f6] bg-[#fafafb]">
-              <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Preview</p>
+          {/* Preview */}
+          <div className="flex-1 border-t md:border-t-0 md:border-l border-[#e8e8ec] flex flex-col min-h-0 bg-[#fafafa]">
+            <div className="px-4 py-2 border-b border-[#e8e8ec]">
+              <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-semibold">Preview</p>
             </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-[600px] mx-auto">
-                <p className="text-[11px] text-[#9d9da8] mb-4 font-medium">Subject: {editingReport.subject}</p>
-                <div className="text-[13px] text-[#333] leading-relaxed whitespace-pre-wrap">
-                  {editContent.split('\n').map((line, i) => {
-                    if (/^[A-Z\s']{4,}$/.test(line.trim()) && line.trim().length > 3) {
-                      return <p key={i} className="font-semibold text-[#111113] mt-4 mb-2 text-[14px]">{line}</p>
-                    }
-                    if (line.startsWith('- ')) {
-                      const formatted = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      return <p key={i} className="pl-3 mb-1" dangerouslySetInnerHTML={{ __html: '&bull; ' + formatted }} />
-                    }
-                    if (line.trim() === '') return <br key={i} />
-                    const formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[#2563eb] underline">$1</a>')
-                    return <p key={i} className="mb-1" dangerouslySetInnerHTML={{ __html: formatted }} />
-                  })}
-                </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="max-w-[600px] mx-auto bg-white rounded border border-[#e8e8ec] p-6 sm:p-8 text-[13px] leading-relaxed text-[#111113] whitespace-pre-wrap">
+                {editContent || 'No content yet.'}
               </div>
             </div>
           </div>
@@ -260,204 +293,155 @@ export function ReportsHub({
     )
   }
 
-  // LIST VIEW
+  // MAIN VIEW — Report Builder
   return (
-    <div className="p-6 lg:p-8 max-w-[1440px] mx-auto">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-[20px] font-semibold text-[#111113] tracking-tight">Weekly Reports</h2>
-          <p className="text-[13px] text-[#9d9da8] mt-0.5">Generate, review, and track client reports</p>
+          <h1 className="text-[20px] font-semibold text-[#111113]">Reports</h1>
+          <p className="text-[12px] text-[#9d9da8] mt-1">Generate and manage client performance reports</p>
         </div>
-        <div className="relative">
-          <button
-            onClick={() => setGenDropdownOpen(!genDropdownOpen)}
-            disabled={generating}
-            className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors flex items-center gap-1.5"
-          >
-            {generating ? (
-              <>
-                <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3" /><path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-                Generating...
-              </>
-            ) : (
-              <>
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 2v12M2 8h12" /></svg>
-                Generate Report
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6l4 4 4-4" /></svg>
-              </>
-            )}
-          </button>
-          {genDropdownOpen && !generating && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setGenDropdownOpen(false)} />
-              <div className="absolute right-0 top-full mt-1 w-[260px] rounded-md border border-[#e8e8ec] bg-white shadow-lg z-40 overflow-hidden">
-                <div className="max-h-[400px] overflow-y-auto">
-                  <button
-                    onClick={() => { setGenDropdownOpen(false); generateAll() }}
-                    className="w-full text-left px-4 py-3 hover:bg-[#f8f8fa] transition-colors border-b border-[#e8e8ec]"
-                  >
-                    <p className="text-[13px] font-semibold text-[#111113]">All Clients</p>
-                    <p className="text-[10px] text-[#9d9da8]">Generate reports for all {activeClients.length} active clients</p>
-                  </button>
-                  {activeClients.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => { setGenDropdownOpen(false); generateOne(c.id) }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8fa] transition-colors border-b border-[#f4f4f6] last:border-b-0"
-                    >
-                      <p className="text-[12px] font-medium text-[#111113]">{c.name}</p>
-                      {c.industry && <p className="text-[10px] text-[#9d9da8]">{c.industry}</p>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Week picker + Stats */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <label className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Week</label>
-          <select
-            value={selectedWeek || ''}
-            onChange={e => e.target.value && loadWeek(e.target.value)}
-            className="px-3 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb]"
-          >
-            {!selectedWeek && <option value="">No reports yet</option>}
-            {allWeeks.map(w => (
-              <option key={w} value={w}>{w}</option>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Period selector */}
+          <div className="flex items-center border border-[#e8e8ec] rounded overflow-hidden">
+            {PERIOD_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedDays(opt.value)}
+                className={`px-3 py-1.5 text-[11px] font-medium border-r border-[#e8e8ec] last:border-r-0 transition-colors ${
+                  selectedDays === opt.value
+                    ? 'bg-[#111113] text-white'
+                    : 'bg-white text-[#9d9da8] hover:text-[#111113] hover:bg-[#f8f8fa]'
+                }`}
+              >
+                {opt.label}
+              </button>
             ))}
-          </select>
-        </div>
-
-        {selectedWeek && (
-          <div className="flex items-center gap-4 ml-auto">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
-              <span className="text-[11px] text-[#6b6b76]">{generated} drafted</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#ca8a04]" />
-              <span className="text-[11px] text-[#6b6b76]">{reviewed} reviewed</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#16a34a]" />
-              <span className="text-[11px] text-[#6b6b76]">{sent}/{totalClients} sent</span>
-            </div>
           </div>
-        )}
+          <button
+            onClick={generateAll}
+            disabled={generating}
+            className="px-4 py-1.5 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50"
+          >
+            {generating ? 'Generating All...' : 'Generate All'}
+          </button>
+        </div>
       </div>
 
-      {/* Progress bar */}
-      {selectedWeek && reports.length > 0 && (
-        <div className="w-full h-1.5 rounded-full bg-[#e8e8ec] mb-6 overflow-hidden flex">
-          {sent > 0 && <div className="h-full bg-[#16a34a]" style={{ width: `${(sent / totalClients) * 100}%` }} />}
-          {(reviewed - sent) > 0 && <div className="h-full bg-[#ca8a04]" style={{ width: `${((reviewed - sent) / totalClients) * 100}%` }} />}
-          {(generated - reviewed) > 0 && <div className="h-full bg-[#2563eb]" style={{ width: `${((generated - reviewed) / totalClients) * 100}%` }} />}
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white border border-[#e8e8ec] rounded p-3">
+          <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-semibold">Total Reports</p>
+          <p className="text-[18px] font-semibold text-[#111113] mt-1">{totalReports}</p>
         </div>
-      )}
+        <div className="bg-white border border-[#e8e8ec] rounded p-3">
+          <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-semibold">Drafts</p>
+          <p className="text-[18px] font-semibold text-[#2563eb] mt-1">{draftCount}</p>
+        </div>
+        <div className="bg-white border border-[#e8e8ec] rounded p-3">
+          <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-semibold">Reviewed</p>
+          <p className="text-[18px] font-semibold text-[#ca8a04] mt-1">{reviewedCount}</p>
+        </div>
+        <div className="bg-white border border-[#e8e8ec] rounded p-3">
+          <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-semibold">Sent</p>
+          <p className="text-[18px] font-semibold text-[#16a34a] mt-1">{sentCount}</p>
+        </div>
+      </div>
 
-      {/* Report cards */}
-      {loadingWeek ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-20 rounded-md bg-[#f8f8fa] border border-[#e8e8ec] animate-pulse" />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search clients..."
+          className="px-3 py-2 border border-[#e8e8ec] rounded text-[12px] text-[#111113] focus:outline-none focus:border-[#2563eb] w-full sm:w-64"
+        />
+        <select
+          value={selectedClient}
+          onChange={e => setSelectedClient(e.target.value)}
+          className="px-3 py-2 border border-[#e8e8ec] rounded text-[12px] text-[#111113] focus:outline-none bg-white"
+        >
+          <option value="all">All Clients</option>
+          {activeClients.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
-        </div>
-      ) : reports.length > 0 ? (
-        <div className="space-y-2">
-          {reports.map(report => (
-            <div
-              key={report.id}
-              className="rounded-md border border-[#e8e8ec] bg-white hover:bg-[#fafafb] transition-colors"
-            >
-              <div className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <Link href={`/clients/${activeClients.find(c => c.id === report.client_id)?.slug || '#'}`} className="text-[13px] font-medium text-[#111113] hover:text-[#2563eb]">
-                        {report.client_name}
-                      </Link>
-                      <StatusBadge status={report.status} />
+        </select>
+      </div>
+
+      {/* Client list with generate buttons */}
+      <div className="space-y-2">
+        {activeClients
+          .filter(c => selectedClient === 'all' || c.id === selectedClient)
+          .filter(c => !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          .map(client => {
+            const clientReports = filteredReports.filter(r => r.client_id === client.id)
+            const latestReport = clientReports[0]
+
+            return (
+              <div key={client.id} className="bg-white border border-[#e8e8ec] rounded">
+                {/* Client row */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-[#111113] truncate">{client.name}</p>
+                      {client.industry && (
+                        <p className="text-[10px] text-[#9d9da8]">{client.industry}</p>
+                      )}
                     </div>
-                    <p className="text-[11px] text-[#9d9da8] truncate">
-                      {report.subject || `${formatDate(report.period_start)} - ${formatDate(report.period_end)}`}
-                      {report.generated_at && ` · Generated ${new Date(report.generated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
-                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {latestReport && <StatusBadge status={latestReport.status} />}
+                    <button
+                      onClick={() => generateReport(client.id)}
+                      disabled={generatingId === client.id}
+                      className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:bg-[#f8f8fa] disabled:opacity-50"
+                    >
+                      {generatingId === client.id ? 'Generating...' : `Generate ${selectedDays}d`}
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={() => generateOne(report.client_id)}
-                    disabled={generatingId === report.client_id}
-                    className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#6b6b76] hover:bg-[#f4f4f6] disabled:opacity-50 transition-colors"
-                  >
-                    {generatingId === report.client_id ? 'Generating...' : 'Regenerate'}
-                  </button>
-                  {report.content && (
-                    <button
-                      onClick={() => openEditor(report)}
-                      className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#6b6b76] hover:bg-[#f4f4f6] transition-colors"
-                    >
-                      {report.status === 'sent' ? 'View' : 'Edit'}
-                    </button>
-                  )}
-                  {report.status === 'draft' && (
-                    <button
-                      onClick={() => updateStatus(report.id, 'reviewed')}
-                      className="px-3 py-1.5 rounded text-[11px] font-medium text-[#ca8a04] bg-[#fefce8] border border-[#fde68a] hover:bg-[#fef9c3] transition-colors"
-                    >
-                      Reviewed
-                    </button>
-                  )}
-                  {(report.status === 'draft' || report.status === 'reviewed') && (
-                    <button
-                      onClick={() => updateStatus(report.id, 'sent')}
-                      className="px-3 py-1.5 rounded text-[11px] font-medium text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] hover:bg-[#dcfce7] transition-colors"
-                    >
-                      Sent
-                    </button>
-                  )}
-                </div>
+                {/* Reports for this client */}
+                {clientReports.length > 0 && (
+                  <div className="border-t border-[#e8e8ec]">
+                    {clientReports.map(report => (
+                      <div
+                        key={report.id}
+                        className="flex items-center justify-between px-4 py-2 hover:bg-[#f8f8fa] cursor-pointer border-b border-[#e8e8ec] last:border-b-0"
+                        onClick={() => openEditor(report)}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <StatusBadge status={report.status} />
+                          <span className="text-[12px] text-[#111113] truncate">
+                            {formatDate(report.period_start)} - {formatDate(report.period_end)}
+                          </span>
+                          {report.subject && (
+                            <span className="text-[11px] text-[#9d9da8] truncate hidden sm:inline">
+                              {report.subject}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {report.generated_at && (
+                            <span className="text-[10px] text-[#9d9da8] hidden sm:inline">
+                              Generated {new Date(report.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                            </span>
+                          )}
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9d9da8" strokeWidth="2" strokeLinecap="round"><path d="M6 2l6 6-6 6" /></svg>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
-      ) : !selectedWeek ? (
-        <div className="rounded-md border border-[#e8e8ec] bg-white px-8 py-16 text-center">
-          <div className="w-12 h-12 rounded-md bg-[#f8f8fa] border border-[#e8e8ec] flex items-center justify-center mx-auto mb-4">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#9d9da8" strokeWidth="1.5" strokeLinecap="round"><path d="M4 2h12v16H4z" /><path d="M7 6h6M7 9h6M7 12h4" /></svg>
-          </div>
-          <h3 className="text-[14px] font-semibold text-[#111113] mb-1">No reports yet</h3>
-          <p className="text-[12px] text-[#9d9da8]">Generate your first batch of weekly client reports.</p>
-        </div>
-      ) : null}
+            )
+          })}
+      </div>
 
-      {/* Missing clients */}
-      {selectedWeek && missingClients.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-[10px] font-medium text-[#9d9da8] uppercase tracking-wider mb-2">Not Generated ({missingClients.length})</h3>
-          <div className="space-y-1">
-            {missingClients.map(c => (
-              <div key={c.id} className="flex items-center justify-between px-5 py-3 rounded-md border border-dashed border-[#e8e8ec] bg-[#fafafb]">
-                <div>
-                  <p className="text-[12px] font-medium text-[#9d9da8]">{c.name}</p>
-                  {c.industry && <p className="text-[10px] text-[#c4c4cc]">{c.industry}</p>}
-                </div>
-                <button
-                  onClick={() => generateOne(c.id)}
-                  disabled={generatingId === c.id}
-                  className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#6b6b76] hover:bg-white disabled:opacity-50 transition-colors"
-                >
-                  {generatingId === c.id ? 'Generating...' : 'Generate'}
-                </button>
-              </div>
-            ))}
-          </div>
+      {activeClients.length === 0 && (
+        <div className="text-center py-12 text-[#9d9da8]">
+          <p className="text-[13px]">No active clients found.</p>
         </div>
       )}
     </div>

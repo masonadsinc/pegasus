@@ -12,37 +12,35 @@ async function getGeminiKey() {
     .eq('id', ORG_ID)
     .single()
   const stored = data?.gemini_api_key
-  if (!stored) return process.env.GEMINI_API_KEY || null
-  try {
-    return stored
-  } catch {
-    return process.env.GEMINI_API_KEY || null
-  }
+  return stored || process.env.GEMINI_API_KEY || null
 }
 
-function getWeekDates() {
+function getDateRange(days: number) {
   const now = new Date()
   const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
   const yesterday = new Date(pst); yesterday.setDate(pst.getDate() - 1)
-  const weekAgo = new Date(yesterday); weekAgo.setDate(yesterday.getDate() - 6)
+  const start = new Date(yesterday); start.setDate(yesterday.getDate() - (days - 1))
+  const prevEnd = new Date(start); prevEnd.setDate(start.getDate() - 1)
+  const prevStart = new Date(prevEnd); prevStart.setDate(prevEnd.getDate() - (days - 1))
 
+  // Week key for DB uniqueness
   const year = yesterday.getFullYear()
   const janFirst = new Date(year, 0, 1)
   const dayOfYear = Math.ceil((yesterday.getTime() - janFirst.getTime()) / 86400000)
   const weekNum = Math.ceil((dayOfYear + janFirst.getDay()) / 7)
-  const week = `${year}-W${String(weekNum).padStart(2, '0')}`
+  const week = `${year}-W${String(weekNum).padStart(2, '0')}-${days}d`
 
   return {
     week,
-    periodStart: weekAgo.toISOString().split('T')[0],
+    days,
+    periodStart: start.toISOString().split('T')[0],
     periodEnd: yesterday.toISOString().split('T')[0],
-    prevStart: new Date(weekAgo.getTime() - 7 * 86400000).toISOString().split('T')[0],
-    prevEnd: new Date(weekAgo.getTime() - 86400000).toISOString().split('T')[0],
+    prevStart: prevStart.toISOString().split('T')[0],
+    prevEnd: prevEnd.toISOString().split('T')[0],
   }
 }
 
-async function generateClientReport(clientId: string, apiKey: string, dates: ReturnType<typeof getWeekDates>) {
-  // Get client + account
+async function generateClientReport(clientId: string, apiKey: string, dates: ReturnType<typeof getDateRange>) {
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('*, ad_accounts(*)')
@@ -57,17 +55,70 @@ async function generateClientReport(clientId: string, apiKey: string, dates: Ret
 
   const isEcom = isEcomActionType(account.primary_action_type)
 
-  // This week + last week insights — try account level, fall back to campaign
-  const { data: rawInsights } = await supabaseAdmin
-    .from('insights')
-    .select('date, level, spend, impressions, clicks, leads, purchases, purchase_value, schedules, landing_page_views')
-    .eq('ad_account_id', account.id)
-    .in('level', ['account', 'campaign'])
-    .gte('date', dates.prevStart)
-    .lte('date', dates.periodEnd)
-    .order('date')
-    .limit(2000)
+  // Build name maps from entity tables
+  const [{ data: campaignEntities }, { data: adSetEntities }, { data: adEntities }] = await Promise.all([
+    supabaseAdmin.from('campaigns').select('platform_campaign_id, name').eq('ad_account_id', account.id),
+    supabaseAdmin.from('ad_sets').select('platform_ad_set_id, name').eq('ad_account_id', account.id),
+    supabaseAdmin.from('ads').select('platform_ad_id, name, created_time').eq('ad_account_id', account.id),
+  ])
 
+  const campNameMap = new Map<string, string>()
+  for (const c of (campaignEntities || [])) campNameMap.set(c.platform_campaign_id, c.name)
+  const adSetNameMap = new Map<string, string>()
+  for (const as of (adSetEntities || [])) adSetNameMap.set(as.platform_ad_set_id, as.name)
+  const adNameMap = new Map<string, string>()
+  const adCreatedMap = new Map<string, string>()
+  for (const a of (adEntities || [])) {
+    adNameMap.set(a.platform_ad_id, a.name)
+    if (a.created_time) adCreatedMap.set(a.platform_ad_id, a.created_time)
+  }
+
+  // Fetch insights
+  const [{ data: rawInsights }, { data: campaignData }, { data: adInsights }, { data: placementData }, { data: ageGenderData }] = await Promise.all([
+    supabaseAdmin
+      .from('insights')
+      .select('date, level, spend, impressions, clicks, reach, leads, purchases, purchase_value, schedules, landing_page_views')
+      .eq('ad_account_id', account.id)
+      .in('level', ['account', 'campaign'])
+      .gte('date', dates.prevStart)
+      .lte('date', dates.periodEnd)
+      .order('date')
+      .limit(2000),
+    supabaseAdmin
+      .from('insights')
+      .select('platform_campaign_id, spend, impressions, clicks, reach, leads, purchases, purchase_value, schedules, landing_page_views')
+      .eq('ad_account_id', account.id)
+      .eq('level', 'campaign')
+      .gte('date', dates.periodStart)
+      .lte('date', dates.periodEnd)
+      .limit(2000),
+    supabaseAdmin
+      .from('insights')
+      .select('platform_ad_id, platform_campaign_id, platform_ad_set_id, spend, impressions, clicks, leads, purchases, schedules, purchase_value')
+      .eq('ad_account_id', account.id)
+      .eq('level', 'ad')
+      .gte('date', dates.periodStart)
+      .lte('date', dates.periodEnd)
+      .limit(2000),
+    supabaseAdmin
+      .from('insight_breakdowns')
+      .select('dimension_1, dimension_2, spend, impressions, clicks, leads, purchases, purchase_value')
+      .eq('ad_account_id', account.id)
+      .eq('breakdown_type', 'placement')
+      .gte('date', dates.periodStart)
+      .lte('date', dates.periodEnd)
+      .limit(500),
+    supabaseAdmin
+      .from('insight_breakdowns')
+      .select('dimension_1, dimension_2, spend, impressions, clicks, leads, purchases, purchase_value')
+      .eq('ad_account_id', account.id)
+      .eq('breakdown_type', 'age_gender')
+      .gte('date', dates.periodStart)
+      .lte('date', dates.periodEnd)
+      .limit(500),
+  ])
+
+  // Process insights
   const hasAccountLevel = (rawInsights || []).some(i => i.level === 'account')
   let insights: any[]
   if (hasAccountLevel) {
@@ -76,10 +127,11 @@ async function generateClientReport(clientId: string, apiKey: string, dates: Ret
     const byDate: Record<string, any> = {}
     for (const row of (rawInsights || []).filter(i => i.level === 'campaign')) {
       const d = typeof row.date === 'string' ? row.date : row.date?.toISOString?.()?.split('T')[0] || ''
-      if (!byDate[d]) byDate[d] = { date: d, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, purchase_value: 0, schedules: 0, landing_page_views: 0 }
+      if (!byDate[d]) byDate[d] = { date: d, spend: 0, impressions: 0, clicks: 0, reach: 0, leads: 0, purchases: 0, purchase_value: 0, schedules: 0, landing_page_views: 0 }
       byDate[d].spend += row.spend || 0
       byDate[d].impressions += row.impressions || 0
       byDate[d].clicks += row.clicks || 0
+      byDate[d].reach += row.reach || 0
       byDate[d].leads += row.leads || 0
       byDate[d].purchases += row.purchases || 0
       byDate[d].purchase_value += row.purchase_value || 0
@@ -96,49 +148,34 @@ async function generateClientReport(clientId: string, apiKey: string, dates: Ret
     spend: s.spend + (i.spend || 0),
     impressions: s.impressions + (i.impressions || 0),
     clicks: s.clicks + (i.clicks || 0),
+    reach: s.reach + (i.reach || 0),
     results: s.results + (i.leads || 0) + (i.purchases || 0) + (i.schedules || 0),
     revenue: s.revenue + (i.purchase_value || 0),
     lpv: s.lpv + (i.landing_page_views || 0),
-  }), { spend: 0, impressions: 0, clicks: 0, results: 0, revenue: 0, lpv: 0 })
+  }), { spend: 0, impressions: 0, clicks: 0, reach: 0, results: 0, revenue: 0, lpv: 0 })
 
   const tw = agg(thisWeek)
   const lw = agg(lastWeek)
 
-  // Campaign breakdown
-  const { data: campaignData } = await supabaseAdmin
-    .from('insights')
-    .select('campaign_name, spend, impressions, clicks, leads, purchases, purchase_value, schedules')
-    .eq('ad_account_id', account.id)
-    .eq('level', 'campaign')
-    .gte('date', dates.periodStart)
-    .lte('date', dates.periodEnd)
-    .limit(500)
-
+  // Campaign breakdown (with name resolution)
   const campaigns: Record<string, any> = {}
   for (const ci of (campaignData || [])) {
-    const name = ci.campaign_name || 'Unknown'
-    if (!campaigns[name]) campaigns[name] = { spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
+    const name = campNameMap.get(ci.platform_campaign_id) || ci.platform_campaign_id || 'Unknown'
+    if (!campaigns[name]) campaigns[name] = { spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0, reach: 0 }
     campaigns[name].spend += ci.spend || 0
     campaigns[name].results += (ci.leads || 0) + (ci.purchases || 0) + (ci.schedules || 0)
     campaigns[name].clicks += ci.clicks || 0
     campaigns[name].impressions += ci.impressions || 0
     campaigns[name].revenue += ci.purchase_value || 0
+    campaigns[name].reach += ci.reach || 0
   }
 
-  // Top/bottom ads
-  const { data: adInsights } = await supabaseAdmin
-    .from('insights')
-    .select('ad_name, campaign_name, spend, impressions, clicks, leads, purchases, schedules, purchase_value')
-    .eq('ad_account_id', account.id)
-    .eq('level', 'ad')
-    .gte('date', dates.periodStart)
-    .lte('date', dates.periodEnd)
-    .limit(1000)
-
+  // Ad breakdown (with name resolution)
   const ads: Record<string, any> = {}
   for (const ai of (adInsights || [])) {
-    const name = ai.ad_name || 'Unknown'
-    if (!ads[name]) ads[name] = { campaign: ai.campaign_name, spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0 }
+    const name = adNameMap.get(ai.platform_ad_id) || ai.platform_ad_id || 'Unknown'
+    const campName = campNameMap.get(ai.platform_campaign_id) || ai.platform_campaign_id || 'Unknown'
+    if (!ads[name]) ads[name] = { campaign: campName, spend: 0, results: 0, clicks: 0, impressions: 0, revenue: 0, platformId: ai.platform_ad_id }
     ads[name].spend += ai.spend || 0
     ads[name].results += (ai.leads || 0) + (ai.purchases || 0) + (ai.schedules || 0)
     ads[name].clicks += ai.clicks || 0
@@ -147,11 +184,7 @@ async function generateClientReport(clientId: string, apiKey: string, dates: Ret
   }
 
   const sortedAds = Object.entries(ads).sort((a, b) => b[1].spend - a[1].spend)
-  const topPerformers = sortedAds.filter(([, d]) => d.results >= 2).sort((a, b) => {
-    const aCpr = a[1].spend / a[1].results
-    const bCpr = b[1].spend / b[1].results
-    return aCpr - bCpr
-  }).slice(0, 3)
+  const topPerformers = sortedAds.filter(([, d]) => d.results >= 2).sort((a, b) => (a[1].spend / a[1].results) - (b[1].spend / b[1].results)).slice(0, 5)
   const targetCpl = account.target_cpl || (tw.results > 0 ? tw.spend / tw.results * 1.5 : 50)
   const nonConverting = sortedAds.filter(([, d]) => d.results === 0 && d.spend > targetCpl)
   const highCost = sortedAds.filter(([, d]) => d.results > 0 && (d.spend / d.results) > targetCpl * 2).slice(0, 3)
@@ -162,32 +195,39 @@ async function generateClientReport(clientId: string, apiKey: string, dates: Ret
     .select('content')
     .eq('client_id', clientId)
     .eq('org_id', ORG_ID)
-    .neq('week', dates.week)
-    .order('week', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .single()
 
-  // Build Gemini prompt
+  // Derived metrics
   const cpr = tw.results > 0 ? tw.spend / tw.results : 0
   const lwCpr = lw.results > 0 ? lw.spend / lw.results : 0
   const ctr = tw.impressions > 0 ? (tw.clicks / tw.impressions * 100) : 0
   const cpc = tw.clicks > 0 ? tw.spend / tw.clicks : 0
   const roas = tw.spend > 0 ? tw.revenue / tw.spend : 0
+  const freq = tw.reach > 0 ? tw.impressions / tw.reach : 0
+  const cpm = tw.impressions > 0 ? (tw.spend / tw.impressions * 1000) : 0
+  const lpvRate = tw.clicks > 0 && tw.lpv > 0 ? (tw.lpv / tw.clicks * 100) : 0
+  const lpvConvRate = tw.lpv > 0 && tw.results > 0 ? (tw.results / tw.lpv * 100) : 0
+
+  const periodLabel = dates.days === 7 ? 'week' : `${dates.days} days`
 
   let dataContext = `CLIENT: ${client.name}
-PERIOD: ${dates.periodStart} to ${dates.periodEnd}
+PERIOD: ${dates.periodStart} to ${dates.periodEnd} (${dates.days} days)
 METRIC TYPE: ${isEcom ? 'ROAS (e-commerce)' : 'CPL (lead gen)'}
 ${isEcom ? `TARGET ROAS: ${account.target_roas || 'not set'}x` : `TARGET CPL: $${account.target_cpl || 'not set'}`}
 CONVERSION TYPE: ${account.primary_action_type || 'lead'}
 
-THIS WEEK:
+THIS PERIOD (${dates.days}d):
 - Spend: $${tw.spend.toFixed(2)}
 - Results: ${tw.results}
 - ${isEcom ? `ROAS: ${roas.toFixed(2)}x | Revenue: $${tw.revenue.toFixed(2)}` : `CPL: $${cpr.toFixed(2)}`}
 - Impressions: ${tw.impressions.toLocaleString()} | Clicks: ${tw.clicks.toLocaleString()}
-- CTR: ${ctr.toFixed(2)}% | CPC: $${cpc.toFixed(2)}
+- CTR: ${ctr.toFixed(2)}% | CPC: $${cpc.toFixed(2)} | CPM: $${cpm.toFixed(2)}
+${freq > 0 ? `- Frequency: ${freq.toFixed(2)} | Reach: ${tw.reach.toLocaleString()}` : ''}
+${tw.lpv > 0 ? `- Landing Page Views: ${tw.lpv} | Click-to-LPV: ${lpvRate.toFixed(1)}% | LPV-to-Conv: ${lpvConvRate.toFixed(2)}%` : ''}
 
-LAST WEEK:
+PREVIOUS PERIOD (${dates.days}d):
 - Spend: $${lw.spend.toFixed(2)} | Results: ${lw.results}
 - ${isEcom ? `Revenue: $${lw.revenue.toFixed(2)}` : `CPL: $${lwCpr.toFixed(2)}`}
 - Spend change: ${lw.spend > 0 ? ((tw.spend - lw.spend) / lw.spend * 100).toFixed(1) + '%' : 'N/A'}
@@ -200,20 +240,53 @@ ${thisWeek.map(d => {
 }).join('\n')}
 
 CAMPAIGNS (by spend):
-${Object.entries(campaigns).sort((a, b) => b[1].spend - a[1].spend).slice(0, 8).map(([name, d]) => {
+${Object.entries(campaigns).sort((a, b) => b[1].spend - a[1].spend).slice(0, 10).map(([name, d]) => {
   const ccpr = d.results > 0 ? d.spend / d.results : 0
-  return `- ${name}: $${d.spend.toFixed(0)} spend, ${d.results} results, $${ccpr.toFixed(2)} CPR`
+  const cfreq = d.reach > 0 ? d.impressions / d.reach : 0
+  return `- ${name}: $${d.spend.toFixed(0)} spend, ${d.results} results, $${ccpr.toFixed(2)} CPR${cfreq > 0 ? `, freq ${cfreq.toFixed(1)}` : ''}`
 }).join('\n')}
 
 TOP PERFORMERS:
 ${topPerformers.length > 0 ? topPerformers.map(([name, d]) => {
   const acpr = d.spend / d.results
-  return `- "${name}" (${d.campaign}): $${d.spend.toFixed(0)} spend, ${d.results} results, $${acpr.toFixed(2)} CPR`
-}).join('\n') : 'No standout performers this week.'}
+  const created = d.platformId ? adCreatedMap.get(d.platformId) : null
+  const age = created ? Math.floor((new Date(dates.periodEnd).getTime() - new Date(created).getTime()) / 86400000) : null
+  return `- "${name}" (${d.campaign}): $${d.spend.toFixed(0)} spend, ${d.results} results, $${acpr.toFixed(2)} CPR${age ? `, ${age} days old` : ''}`
+}).join('\n') : 'No standout performers this period.'}
 
 UNDERPERFORMERS:
-${nonConverting.length > 0 ? `Non-converting ads (0 results, significant spend):\n${nonConverting.slice(0, 5).map(([name, d]) => `- "${name}": $${d.spend.toFixed(0)} spent, 0 results`).join('\n')}\nTotal wasted: $${nonConverting.reduce((s, [, d]) => s + d.spend, 0).toFixed(0)}` : 'No major wasted spend this week.'}
+${nonConverting.length > 0 ? `Non-converting ads (0 results, significant spend):\n${nonConverting.slice(0, 5).map(([name, d]) => `- "${name}" (${d.campaign}): $${d.spend.toFixed(0)} spent, 0 results`).join('\n')}\nTotal wasted: $${nonConverting.reduce((s, [, d]) => s + d.spend, 0).toFixed(0)}` : 'No major wasted spend this period.'}
 ${highCost.length > 0 ? `\nHigh-cost ads (converting but expensive):\n${highCost.map(([name, d]) => `- "${name}": $${(d.spend / d.results).toFixed(2)} CPR (${d.results} results)`).join('\n')}` : ''}`
+
+  // Placement breakdown
+  if (placementData && placementData.length > 0) {
+    const placements: Record<string, { spend: number; results: number }> = {}
+    for (const row of placementData) {
+      const key = `${row.dimension_1 || 'Unknown'} — ${row.dimension_2 || 'Unknown'}`
+      if (!placements[key]) placements[key] = { spend: 0, results: 0 }
+      placements[key].spend += row.spend || 0
+      placements[key].results += (row.leads || 0) + (row.purchases || 0)
+    }
+    dataContext += `\n\nPLACEMENT BREAKDOWN:\n${Object.entries(placements).sort((a, b) => b[1].spend - a[1].spend).slice(0, 8).map(([name, d]) => {
+      const pcpr = d.results > 0 ? d.spend / d.results : 0
+      return `- ${name}: $${d.spend.toFixed(0)} spend, ${d.results} results${d.results > 0 ? `, $${pcpr.toFixed(2)} CPR` : ''}`
+    }).join('\n')}`
+  }
+
+  // Audience breakdown
+  if (ageGenderData && ageGenderData.length > 0) {
+    const ages: Record<string, { spend: number; results: number }> = {}
+    for (const row of ageGenderData) {
+      const age = row.dimension_1 || 'Unknown'
+      if (!ages[age]) ages[age] = { spend: 0, results: 0 }
+      ages[age].spend += row.spend || 0
+      ages[age].results += (row.leads || 0) + (row.purchases || 0)
+    }
+    dataContext += `\n\nAUDIENCE (Age):\n${Object.entries(ages).sort((a, b) => b[1].spend - a[1].spend).map(([age, d]) => {
+      const acpr = d.results > 0 ? d.spend / d.results : 0
+      return `- ${age}: $${d.spend.toFixed(0)} spend, ${d.results} results${d.results > 0 ? `, $${acpr.toFixed(2)} CPR` : ''}`
+    }).join('\n')}`
+  }
 
   // Pre-analysis signals
   const dayData = thisWeek.map(d => ({
@@ -229,10 +302,13 @@ ${highCost.length > 0 ? `\nHigh-cost ads (converting but expensive):\n${highCost
   const analysis = preAnalyze(dayData, lwDayData, adArr, campArr, account.target_cpl, isEcom, account.target_roas)
 
   if (analysis.signals.length > 0) {
-    dataContext += `\n\nKEY SIGNALS (use these to guide the report narrative):\n${analysis.signals.map(s => `- ${s}`).join('\n')}`
+    dataContext += `\n\nKEY SIGNALS:\n${analysis.signals.map(s => `- ${s}`).join('\n')}`
   }
   if (analysis.scalingOpportunities.length > 0) {
     dataContext += `\n\nSCALING OPPORTUNITIES:\n${analysis.scalingOpportunities.map(s => `- ${s}`).join('\n')}`
+  }
+  if (analysis.fatigueSignals.length > 0) {
+    dataContext += `\n\nFATIGUE SIGNALS:\n${analysis.fatigueSignals.map(s => `- ${s}`).join('\n')}`
   }
 
   // Client context
@@ -243,28 +319,27 @@ ${highCost.length > 0 ? `\nHigh-cost ads (converting but expensive):\n${highCost
   if (client.ai_notes) dataContext += `\nNOTES: ${client.ai_notes}`
 
   if (prevReport?.content) {
-    dataContext += `\n\nLAST WEEK'S REPORT (for continuity — reference previous recommendations and whether things improved):\n${prevReport.content.slice(0, 2000)}`
+    dataContext += `\n\nPREVIOUS REPORT (for continuity):\n${prevReport.content.slice(0, 2000)}`
   }
 
-  const systemPrompt = `You are writing a weekly performance report email for a Meta advertising client. Write as Brianna, a hands-on media buyer who manages the account.
+  const systemPrompt = `You are writing a ${dates.days}-day performance report email for a Meta advertising client. Write as Brianna, a hands-on media buyer who manages the account.
 
 RULES:
-- Open with 2-3 sentences summarizing the week — lead with the most important number
+- Open with 2-3 sentences summarizing the period — lead with the most important number or trend
 - Use ALL CAPS section headers: THE NUMBERS, WHAT'S WORKING, WHAT'S NOT WORKING (only if applicable), THE PLAN
 - Use dashes for bullets, **bold** for emphasis, no ## headers, no italics
 - Be conversational but professional — this goes directly to the client
 - Use "we" not "I" — it's a team
-- Be honest about bad weeks but always constructive
-- Reference specific numbers, ad names, and campaigns
+- Be honest about bad periods but always constructive
+- Reference specific numbers, ad names, and campaigns by name
 - 300-500 words total
-- If previous report exists, reference what changed since last week
+- If previous report exists, reference what changed
 - Sign off with just "Brianna"
 - No emojis anywhere
 - Format must look clean in email (Gmail, Outlook, Apple Mail)
 
 ${isEcom ? 'This is an e-commerce account — focus on ROAS and revenue, not CPL.' : 'This is a lead gen account — focus on CPL and lead volume.'}`
 
-  // Call Gemini
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
     {
@@ -299,7 +374,6 @@ function formatDateRange(start: string, end: string) {
   return `${s.toLocaleDateString('en-US', opts)} - ${e.toLocaleDateString('en-US', opts)}`
 }
 
-// POST /api/reports/generate — generate reports for a week
 export async function POST(req: NextRequest) {
   try {
     const user = await getUser()
@@ -309,10 +383,10 @@ export async function POST(req: NextRequest) {
     if (!apiKey) return NextResponse.json({ error: 'No Gemini API key configured' }, { status: 400 })
 
     const body = await req.json()
-    const clientIds: string[] = body.clientIds // specific clients, or null for all
-    const dates = getWeekDates()
+    const clientIds: string[] | null = body.clientIds
+    const days: number = Math.min(Math.max(body.days || 7, 7), 90)
+    const dates = getDateRange(days)
 
-    // Get active clients with ad accounts
     let query = supabaseAdmin
       .from('clients')
       .select('id, name')
@@ -336,7 +410,6 @@ export async function POST(req: NextRequest) {
           continue
         }
 
-        // Upsert report
         const { error: upsertError } = await supabaseAdmin
           .from('weekly_reports')
           .upsert({
@@ -367,9 +440,9 @@ export async function POST(req: NextRequest) {
       actor_type: 'user',
       actor_id: user.id,
       actor_name: user.email,
-      action: 'generated weekly reports',
+      action: 'generated reports',
       target_type: 'report',
-      details: `Week ${dates.week}: ${results.filter(r => r.status === 'generated').length}/${results.length} generated`,
+      details: `${dates.days}d report (${dates.periodStart} to ${dates.periodEnd}): ${results.filter(r => r.status === 'generated').length}/${results.length} generated`,
     })
 
     return NextResponse.json({ week: dates.week, dates, results })

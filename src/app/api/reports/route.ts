@@ -4,35 +4,26 @@ import { getUser } from '@/lib/auth'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
-// GET /api/reports?week=2026-W08
+// GET /api/reports — list all reports, most recent first
 export async function GET(req: NextRequest) {
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const week = req.nextUrl.searchParams.get('week')
+  const clientId = req.nextUrl.searchParams.get('clientId')
 
   let query = supabaseAdmin
     .from('weekly_reports')
     .select('*')
     .eq('org_id', ORG_ID)
+    .order('period_end', { ascending: false })
     .order('client_name')
+    .limit(200)
 
-  if (week) {
-    query = query.eq('week', week)
-  } else {
-    // Get distinct weeks for the week picker
-    const { data: weeks } = await supabaseAdmin
-      .from('weekly_reports')
-      .select('week')
-      .eq('org_id', ORG_ID)
-      .order('week', { ascending: false })
-      .limit(52)
-
-    const uniqueWeeks = [...new Set((weeks || []).map(w => w.week))]
-    return NextResponse.json({ weeks: uniqueWeeks })
+  if (clientId) {
+    query = query.eq('client_id', clientId)
   }
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ reports: data })
+  return NextResponse.json({ reports: data || [] })
 }
