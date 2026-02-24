@@ -45,10 +45,19 @@ function IconSettings({ className }: { className?: string }) {
   )
 }
 
-export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'settings' }) {
+function IconPegasus({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2L3 6l7 4 7-4-7-4zM3 14l7 4 7-4M3 10l7 4 7-4" />
+    </svg>
+  )
+}
+
+export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'settings' }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const links = [
+    { href: '/pegasus', label: 'Pegasus', icon: IconPegasus, key: 'pegasus' as const },
     { href: '/', label: 'Health Tracker', icon: IconGrid, key: 'dashboard' as const },
     { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
     { href: '/reports', label: 'Reports', icon: IconReport, key: 'reports' as const },

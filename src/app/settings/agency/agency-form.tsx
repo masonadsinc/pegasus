@@ -60,3 +60,64 @@ export function AgencyForm({ org }: { org: any }) {
     </form>
   )
 }
+
+export function GeminiKeyForm({ org }: { org: any }) {
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const hasKey = !!org?.gemini_api_key
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setSaving(true)
+    const form = new FormData(e.currentTarget)
+    const body = Object.fromEntries(form.entries())
+
+    const res = await fetch('/api/agency', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    if (res.ok) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } else {
+      const err = await res.json()
+      alert(err.error || 'Failed to save')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className={labelClass}>Google Gemini API Key</label>
+        <input
+          name="gemini_api_key"
+          type="password"
+          defaultValue={org?.gemini_api_key || ''}
+          placeholder={hasKey ? 'Key configured (hidden)' : 'Enter your Gemini API key'}
+          className={inputClass}
+        />
+        <p className="text-[11px] text-[#9d9da8] mt-1.5">
+          Powers the Pegasus AI assistant. Get a key from{' '}
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-[#2563eb] hover:underline">
+            Google AI Studio
+          </a>
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={saving} className="px-4 py-2.5 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors">
+          {saving ? 'Saving...' : saved ? 'Saved' : hasKey ? 'Update Key' : 'Save Key'}
+        </button>
+        {hasKey && (
+          <span className="flex items-center gap-1.5 text-[11px] text-[#16a34a]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" />
+            Key configured
+          </span>
+        )}
+      </div>
+    </form>
+  )
+}

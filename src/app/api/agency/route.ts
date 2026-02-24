@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const allowed = ['name', 'logo_url', 'primary_color']
+    const allowed = ['name', 'logo_url', 'primary_color', 'gemini_api_key']
     const update: any = {}
     for (const key of allowed) {
       if (key in body) update[key] = body[key] === '' ? null : body[key]

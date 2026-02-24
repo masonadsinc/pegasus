@@ -2,7 +2,7 @@ import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
-import { AgencyForm } from './agency-form'
+import { AgencyForm, GeminiKeyForm } from './agency-form'
 
 export const revalidate = 30
 const ORG_ID = process.env.ADSINC_ORG_ID!
@@ -36,6 +36,11 @@ export default async function AgencySettingsPage() {
             <Card className="p-6">
               <h3 className="text-[13px] font-semibold text-[#111113] mb-4">Branding</h3>
               <AgencyForm org={org} />
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="text-[13px] font-semibold text-[#111113] mb-4">Pegasus AI</h3>
+              <GeminiKeyForm org={org} />
             </Card>
 
             <Card className="p-6">
