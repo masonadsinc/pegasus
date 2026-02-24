@@ -44,7 +44,7 @@ async function getClientContext(clientId: string, days = 7) {
   const pStart = prevStart.toISOString().split('T')[0]
 
   // Parallel data fetches for speed
-  const [insightsRes, campaignRes, adInsightsRes, adSetInsightsRes, activeAdsRes, ageGenderRes, placementRes] = await Promise.all([
+  const [insightsRes, campaignRes, adInsightsRes, adSetInsightsRes, activeAdsRes, ageGenderRes, placementRes, campaignReachRes, adSetBudgetRes, campaignBudgetRes] = await Promise.all([
     // Account-level daily insights (current + previous period)
     // Try account level first; will fall back to campaign if empty
     supabaseAdmin
@@ -87,10 +87,10 @@ async function getClientContext(clientId: string, days = 7) {
       .lte('date', yStr)
       .limit(2000),
 
-    // Active ads with creative info
+    // Active ads with creative info + creation date
     supabaseAdmin
       .from('ads')
-      .select('name, campaign_name, ad_set_name, creative_headline, creative_body, creative_cta, creative_url, effective_status')
+      .select('name, campaign_name, ad_set_name, creative_headline, creative_body, creative_cta, creative_url, effective_status, created_time')
       .eq('ad_account_id', account.id)
       .in('effective_status', ['ACTIVE', 'PAUSED'])
       .limit(100),
@@ -114,6 +114,30 @@ async function getClientContext(clientId: string, days = 7) {
       .gte('date', dStr)
       .lte('date', yStr)
       .limit(500),
+
+    // Campaign-level reach for frequency calculation
+    supabaseAdmin
+      .from('insights')
+      .select('campaign_name, spend, impressions, reach, clicks, leads, purchases, schedules, landing_page_views')
+      .eq('ad_account_id', account.id)
+      .eq('level', 'campaign')
+      .gte('date', dStr)
+      .lte('date', yStr)
+      .limit(2000),
+
+    // Ad set budgets
+    supabaseAdmin
+      .from('ad_sets')
+      .select('name, daily_budget, optimization_goal, status, campaign_id')
+      .eq('ad_account_id', account.id)
+      .in('status', ['ACTIVE', 'PAUSED']),
+
+    // Campaign budgets
+    supabaseAdmin
+      .from('campaigns')
+      .select('name, daily_budget, lifetime_budget, status, platform_campaign_id')
+      .eq('ad_account_id', account.id)
+      .in('status', ['ACTIVE', 'PAUSED']),
   ])
 
   const rawInsights = insightsRes.data || []
@@ -150,7 +174,8 @@ async function getClientContext(clientId: string, days = 7) {
     results: s.results + (i.leads || 0) + (i.purchases || 0) + (i.schedules || 0),
     revenue: s.revenue + (i.purchase_value || 0),
     lpv: s.lpv + (i.landing_page_views || 0),
-  }), { spend: 0, impressions: 0, clicks: 0, results: 0, revenue: 0, lpv: 0 })
+    reach: s.reach + (i.reach || 0),
+  }), { spend: 0, impressions: 0, clicks: 0, results: 0, revenue: 0, lpv: 0, reach: 0 })
 
   const tw = agg(thisWeek)
   const lw = agg(lastWeek)
@@ -215,10 +240,26 @@ async function getClientContext(clientId: string, days = 7) {
   const cpr = tw.results > 0 ? tw.spend / tw.results : 0
   const lwCpr = lw.results > 0 ? lw.spend / lw.results : 0
   const ctr = tw.impressions > 0 ? (tw.clicks / tw.impressions * 100) : 0
+  const lwCtr = lw.impressions > 0 ? (lw.clicks / lw.impressions * 100) : 0
   const cpc = tw.clicks > 0 ? tw.spend / tw.clicks : 0
   const convRate = tw.clicks > 0 ? (tw.results / tw.clicks * 100) : 0
   const roas = tw.spend > 0 ? tw.revenue / tw.spend : 0
-  const freq = tw.impressions > 0 && tw.clicks > 0 ? tw.impressions / (tw.impressions / (tw.clicks / ctr * 100)) : 0
+  // Account-level frequency from reach data
+  const totalReach = thisWeek.reduce((s, d) => s + (d.reach || 0), 0)
+  const accountFrequency = totalReach > 0 ? tw.impressions / totalReach : 0
+
+  // Campaign-level frequency + reach
+  const campaignReach: Record<string, { impressions: number; reach: number; spend: number; results: number; clicks: number; lpv: number }> = {}
+  for (const row of (campaignReachRes.data || [])) {
+    const name = row.campaign_name || 'Unknown'
+    if (!campaignReach[name]) campaignReach[name] = { impressions: 0, reach: 0, spend: 0, results: 0, clicks: 0, lpv: 0 }
+    campaignReach[name].impressions += row.impressions || 0
+    campaignReach[name].reach += row.reach || 0
+    campaignReach[name].spend += row.spend || 0
+    campaignReach[name].results += (row.leads || 0) + (row.purchases || 0) + (row.schedules || 0)
+    campaignReach[name].clicks += row.clicks || 0
+    campaignReach[name].lpv += row.landing_page_views || 0
+  }
 
   // ===== BUILD CONTEXT =====
   let ctx = `# ${client.name} — Performance Analysis\n`
@@ -253,11 +294,47 @@ async function getClientContext(clientId: string, days = 7) {
   ctx += `- CTR: ${ctr.toFixed(2)}% | CPC: $${cpc.toFixed(2)} | Conv Rate: ${convRate.toFixed(2)}%\n`
   if (isEcom) ctx += `- Revenue: $${tw.revenue.toFixed(2)} | ROAS: ${roas.toFixed(2)}x\n`
   if (tw.lpv > 0) ctx += `- Landing page views: ${tw.lpv} | LP→Conv: ${tw.results > 0 && tw.lpv > 0 ? (tw.results / tw.lpv * 100).toFixed(1) : 0}%\n`
+  if (accountFrequency > 0) ctx += `- Frequency: ${accountFrequency.toFixed(2)} | Reach: ${totalReach.toLocaleString()}\n`
+  ctx += '\n'
+
+  // === FUNNEL DIAGNOSIS ===
+  const cpm = tw.impressions > 0 ? (tw.spend / tw.impressions * 1000) : 0
+  const clickToLPV = tw.lpv > 0 && tw.clicks > 0 ? (tw.lpv / tw.clicks * 100) : 0
+  const lpvToConv = tw.lpv > 0 && tw.results > 0 ? (tw.results / tw.lpv * 100) : 0
+  const lwCpm = lw.impressions > 0 ? (lw.spend / lw.impressions * 1000) : 0
+  const lwConvRate = lw.clicks > 0 ? (lw.results / lw.clicks * 100) : 0
+  const lwLpvToConv = lw.lpv > 0 && lw.results > 0 ? (lw.results / lw.lpv * 100) : 0
+  const lwFreq = lw.reach > 0 ? lw.impressions / lw.reach : 0
+
+  ctx += `## Funnel Analysis\n`
+  ctx += `- CPM: $${cpm.toFixed(2)}${lwCpm > 0 ? ` (prev: $${lwCpm.toFixed(2)}, ${((cpm - lwCpm) / lwCpm * 100).toFixed(1)}% change)` : ''}\n`
+  ctx += `- CTR: ${ctr.toFixed(2)}%${lwCtr > 0 ? ` (prev: ${lwCtr.toFixed(2)}%)` : ''}\n`
+  ctx += `- CPC: $${cpc.toFixed(2)}\n`
+  if (tw.lpv > 0) {
+    ctx += `- Click → Landing Page: ${clickToLPV.toFixed(1)}% (${tw.lpv} LPVs from ${tw.clicks} clicks)\n`
+    ctx += `- Landing Page → Conversion: ${lpvToConv.toFixed(2)}%${lwLpvToConv > 0 ? ` (prev: ${lwLpvToConv.toFixed(2)}%)` : ''}\n`
+  }
+  ctx += `- Click → Conversion: ${convRate.toFixed(2)}%${lwConvRate > 0 ? ` (prev: ${lwConvRate.toFixed(2)}%)` : ''}\n`
+  if (accountFrequency > 0) ctx += `- Frequency: ${accountFrequency.toFixed(2)}${lwFreq > 0 ? ` (prev: ${lwFreq.toFixed(2)})` : ''}\n`
+
+  // Funnel diagnosis signals
+  const funnelSignals: string[] = []
+  if (cpm > 0 && lwCpm > 0 && (cpm - lwCpm) / lwCpm > 0.2) funnelSignals.push(`CPM up ${((cpm - lwCpm) / lwCpm * 100).toFixed(0)}% — audience saturation or increased competition. Check frequency.`)
+  if (ctr > 0 && lwCtr > 0 && (lwCtr - ctr) / lwCtr > 0.2) funnelSignals.push(`CTR down ${((lwCtr - ctr) / lwCtr * 100).toFixed(0)}% — creative fatigue or audience mismatch. Review top-of-funnel creative.`)
+  if (clickToLPV > 0 && clickToLPV < 60) funnelSignals.push(`Only ${clickToLPV.toFixed(0)}% of clicks reach the landing page — slow load, broken tracking, or accidental clicks.`)
+  if (lpvToConv > 0 && lwLpvToConv > 0 && (lwLpvToConv - lpvToConv) / lwLpvToConv > 0.25) funnelSignals.push(`LP→Conversion rate dropped ${((lwLpvToConv - lpvToConv) / lwLpvToConv * 100).toFixed(0)}% — landing page issue, offer mismatch, or form problem.`)
+  if (accountFrequency > 3) funnelSignals.push(`Frequency at ${accountFrequency.toFixed(1)} — audience is seeing ads 3+ times. Creative fatigue risk is HIGH. Consider expanding audience or refreshing creative.`)
+  else if (accountFrequency > 2) funnelSignals.push(`Frequency at ${accountFrequency.toFixed(1)} — approaching saturation. Monitor for CPR increases.`)
+  if (convRate > 0 && ctr > 2 && convRate < 1) funnelSignals.push(`High CTR (${ctr.toFixed(1)}%) but low conversion (${convRate.toFixed(1)}%) — ad is compelling but landing page/offer isn't converting. Fix the post-click experience.`)
+
+  if (funnelSignals.length > 0) {
+    ctx += `\n### Funnel Diagnosis\n`
+    for (const s of funnelSignals) ctx += `- ${s}\n`
+  }
   ctx += '\n'
 
   // Previous period comparison
   ctx += `## Previous Period Comparison (${days}d)\n`
-  const lwCtr = lw.impressions > 0 ? (lw.clicks / lw.impressions * 100) : 0
   ctx += `- Spend: $${lw.spend.toFixed(2)} | Results: ${lw.results} | CPR: $${lwCpr.toFixed(2)}\n`
   ctx += `- Spend change: ${lw.spend > 0 ? ((tw.spend - lw.spend) / lw.spend * 100).toFixed(1) + '%' : 'N/A'}\n`
   ctx += `- Result change: ${lw.results > 0 ? ((tw.results - lw.results) / lw.results * 100).toFixed(1) + '%' : 'N/A'}\n`
@@ -282,7 +359,10 @@ async function getClientContext(clientId: string, days = 7) {
     for (const [name, d] of sortedCampaigns.slice(0, 15)) {
       const ccpr = d.results > 0 ? d.spend / d.results : 0
       const cctr = d.impressions > 0 ? (d.clicks / d.impressions * 100) : 0
+      const campReach = campaignReach[name]
+      const campFreq = campReach && campReach.reach > 0 ? campReach.impressions / campReach.reach : 0
       ctx += `- ${name}: $${d.spend.toFixed(0)} spend, ${d.results} results, $${ccpr.toFixed(2)} CPR, ${cctr.toFixed(2)}% CTR`
+      if (campFreq > 0) ctx += `, freq ${campFreq.toFixed(1)}`
       if (isEcom && d.revenue) ctx += `, $${d.revenue.toFixed(0)} rev`
       ctx += '\n'
     }
@@ -452,6 +532,10 @@ async function getClientContext(clientId: string, days = 7) {
       ctx += `- Campaign: ${d.campaign} | Ad Set: ${d.adSet || 'N/A'}\n`
       if (creative) {
         ctx += `- Status: ${creative.effective_status}\n`
+        if (creative.created_time) {
+          const adAge = Math.floor((yesterday.getTime() - new Date(creative.created_time).getTime()) / (1000 * 60 * 60 * 24))
+          ctx += `- Age: ${adAge} days (created ${new Date(creative.created_time).toISOString().split('T')[0]})\n`
+        }
         if (creative.creative_headline) ctx += `- Headline: "${creative.creative_headline}"\n`
         if (creative.creative_body) ctx += `- Body: "${creative.creative_body.slice(0, 300)}"\n`
         if (creative.creative_cta) ctx += `- CTA: ${creative.creative_cta}\n`
@@ -487,6 +571,122 @@ async function getClientContext(clientId: string, days = 7) {
   }))
 
   const analysis = preAnalyze(dayData, lwDayData, adDataForAnalysis, campDataForAnalysis, account.target_cpl, isEcom, account.target_roas)
+
+  // === BUDGET vs SPEND ANALYSIS ===
+  const campaignBudgets = campaignBudgetRes.data || []
+  const adSetBudgets = adSetBudgetRes.data || []
+  if (campaignBudgets.length > 0 || adSetBudgets.length > 0) {
+    const budgetSignals: string[] = []
+
+    // Campaign-level budgets (CBO)
+    for (const camp of campaignBudgets.filter(c => c.status === 'ACTIVE' && c.daily_budget)) {
+      const campData = campaigns[camp.name]
+      if (!campData) continue
+      const dailyBudget = camp.daily_budget
+      const avgDailySpend = campData.spend / days
+      const utilization = dailyBudget > 0 ? (avgDailySpend / dailyBudget * 100) : 0
+      if (utilization < 70) {
+        budgetSignals.push(`UNDERSPENDING: "${camp.name}" using ${utilization.toFixed(0)}% of $${dailyBudget}/day budget (avg $${avgDailySpend.toFixed(0)}/day) — audience exhaustion, bid ceiling, or creative issues`)
+      } else if (utilization > 95) {
+        budgetSignals.push(`BUDGET-CAPPED: "${camp.name}" spending ${utilization.toFixed(0)}% of $${dailyBudget}/day — may be leaving results on the table if CPR is good`)
+      }
+    }
+
+    // Ad set budgets (ABO)
+    for (const as of adSetBudgets.filter(a => a.status === 'ACTIVE' && a.daily_budget)) {
+      const asData = adSets[as.name]
+      if (!asData) continue
+      const dailyBudget = as.daily_budget
+      const avgDailySpend = asData.spend / days
+      const utilization = dailyBudget > 0 ? (avgDailySpend / dailyBudget * 100) : 0
+      if (utilization < 60) {
+        budgetSignals.push(`UNDERSPENDING: Ad set "${as.name}" using ${utilization.toFixed(0)}% of $${dailyBudget}/day budget — delivery issue`)
+      }
+    }
+
+    if (budgetSignals.length > 0) {
+      ctx += `## Budget vs Spend Analysis\n`
+      for (const s of budgetSignals) ctx += `- ${s}\n`
+      ctx += '\n'
+    }
+  }
+
+  // === AD AGE / CREATIVE LIFECYCLE ===
+  const adAgeSignals: string[] = []
+  const activeAdsWithAge = (activeAdsRes.data || []).filter(a => a.effective_status === 'ACTIVE' && a.created_time)
+  for (const ad of activeAdsWithAge) {
+    const adAge = Math.floor((yesterday.getTime() - new Date(ad.created_time).getTime()) / (1000 * 60 * 60 * 24))
+    const perf = ads[ad.name]
+    if (adAge > 90 && perf && perf.spend > 50) {
+      const cprVal = perf.results > 0 ? perf.spend / perf.results : Infinity
+      if (perf.results === 0) {
+        adAgeSignals.push(`STALE + NO RESULTS: "${ad.name}" is ${adAge} days old, spent $${perf.spend.toFixed(0)} with zero results this period`)
+      } else if (account.target_cpl && cprVal > account.target_cpl * 1.5) {
+        adAgeSignals.push(`AGING + EXPENSIVE: "${ad.name}" is ${adAge} days old, CPR $${cprVal.toFixed(2)} (${(cprVal / account.target_cpl).toFixed(1)}x target) — likely fatigued`)
+      }
+    } else if (adAge > 60 && perf && perf.spend > 30) {
+      adAgeSignals.push(`WATCH: "${ad.name}" is ${adAge} days old — approaching fatigue window, monitor CPR trends`)
+    }
+  }
+
+  // Aggregate age stats
+  if (activeAdsWithAge.length > 0) {
+    const ages = activeAdsWithAge.map(a => Math.floor((yesterday.getTime() - new Date(a.created_time).getTime()) / (1000 * 60 * 60 * 24)))
+    const avgAge = ages.reduce((s, a) => s + a, 0) / ages.length
+    const maxAge = Math.max(...ages)
+    const over60 = ages.filter(a => a > 60).length
+    const over90 = ages.filter(a => a > 90).length
+    ctx += `## Creative Lifecycle\n`
+    ctx += `- Active ads: ${activeAdsWithAge.length} | Avg age: ${avgAge.toFixed(0)} days | Oldest: ${maxAge} days\n`
+    ctx += `- Over 60 days: ${over60} ads | Over 90 days: ${over90} ads\n`
+    if (over90 > activeAdsWithAge.length * 0.5) ctx += `- WARNING: ${((over90/activeAdsWithAge.length)*100).toFixed(0)}% of active ads are 90+ days old — high creative fatigue risk\n`
+  }
+
+  if (adAgeSignals.length > 0) {
+    for (const s of adAgeSignals) ctx += `- ${s}\n`
+  }
+  ctx += '\n'
+
+  // === CAMPAIGN FREQUENCY SIGNALS ===
+  const freqSignals: string[] = []
+  for (const [name, d] of Object.entries(campaignReach)) {
+    if (d.reach === 0 || d.spend < 50) continue
+    const freq = d.impressions / d.reach
+    if (freq > 4) freqSignals.push(`HIGH FREQUENCY: "${name}" at ${freq.toFixed(1)}x — audience is oversaturated, expect rising CPR`)
+    else if (freq > 3) freqSignals.push(`ELEVATED FREQUENCY: "${name}" at ${freq.toFixed(1)}x — approaching fatigue threshold`)
+  }
+  if (freqSignals.length > 0) {
+    ctx += `## Frequency Alerts\n`
+    for (const s of freqSignals) ctx += `- ${s}\n`
+    ctx += '\n'
+  }
+
+  // === DAY-OF-WEEK PATTERNS ===
+  if (thisWeek.length >= 7) {
+    const dowPerf: Record<string, { spend: number; results: number; count: number }> = {}
+    for (const day of thisWeek) {
+      const dow = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
+      if (!dowPerf[dow]) dowPerf[dow] = { spend: 0, results: 0, count: 0 }
+      dowPerf[dow].spend += day.spend || 0
+      dowPerf[dow].results += (day.leads || 0) + (day.purchases || 0) + (day.schedules || 0)
+      dowPerf[dow].count++
+    }
+    const dowEntries = Object.entries(dowPerf).filter(([, d]) => d.count > 0 && d.spend > 0)
+    if (dowEntries.length >= 5) {
+      const avgCPR = dowEntries.reduce((s, [, d]) => s + (d.results > 0 ? d.spend / d.results : 0), 0) / dowEntries.length
+      const bestDay = dowEntries.filter(([, d]) => d.results > 0).sort((a, b) => (a[1].spend / a[1].results) - (b[1].spend / b[1].results))[0]
+      const worstDay = dowEntries.filter(([, d]) => d.results > 0).sort((a, b) => (b[1].spend / b[1].results) - (a[1].spend / a[1].results))[0]
+      if (bestDay && worstDay && bestDay[0] !== worstDay[0]) {
+        const bestCPR = bestDay[1].spend / bestDay[1].results
+        const worstCPR = worstDay[1].spend / worstDay[1].results
+        if (worstCPR > bestCPR * 1.5) {
+          ctx += `## Day-of-Week Pattern\n`
+          ctx += `- Best day: ${bestDay[0]} ($${bestCPR.toFixed(2)} CPR) | Worst day: ${worstDay[0]} ($${worstCPR.toFixed(2)} CPR)\n`
+          ctx += `- ${worstDay[0]} CPR is ${(worstCPR/bestCPR).toFixed(1)}x worse than ${bestDay[0]} — consider dayparting or budget scheduling\n\n`
+        }
+      }
+    }
+  }
 
   ctx += `\n## ===== AUTOMATED SIGNALS (pre-computed) =====\n`
   ctx += `Trend: ${analysis.trendDirection}\n`
@@ -618,9 +818,11 @@ export async function POST(req: NextRequest) {
 
 You don't just report numbers — you diagnose WHY things are happening and prescribe WHAT TO DO about it. Every observation leads to an action.
 
-When CPR goes up, you ask: Is it creative fatigue (frequency rising)? Audience saturation (CPM rising)? Landing page issue (CTR fine but conv rate dropping)? Tracking broken (sudden zero-result days)?
+When CPR goes up, you diagnose the funnel: Is CPM rising (audience saturation/competition)? Is CTR dropping (creative fatigue)? Is click-to-LPV low (landing page load issue)? Is LPV-to-conversion dropping (offer/page problem)? Is frequency above 3 (ad fatigue)? You pinpoint WHERE in the funnel the leak is.
 
-When something works, you ask: Can we scale it? What's the ceiling? What would break if we doubled budget? Are we over-indexed on one winner?
+When something works, you ask: Can we scale it? What's the ceiling? Is the budget capped? What would break if we doubled budget? Is frequency already high (limiting headroom)? Are we over-indexed on one winner? How old is the creative (will it last)?
+
+You understand creative lifecycle: ads under 30 days are fresh, 30-60 days need monitoring, 60-90 days are in the fatigue danger zone, 90+ days are likely stale unless proven otherwise by data. You factor ad age into every recommendation.
 
 ## Rules
 
