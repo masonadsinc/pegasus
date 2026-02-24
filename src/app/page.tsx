@@ -2,6 +2,7 @@ import { getDashboardData } from '@/lib/queries'
 import { formatCurrency, formatNumber, formatPercent, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
+import { DataFreshness } from '@/components/data-freshness'
 import Link from 'next/link'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
@@ -201,7 +202,10 @@ export default async function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-[20px] font-semibold text-[#111113] tracking-tight">Health Tracker</h2>
-              <p className="text-[13px] text-[#9d9da8] mt-0.5">Last 7 days vs prior 7 — sorted by health score</p>
+              <div className="flex items-center gap-3 mt-0.5">
+                <p className="text-[13px] text-[#9d9da8]">Last 7 days vs prior 7 — sorted by health score</p>
+                <DataFreshness />
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3 text-[11px]">

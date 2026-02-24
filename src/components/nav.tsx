@@ -206,18 +206,58 @@ function GlobalSearch() {
   )
 }
 
+function UserMenu() {
+  const [open, setOpen] = useState(false)
+  const [user, setUser] = useState<{ email?: string; display_name?: string; role?: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(d => d && setUser(d)).catch(() => {})
+  }, [])
+
+  const initial = (user?.display_name || user?.email || '?')[0].toUpperCase()
+
+  async function handleLogout() {
+    const { createBrowserClient } = await import('@supabase/ssr')
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <div className="w-6 h-6 rounded bg-[#111113] flex items-center justify-center">
+          <span className="text-white text-[10px] font-semibold">{initial}</span>
+        </div>
+        <span className="text-[12px] font-medium text-[#6b6b76]">{user?.display_name || user?.email?.split('@')[0] || '...'}</span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#e8e8ec] rounded shadow-lg z-50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#f4f4f6]">
+              <p className="text-[12px] font-medium text-[#111113]">{user?.display_name || user?.email}</p>
+              <p className="text-[11px] text-[#9d9da8]">{user?.role || 'Member'}</p>
+            </div>
+            <a href="/settings" className="block px-4 py-2 text-[12px] text-[#6b6b76] hover:bg-[#f4f4f6]">Settings</a>
+            <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-[12px] text-[#dc2626] hover:bg-[#fef2f2]">Sign Out</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export function TopBar() {
   return (
     <div className="h-11 border-b border-[#e8e8ec] bg-white flex items-center justify-between px-6">
       <div className="flex items-center gap-3">
         <GlobalSearch />
       </div>
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded bg-[#111113] flex items-center justify-center">
-          <span className="text-white text-[10px] font-semibold">M</span>
-        </div>
-        <span className="text-[12px] font-medium text-[#6b6b76]">Mason</span>
-      </div>
+      <UserMenu />
     </div>
   )
 }

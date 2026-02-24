@@ -76,13 +76,13 @@ export default async function SyncPage() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="border-b border-[#e8e8ec]">
-                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Time</th>
-                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Type</th>
-                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Range</th>
-                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Records</th>
-                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Errors</th>
-                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Duration</th>
-                    <th className="py-3 px-4 text-[11px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Status</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Time</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Type</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Range</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Records</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Errors</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-right uppercase tracking-wider">Duration</th>
+                    <th className="py-3 px-4 text-[10px] text-[#9d9da8] font-medium text-left uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -106,7 +106,7 @@ export default async function SyncPage() {
           </Card>
 
           <Card className="p-5 mt-4">
-            <h3 className="text-[14px] font-semibold mb-2">Sync Schedule</h3>
+            <h3 className="text-[13px] font-semibold mb-2">Sync Schedule</h3>
             <div className="text-[12px] text-[#9d9da8] space-y-1">
               <p><span className="text-[#6b6b76] font-medium">Nightly sync:</span> 1:30 AM PST (9:30 UTC) — 7-day rolling window</p>
               <p><span className="text-[#6b6b76] font-medium">Breakdowns:</span> Last 2 days only</p>
