@@ -341,7 +341,7 @@ RULES:
 ${isEcom ? 'This is an e-commerce account — focus on ROAS and revenue, not CPL.' : 'This is a lead gen account — focus on CPL and lead volume.'}`
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
