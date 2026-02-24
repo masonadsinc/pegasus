@@ -541,16 +541,6 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                   </div>
                 )}
 
-                {/* Winner analysis */}
-                {winnerAnalysis && (
-                  <details className="border border-[#e8e8ec] rounded-md bg-white" open>
-                    <summary className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] cursor-pointer">
-                      <span className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Winner Analysis</span>
-                    </summary>
-                    <div className="p-4 text-[12px] text-[#111113] leading-relaxed whitespace-pre-line">{stripMarkdown(winnerAnalysis)}</div>
-                  </details>
-                )}
-
                 {/* Error */}
                 {error && <div className="bg-[#fef2f2] border border-[#fecaca] rounded-md p-3 text-[12px] text-[#dc2626]">{error}</div>}
 
@@ -631,6 +621,16 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* Winner analysis (collapsed, below output) */}
+                {winnerAnalysis && (
+                  <details className="border border-[#e8e8ec] rounded-md bg-white">
+                    <summary className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] cursor-pointer">
+                      <span className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Winner Analysis</span>
+                    </summary>
+                    <div className="p-4 text-[12px] text-[#111113] leading-relaxed whitespace-pre-line">{stripMarkdown(winnerAnalysis)}</div>
+                  </details>
                 )}
               </div>
             </div>
