@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         resolution,
         reference_ad_ids: validRefs,
         image_data: `data:${imageMime};base64,${imageData}`,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-3-pro-image-preview',
         status: 'completed',
         metadata: { modelNotes, referenceCount: validRefs.length },
         created_by: user.id,
