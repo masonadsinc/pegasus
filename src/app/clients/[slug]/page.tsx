@@ -156,6 +156,7 @@ export default async function ClientDetailPage({ params, searchParams }: { param
 
           {/* Tabs */}
           <ClientTabs
+            clientId={client.id}
             daily={daily}
             campaigns={campaigns}
             adSets={adSets}

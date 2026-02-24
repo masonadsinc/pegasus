@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
+import { CreativeAnalysis } from './creative-analysis'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { formatCurrency, formatNumber, formatPercent, formatCompact, wowChange, wowChangeCPL } from '@/lib/utils'
@@ -12,6 +13,7 @@ import {
 } from 'recharts'
 
 interface ClientTabsProps {
+  clientId: string
   daily: any[]
   campaigns: any[]
   adSets: any[]
@@ -287,7 +289,7 @@ const tooltipStyle = {
 }
 
 /* ── MAIN TABS ──────────────────────────────────── */
-export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
+export function ClientTabs({ clientId, daily, campaigns, adSets, ads, topAds, bottomAds, funnelSteps, ageGender, placement, device, region, resultLabel, isEcom, targetCpl, targetRoas, totalSpend, clientName, accountName, platformAccountId, objective, primaryActionType }: ClientTabsProps) {
   const chartData = daily.map((d, i) => {
     // 7-day moving average
     const maWindow = daily.slice(Math.max(0, i - 6), i + 1)
@@ -504,6 +506,7 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         {ageGender.length > 0 && <TabsTrigger value="audience">Audience</TabsTrigger>}
         {placement.length > 0 && <TabsTrigger value="placements">Placements</TabsTrigger>}
         {region.length > 0 && <TabsTrigger value="geographic">Geographic</TabsTrigger>}
+        <TabsTrigger value="creative-analysis">Creative AI</TabsTrigger>
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
 
@@ -1938,6 +1941,10 @@ export function ClientTabs({ daily, campaigns, adSets, ads, topAds, bottomAds, f
         )
       })()}
       {/* ═══════════════════ SETTINGS ═══════════════════ */}
+      <TabsContent value="creative-analysis">
+        <CreativeAnalysis clientId={clientId} />
+      </TabsContent>
+
       <TabsContent value="settings">
         <div className="space-y-5 max-w-2xl">
           <Card className="p-5">
