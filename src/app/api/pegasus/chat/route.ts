@@ -555,15 +555,27 @@ async function getClientContext(clientId: string, days = 7) {
     const totalSpend = Object.values(placementAgg).reduce((s, d) => s + d.spend, 0)
     const placementSignals: string[] = []
     const targetCPR = account.target_cpl || 0
+    const corePlacements = ['feed', 'stories', 'reels']
+    const isCore = (name: string) => corePlacements.some(p => name.toLowerCase().includes(p))
 
     for (const [name, d] of Object.entries(placementAgg).sort((a, b) => b[1].spend - a[1].spend)) {
       if (d.spend < 10) continue
       const cpr = d.results > 0 ? d.spend / d.results : Infinity
       const pct = totalSpend > 0 ? (d.spend / totalSpend * 100) : 0
+      const core = isCore(name)
+
       if (d.results === 0 && d.spend > 50) {
-        placementSignals.push(`WASTED: "${name}" spent $${d.spend.toFixed(0)} with ZERO results (${pct.toFixed(1)}% of total spend)`)
+        if (core) {
+          placementSignals.push(`INVESTIGATE: "${name}" (CORE placement) spent $${d.spend.toFixed(0)} with zero results this period — likely a creative/targeting issue, NOT a placement issue. Diagnose why.`)
+        } else {
+          placementSignals.push(`CUT CANDIDATE: "${name}" (minor placement) spent $${d.spend.toFixed(0)} with zero results (${pct.toFixed(1)}% of spend)`)
+        }
       } else if (targetCPR > 0 && cpr > targetCPR * 2) {
-        placementSignals.push(`EXPENSIVE: "${name}" CPR $${cpr.toFixed(2)} is ${(cpr/targetCPR).toFixed(1)}x target ($${targetCPR}) — spent $${d.spend.toFixed(0)}`)
+        if (core) {
+          placementSignals.push(`UNDERPERFORMING: "${name}" (CORE) CPR $${cpr.toFixed(2)} is ${(cpr/targetCPR).toFixed(1)}x target — investigate creative fit for this placement`)
+        } else {
+          placementSignals.push(`EXPENSIVE: "${name}" CPR $${cpr.toFixed(2)} is ${(cpr/targetCPR).toFixed(1)}x target ($${targetCPR}) — spent $${d.spend.toFixed(0)}`)
+        }
       } else if (targetCPR > 0 && cpr <= targetCPR * 0.8 && d.results >= 3) {
         placementSignals.push(`STRONG: "${name}" CPR $${cpr.toFixed(2)} is ${((1 - cpr/targetCPR) * 100).toFixed(0)}% below target — ${d.results} results from $${d.spend.toFixed(0)}`)
       }
@@ -571,7 +583,7 @@ async function getClientContext(clientId: string, days = 7) {
     if (placementSignals.length > 0) {
       ctx += `### Placement Efficiency Signals\n`
       for (const s of placementSignals) ctx += `- ${s}\n`
-      ctx += `NOTE: Each placement above is platform-specific. "Facebook — Feed" and "Instagram — Feed" are DIFFERENT placements. Evaluate individually.\n\n`
+      ctx += `NOTE: Core placements (Feed, Stories, Reels) should NEVER be cut. Poor performance on a core placement = creative/targeting problem. Only minor placements (Audience Network, Marketplace, Messenger, etc.) are candidates for removal.\n\n`
     }
   }
 
@@ -620,9 +632,10 @@ When something works, you ask: Can we scale it? What's the ceiling? What would b
 6. Think about the client's BUSINESS, not just their ads. If they're a kitchen remodeler, a $40 CPL might be amazing ($15K average job). If they're selling a $20 product, it's a disaster.
 7. No emojis. No corporate fluff. No "Great question!" — just answer.
 8. Format for readability: use headers, bullets, bold the numbers that matter.
-9. NEVER lump different platforms/placements together. "Facebook Feed" and "Instagram Feed" are COMPLETELY different placements with different audiences, CPRs, and creative requirements. Evaluate each placement INDIVIDUALLY on its own metrics. If Facebook Feed is bad but Instagram Feed is good, say exactly that — don't recommend turning off "Feed" broadly.
-10. When recommending placement changes, list the EXACT placements to keep and the EXACT placements to remove, with the performance data for each. The user needs to configure this in Ads Manager — vague groupings are useless.
-11. Never recommend removing a placement that is performing at or below target CPR/ROAS, even if other similar-sounding placements are failing.
+9. NEVER recommend removing core placements (Facebook Feed, Instagram Feed, Instagram Stories, Instagram Reels, Facebook Reels). These are where the vast majority of Meta's inventory lives. If a core placement is underperforming, the problem is CREATIVE or TARGETING, not the placement itself. Diagnose WHY it's underperforming (wrong format? weak hook? audience mismatch?) and recommend fixes.
+10. Only recommend cutting MINOR placements (Audience Network, Messenger, Facebook Marketplace, Search, Right Column, Explore Home) when they have meaningful spend with zero or terrible results AND the account has enough data to confirm the pattern.
+11. "Facebook Feed" and "Instagram Feed" are COMPLETELY different placements with different audiences, CPRs, and creative requirements. Never lump them together. Evaluate each individually.
+12. When a placement underperforms short-term but is a core placement, say "this is underperforming RIGHT NOW — here's what to investigate" not "turn it off." One bad week on Feed is a creative signal, not a placement signal.
 
 ## Your Data
 
