@@ -67,6 +67,7 @@ export function ReportsHub({
   const [saving, setSaving] = useState(false)
   const [loadingWeek, setLoadingWeek] = useState(false)
   const [allWeeks, setAllWeeks] = useState(weeks)
+  const [genDropdownOpen, setGenDropdownOpen] = useState(false)
 
   async function loadWeek(week: string) {
     setLoadingWeek(true)
@@ -268,9 +269,9 @@ export function ReportsHub({
           <h2 className="text-[20px] font-semibold text-[#111113] tracking-tight">Weekly Reports</h2>
           <p className="text-[13px] text-[#9d9da8] mt-0.5">Generate, review, and track client reports</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="relative">
           <button
-            onClick={generateAll}
+            onClick={() => setGenDropdownOpen(!genDropdownOpen)}
             disabled={generating}
             className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors flex items-center gap-1.5"
           >
@@ -282,10 +283,37 @@ export function ReportsHub({
             ) : (
               <>
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 2v12M2 8h12" /></svg>
-                Generate All Reports
+                Generate Report
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6l4 4 4-4" /></svg>
               </>
             )}
           </button>
+          {genDropdownOpen && !generating && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setGenDropdownOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 w-[260px] rounded-md border border-[#e8e8ec] bg-white shadow-lg z-40 overflow-hidden">
+                <div className="max-h-[400px] overflow-y-auto">
+                  <button
+                    onClick={() => { setGenDropdownOpen(false); generateAll() }}
+                    className="w-full text-left px-4 py-3 hover:bg-[#f8f8fa] transition-colors border-b border-[#e8e8ec]"
+                  >
+                    <p className="text-[13px] font-semibold text-[#111113]">All Clients</p>
+                    <p className="text-[10px] text-[#9d9da8]">Generate reports for all {activeClients.length} active clients</p>
+                  </button>
+                  {activeClients.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => { setGenDropdownOpen(false); generateOne(c.id) }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8fa] transition-colors border-b border-[#f4f4f6] last:border-b-0"
+                    >
+                      <p className="text-[12px] font-medium text-[#111113]">{c.name}</p>
+                      {c.industry && <p className="text-[10px] text-[#9d9da8]">{c.industry}</p>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
