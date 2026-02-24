@@ -53,7 +53,16 @@ function IconPegasus({ className }: { className?: string }) {
   )
 }
 
-export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'settings' }) {
+function IconBrush({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15.5 3.5l1 1-6.5 6.5-2 .5.5-2 6.5-6.5z" />
+      <path d="M8 4H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3" />
+    </svg>
+  )
+}
+
+export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'settings' }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const links = [
@@ -61,6 +70,7 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
     { href: '/', label: 'Health Tracker', icon: IconGrid, key: 'dashboard' as const },
     { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
     { href: '/reports', label: 'Reports', icon: IconReport, key: 'reports' as const },
+    { href: '/creative-studio', label: 'Creative Studio', icon: IconBrush, key: 'creative-studio' as const },
   ]
 
   const sidebarContent = (
