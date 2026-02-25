@@ -363,7 +363,7 @@ export async function POST(req: NextRequest) {
 
       try {
         // Load brand assets + client info
-        send({ type: 'status', message: 'Loading brand context...' })
+        send({ type: 'status', message: 'Loading brand context and creative history...' })
         const [{ data: brandAssets }, { data: client }] = await Promise.all([
           supabaseAdmin.from('brand_assets').select('*').eq('org_id', ORG_ID).eq('client_id', clientId).single(),
           supabaseAdmin.from('clients').select('name, industry, brand_voice, ai_notes, business_description').eq('id', clientId).single(),
@@ -384,16 +384,31 @@ export async function POST(req: NextRequest) {
           .map(c => c.concept || c.metadata?.conceptSummary || '')
           .filter(Boolean)
 
+        // Report what was loaded
+        const brandColorCount = brandAssets?.brand_colors?.length || 0
+        const hasStyleGuide = !!brandAssets?.style_guide
+        const hasPrefs = !!brandAssets?.creative_prefs
+        const contextParts = []
+        if (brandColorCount > 0) contextParts.push(`${brandColorCount} brand colors`)
+        if (hasStyleGuide) contextParts.push('style guide')
+        if (hasPrefs) contextParts.push('creative prefs')
+        if (historyList.length > 0) contextParts.push(`${historyList.length} past concepts (anti-repeat)`)
+        if (contextParts.length > 0) {
+          send({ type: 'status', message: `Loaded: ${contextParts.join(', ')}` })
+        } else {
+          send({ type: 'status', message: 'No brand assets found — generating with defaults' })
+        }
+
         // Download and analyze the winner
         let analysis: WinnerBreakdown | null = null
         let winnerImageData: { data: string; mimeType: string } | null = null
 
         if (winnerImageUrl && mode !== 'manual') {
-          send({ type: 'status', message: 'Downloading winning ad...' })
+          send({ type: 'status', message: `Downloading winner: ${winnerName}` })
           winnerImageData = await fetchImageBase64(winnerImageUrl)
 
           if (winnerImageData) {
-            send({ type: 'status', message: 'Analyzing what makes this ad convert...' })
+            send({ type: 'status', message: 'Analyzing winner with Gemini Flash vision — extracting colors, layout, text, people...' })
             analysis = await analyzeWinner(
               apiKey, winnerImageData.data, winnerImageData.mimeType, winnerName,
               { spend: winnerStats.spend || 0, results: winnerStats.results || 0, cpr: winnerStats.cpr || 0, ctr: winnerStats.ctr || 0 }
@@ -410,7 +425,13 @@ export async function POST(req: NextRequest) {
         }
 
         // Build the prompt
-        send({ type: 'status', message: 'Crafting creative brief...' })
+        const uploadCount = uploadedImages.length
+        const refCount = refImages.length + (winnerImageData ? 1 : 0)
+        const briefParts = [`${mode} mode`, `${refCount} reference image(s)`]
+        if (uploadCount > 0) briefParts.push(`${uploadCount} client photo(s)`)
+        if (analysis?.containsPeople === false) briefParts.push('no-people constraint')
+        if (analysis?.containsPeople === true) briefParts.push('people allowed')
+        send({ type: 'status', message: `Building prompt: ${briefParts.join(', ')}` })
         let fullPrompt: string
 
         if (mode === 'manual' && manualPrompt) {
@@ -424,7 +445,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Build API contents — images FIRST (style anchor), prompt LAST
-        send({ type: 'status', message: 'Generating creative...' })
+        send({ type: 'status', message: `Generating with Nano Banana Pro (${aspectRatio}, ${resolution}) — this may take 15-30s...` })
         const contents: any[] = []
 
         // Winner image first — strongest style influence
@@ -513,12 +534,12 @@ export async function POST(req: NextRequest) {
         }
 
         // QA check
-        send({ type: 'status', message: 'Running quality check...' })
+        send({ type: 'status', message: 'Running QA check — scanning for gibberish, placeholders, layout issues...' })
         const qa = await qaCheck(apiKey, imageData, imageMime)
 
         if (!qa.pass) {
           send({ type: 'qa_warning', issues: qa.issues })
-          send({ type: 'status', message: 'QA issues detected — retrying with stricter constraints...' })
+          send({ type: 'status', message: 'QA failed — regenerating with stricter text and layout constraints...' })
 
           // Retry with tighter prompt
           const retryContents = [...contents]
@@ -557,7 +578,7 @@ This time, follow these STRICT rules:
         }
 
         // Concept summary for history tracking
-        send({ type: 'status', message: 'Saving creative...' })
+        send({ type: 'status', message: 'Extracting concept summary and saving to database...' })
         let conceptSummary = concept
         if (!conceptSummary && imageData) {
           try {

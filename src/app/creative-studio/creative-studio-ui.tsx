@@ -39,6 +39,7 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
   const [direction, setDirection] = useState('')
   const [generating, setGenerating] = useState(false)
   const [statusMsg, setStatusMsg] = useState('')
+  const [logEntries, setLogEntries] = useState<{ time: string; type: string; message: string }[]>([])
   const [winnerAnalysis, setWinnerAnalysis] = useState('')
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [modelNotes, setModelNotes] = useState('')
@@ -194,6 +195,7 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
     if (!selectedWinner) return
     setGenerating(true); setGeneratedImage(null); setWinnerAnalysis(''); setModelNotes('')
     setError(null); setQaResult(null); setStatusMsg('Starting...')
+    setLogEntries([{ time: now(), type: 'info', message: 'Starting generation...' }])
 
     const refUrls = winningAds.filter(a => additionalRefs.has(a.platformAdId)).map(a => a.imageUrl)
 
@@ -222,14 +224,34 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
           if (!line.startsWith('data: ')) continue
           try {
             const data = JSON.parse(line.slice(6))
-            if (data.type === 'status') setStatusMsg(data.message)
-            else if (data.type === 'analysis') setWinnerAnalysis(data.text)
-            else if (data.type === 'qa_warning') setQaResult({ pass: false, issues: data.issues })
-            else if (data.type === 'error') { setError(data.message); break }
+            if (data.type === 'status') {
+              setStatusMsg(data.message)
+              setLogEntries(prev => [...prev, { time: now(), type: 'info', message: data.message }])
+            }
+            else if (data.type === 'analysis') {
+              setWinnerAnalysis(data.text)
+              const lines = (data.text || '').split('\n').filter(Boolean).length
+              setLogEntries(prev => [...prev, { time: now(), type: 'success', message: `Winner analysis complete (${lines} data points extracted)` }])
+            }
+            else if (data.type === 'qa_warning') {
+              setQaResult({ pass: false, issues: data.issues })
+              setLogEntries(prev => [...prev, { time: now(), type: 'warning', message: `QA issues detected: ${data.issues.join(', ')}` }])
+            }
+            else if (data.type === 'error') {
+              setError(data.message)
+              setLogEntries(prev => [...prev, { time: now(), type: 'error', message: data.message }])
+              break
+            }
             else if (data.type === 'complete') {
               setGeneratedImage(data.imageData); setModelNotes(data.modelNotes || '')
               setQaResult(data.qa)
               if (data.winnerAnalysis) setWinnerAnalysis(data.winnerAnalysis)
+              const logItems: { time: string; type: string; message: string }[] = []
+              if (data.qa?.pass) logItems.push({ time: now(), type: 'success', message: 'QA check passed' })
+              else if (data.qa && !data.qa.pass) logItems.push({ time: now(), type: 'warning', message: `QA retry — issues: ${data.qa.issues?.join(', ') || 'unknown'}` })
+              if (data.conceptSummary) logItems.push({ time: now(), type: 'info', message: `Concept: ${data.conceptSummary}` })
+              logItems.push({ time: now(), type: 'success', message: 'Creative generated and saved' })
+              setLogEntries(prev => [...prev, ...logItems])
               outputRef.current?.scrollIntoView({ behavior: 'smooth' })
               await loadHistory()
             }
@@ -533,11 +555,37 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
                   </div>
                 </div>
 
-                {/* Status */}
-                {generating && statusMsg && (
-                  <div className="flex items-center gap-3 px-4 py-3 border border-[#e8e8ec] rounded-md bg-[#f8f8fa]">
-                    <div className="w-2 h-2 bg-[#2563eb] rounded-full animate-pulse flex-shrink-0" />
-                    <span className="text-[12px] text-[#111113]">{statusMsg}</span>
+                {/* Activity Log */}
+                {logEntries.length > 0 && (
+                  <div className="border border-[#e8e8ec] rounded-md bg-white overflow-hidden">
+                    <div className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Generation Log</span>
+                        {generating && <div className="w-1.5 h-1.5 bg-[#2563eb] rounded-full animate-pulse" />}
+                      </div>
+                      {!generating && (
+                        <button onClick={() => setLogEntries([])} className="text-[10px] text-[#9d9da8] hover:text-[#111113] transition-colors">Clear</button>
+                      )}
+                    </div>
+                    <div className="divide-y divide-[#f4f4f6] max-h-[200px] overflow-y-auto">
+                      {logEntries.map((entry, i) => (
+                        <div key={i} className="px-4 py-1.5 flex items-start gap-2.5">
+                          <span className="text-[10px] text-[#9d9da8] font-mono flex-shrink-0 mt-0.5 w-[52px]">{entry.time}</span>
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${
+                            entry.type === 'success' ? 'bg-[#16a34a]' :
+                            entry.type === 'warning' ? 'bg-[#f59e0b]' :
+                            entry.type === 'error' ? 'bg-[#dc2626]' :
+                            i === logEntries.length - 1 && generating ? 'bg-[#2563eb] animate-pulse' : 'bg-[#9d9da8]'
+                          }`} />
+                          <span className={`text-[11px] leading-relaxed ${
+                            entry.type === 'error' ? 'text-[#dc2626]' :
+                            entry.type === 'warning' ? 'text-[#92400e]' :
+                            entry.type === 'success' ? 'text-[#166534]' :
+                            'text-[#111113]'
+                          }`}>{entry.message}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -788,6 +836,10 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
       )}
     </div>
   )
+}
+
+function now(): string {
+  return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 
 function stripMarkdown(text: string): string {
