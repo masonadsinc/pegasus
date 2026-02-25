@@ -673,7 +673,7 @@ export function CreativeStudioUI({ clients }: { clients: Client[] }) {
 
                 {/* Winner analysis (collapsed, below output) */}
                 {winnerAnalysis && (
-                  <details className="border border-[#e8e8ec] rounded-md bg-white">
+                  <details className="border border-[#e8e8ec] rounded-md bg-white" open={generating && !generatedImage}>
                     <summary className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] cursor-pointer">
                       <span className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Winner Analysis</span>
                     </summary>
