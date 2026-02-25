@@ -444,7 +444,10 @@ async function getClientContext(clientId: string, days = 7) {
   // Account config
   ctx += `## Account Config\n`
   ctx += `- Account: ${account.name} (act_${account.platform_account_id})\n`
-  ctx += `- Objective: ${account.objective || 'N/A'} | Action type: ${account.primary_action_type || 'lead'}\n`
+  const actionType = account.primary_action_type || 'lead'
+  const resultLabel = actionType.includes('purchase') ? 'purchases' : actionType.includes('schedule') ? 'scheduled appointments' : 'leads'
+  ctx += `- Objective: ${account.objective || 'N/A'} | Action type: ${actionType} | Result metric: ${resultLabel}\n`
+  ctx += `- IMPORTANT: This client's results are "${resultLabel}" — always refer to results as "${resultLabel}", never as "leads" unless the action type is leads.\n`
   ctx += `- Target CPL: $${account.target_cpl || 'not set'}`
   if (account.target_roas) ctx += ` | Target ROAS: ${account.target_roas}x`
   ctx += '\n\n'
