@@ -365,17 +365,11 @@ NO LOGOS. NO placeholder text. NO gibberish. Every word spelled perfectly.`
           if (!line.startsWith('data: ')) continue
           try {
             const data = JSON.parse(line.slice(6))
-            if (data.type === 'image') {
-              setImageAdSets(prev => prev.map((s, i) => i === index ? { ...s, imageData: data.data, generating: false } : s))
-            }
             if (data.type === 'error') {
               setImageAdSets(prev => prev.map((s, i) => i === index ? { ...s, error: data.message, generating: false } : s))
             }
-            if (data.type === 'complete') {
-              setImageAdSets(prev => prev.map((s, i) => {
-                if (i !== index) return s
-                return { ...s, generating: false, imageData: s.imageData || undefined }
-              }))
+            if (data.type === 'complete' && data.imageData) {
+              setImageAdSets(prev => prev.map((s, i) => i === index ? { ...s, imageData: data.imageData, generating: false } : s))
             }
           } catch {}
         }
@@ -551,7 +545,7 @@ NO LOGOS. NO placeholder text. NO gibberish. Every word spelled perfectly.`
                                 {/* Generated image */}
                                 {set.imageData && (
                                   <div className="relative bg-[#f4f4f6]">
-                                    <img src={`data:image/png;base64,${set.imageData}`} alt={set.headline} className="w-full object-contain" />
+                                    <img src={set.imageData} alt={set.headline} className="w-full object-contain" />
                                   </div>
                                 )}
 
