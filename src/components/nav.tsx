@@ -62,7 +62,16 @@ function IconBrush({ className }: { className?: string }) {
   )
 }
 
-export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'settings' }) {
+function IconPen({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" />
+      <path d="M11 6l3 3" />
+    </svg>
+  )
+}
+
+export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'copywriter' | 'settings' }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const links = [
@@ -71,6 +80,7 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
     { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
     { href: '/reports', label: 'Reports', icon: IconReport, key: 'reports' as const },
     { href: '/creative-studio', label: 'Creative Studio', icon: IconBrush, key: 'creative-studio' as const },
+    { href: '/copywriter', label: 'Copywriter', icon: IconPen, key: 'copywriter' as const },
   ]
 
   const sidebarContent = (
