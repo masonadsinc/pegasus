@@ -350,6 +350,7 @@ export async function POST(req: NextRequest) {
     referenceImageUrls = [],
     uploadedImages = [], // base64 data URLs from client photo uploads
     concept = '',
+    source = 'creative-studio',
   } = await req.json()
 
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
@@ -631,6 +632,7 @@ This time, follow these STRICT rules:
               referenceCount: refImages.length + (winnerImageData ? 1 : 0),
             },
             created_by: user.id,
+            source: source || 'creative-studio',
           })
           .select('id')
           .single()

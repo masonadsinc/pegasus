@@ -71,7 +71,18 @@ function IconPen({ className }: { className?: string }) {
   )
 }
 
-export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'copywriter' | 'settings' }) {
+function IconLibrary({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="5" height="5" rx="1" />
+      <rect x="12" y="3" width="5" height="5" rx="1" />
+      <rect x="3" y="12" width="5" height="5" rx="1" />
+      <rect x="12" y="12" width="5" height="5" rx="1" />
+    </svg>
+  )
+}
+
+export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'copywriter' | 'ad-library' | 'settings' }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const links = [
@@ -81,6 +92,7 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
     { href: '/reports', label: 'Reports', icon: IconReport, key: 'reports' as const },
     { href: '/creative-studio', label: 'Creative Studio', icon: IconBrush, key: 'creative-studio' as const },
     { href: '/copywriter', label: 'Copywriter', icon: IconPen, key: 'copywriter' as const },
+    { href: '/ad-library', label: 'Ad Library', icon: IconLibrary, key: 'ad-library' as const },
   ]
 
   const sidebarContent = (

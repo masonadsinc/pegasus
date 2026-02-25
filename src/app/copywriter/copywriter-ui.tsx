@@ -283,6 +283,7 @@ NO LOGOS. NO placeholder text. NO gibberish. Every word spelled perfectly.`
           aspectRatio,
           resolution: '2K',
           concept: `Copywriter: ${set.angle} - Set ${set.setNumber}`,
+          source: 'copywriter',
         }),
       })
 
