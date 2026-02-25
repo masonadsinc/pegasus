@@ -5,6 +5,133 @@ import { isEcomActionType } from '@/lib/utils'
 import { preAnalyze, analyzeAudience } from '@/lib/analysis'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
+const META_TOKEN = process.env.META_ACCESS_TOKEN!
+const META_VERSION = process.env.META_API_VERSION || 'v21.0'
+
+// ── Video/Image helpers for multimodal Pegasus ──
+
+async function getVideoSourceUrl(adPlatformId: string): Promise<string | null> {
+  try {
+    const adRes = await fetch(
+      `https://graph.facebook.com/${META_VERSION}/${adPlatformId}?fields=creative{object_story_spec,asset_feed_spec}&access_token=${META_TOKEN}`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+    if (!adRes.ok) return null
+    const adData = await adRes.json()
+    let videoId: string | null = null
+    const creative = adData.creative
+    if (creative?.object_story_spec?.video_data?.video_id) videoId = creative.object_story_spec.video_data.video_id
+    else if (creative?.asset_feed_spec?.videos?.[0]?.video_id) videoId = creative.asset_feed_spec.videos[0].video_id
+    if (!videoId) return null
+    const vidRes = await fetch(
+      `https://graph.facebook.com/${META_VERSION}/${videoId}?fields=source&access_token=${META_TOKEN}`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+    if (!vidRes.ok) return null
+    const vidData = await vidRes.json()
+    return vidData.source || null
+  } catch { return null }
+}
+
+async function uploadVideoToGemini(videoBuffer: ArrayBuffer, filename: string, apiKey: string): Promise<string | null> {
+  try {
+    const initRes = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'start',
+          'X-Goog-Upload-Header-Content-Length': String(videoBuffer.byteLength),
+          'X-Goog-Upload-Header-Content-Type': 'video/mp4',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ file: { display_name: filename } }),
+      }
+    )
+    const uploadUrl = initRes.headers.get('x-goog-upload-url')
+    if (!uploadUrl) return null
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize', 'Content-Length': String(videoBuffer.byteLength) },
+      body: videoBuffer,
+    })
+    if (!uploadRes.ok) return null
+    const result = await uploadRes.json()
+    const fileName = result.file?.name
+    if (!fileName) return null
+    // Poll until active
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      const statusRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`)
+      if (statusRes.ok) {
+        const statusData = await statusRes.json()
+        if (statusData.state === 'ACTIVE') return result.file.uri
+        if (statusData.state === 'FAILED') return null
+      }
+    }
+    return null
+  } catch { return null }
+}
+
+async function deleteGeminiFile(fileUri: string, apiKey: string) {
+  try {
+    const fileName = fileUri.split('/').slice(-2).join('/')
+    await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`, { method: 'DELETE' })
+  } catch {}
+}
+
+async function fetchImageBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) return null
+    const buffer = await res.arrayBuffer()
+    return { data: Buffer.from(buffer).toString('base64'), mimeType: res.headers.get('content-type') || 'image/jpeg' }
+  } catch { return null }
+}
+
+// Detect if user message is asking for visual/video analysis of specific ads
+function detectMediaIntent(message: string): { needsMedia: boolean; keywords: string[] } {
+  const lower = message.toLowerCase()
+  const mediaTerms = ['transcript', 'transcribe', 'watch', 'look at', 'show me', 'what does', 'what do', 'see the', 'see this',
+    'analyze the video', 'analyze the image', 'analyze the creative', 'analyze the ad',
+    'video analysis', 'creative analysis', 'what\'s in the', 'describe the', 'review the creative',
+    'what is the ad', 'the ad look like', 'hook', 'first 3 seconds', 'visual', 'thumbnail',
+    'what are they saying', 'what does it say', 'audio', 'scene', 'creative review']
+  const needs = mediaTerms.some(t => lower.includes(t))
+  // Extract potential ad name references
+  const keywords = lower.split(/[\s,]+/).filter(w => w.length > 3)
+  return { needsMedia: needs, keywords }
+}
+
+// Find ads that match the user's query from the active ads list
+function findReferencedAds(message: string, activeAds: any[]): any[] {
+  if (!activeAds?.length) return []
+  const lower = message.toLowerCase()
+
+  // Try exact name matches first
+  const matches = activeAds.filter(ad => {
+    const adName = (ad.name || '').toLowerCase()
+    return adName && lower.includes(adName)
+  })
+  if (matches.length > 0) return matches.slice(0, 3)
+
+  // Try partial matches — look for significant words from ad names
+  const scored = activeAds.map(ad => {
+    const adWords = (ad.name || '').toLowerCase().split(/[\s_-]+/).filter((w: string) => w.length > 3)
+    const matchCount = adWords.filter((w: string) => lower.includes(w)).length
+    return { ad, score: matchCount }
+  }).filter(s => s.score > 0).sort((a, b) => b.score - a.score)
+
+  if (scored.length > 0) return scored.slice(0, 3).map(s => s.ad)
+
+  // If they say "top performing" or "best" — pick by CPR from context
+  if (lower.includes('top') || lower.includes('best') || lower.includes('winner') || lower.includes('#1') || lower.includes('number one')) {
+    return activeAds.filter(a => a.creative_url || a.creative_video_url).slice(0, 3)
+  }
+
+  return []
+}
 
 async function getOrgGeminiKey() {
   const { data } = await supabaseAdmin
@@ -90,7 +217,7 @@ async function getClientContext(clientId: string, days = 7) {
     // Active ads with creative info + creation date
     supabaseAdmin
       .from('ads')
-      .select('platform_ad_id, ad_set_id, name, creative_headline, creative_body, creative_cta, creative_url, effective_status, created_time')
+      .select('platform_ad_id, ad_set_id, name, creative_headline, creative_body, creative_cta, creative_url, creative_video_url, creative_thumbnail_url, effective_status, created_time')
       .eq('ad_account_id', account.id)
       .in('effective_status', ['ACTIVE', 'PAUSED'])
       .limit(100),
@@ -897,6 +1024,7 @@ You understand creative lifecycle: ads under 30 days are fresh, 30-60 days need 
 10. Only recommend cutting MINOR placements (Audience Network, Messenger, Facebook Marketplace, Search, Right Column, Explore Home) when they have meaningful spend with zero or terrible results AND the account has enough data to confirm the pattern.
 11. "Facebook Feed" and "Instagram Feed" are COMPLETELY different placements with different audiences, CPRs, and creative requirements. Never lump them together. Evaluate each individually.
 12. When a placement underperforms short-term but is a core placement, say "this is underperforming RIGHT NOW — here's what to investigate" not "turn it off." One bad week on Feed is a creative signal, not a placement signal.
+13. You can SEE images and WATCH videos. When the user asks you to analyze a creative, transcribe a video, describe an ad, or review a visual — the actual media file will be attached to their message. For videos: transcribe ALL spoken words verbatim, describe every scene and transition, analyze the hook (first 3 seconds), pacing, audio, and storytelling. For images: describe all text, layout, colors, composition, and emotional impact. Be thorough — the user wants the FULL picture.
 
 ## Your Data
 
@@ -906,11 +1034,81 @@ The user is ${member?.display_name || user.email} (${member?.role || 'member'}).
 
 ${result.context}`
 
-    // Gemini 2.5 Pro with streaming
+    // Build Gemini messages — detect if the latest message needs media
     const geminiMessages = messages.map((m: any) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }))
+
+    const latestUserMsg = messages[messages.length - 1]?.content || ''
+    const mediaIntent = detectMediaIntent(latestUserMsg)
+    const geminiFilesToCleanup: string[] = []
+
+    // If user is asking about visual/video content, fetch the actual media
+    if (mediaIntent.needsMedia && result.client) {
+      const activeAds = (await supabaseAdmin
+        .from('ads')
+        .select('platform_ad_id, name, creative_url, creative_video_url, creative_thumbnail_url, creative_headline, creative_body, effective_status')
+        .eq('ad_account_id', (result.client.ad_accounts as any[])?.find((a: any) => a.is_active)?.id || '')
+        .in('effective_status', ['ACTIVE', 'PAUSED'])
+        .limit(100)
+      ).data || []
+
+      const referencedAds = findReferencedAds(latestUserMsg, activeAds)
+
+      if (referencedAds.length > 0) {
+        // Replace the last user message with multimodal parts
+        const lastMsg = geminiMessages[geminiMessages.length - 1]
+        const parts: any[] = []
+
+        for (const ad of referencedAds) {
+          const isVideo = !!(ad.creative_video_url && ad.creative_video_url.includes('/video'))
+
+          if (isVideo) {
+            // Try to get actual video
+            const videoUrl = await getVideoSourceUrl(ad.platform_ad_id)
+            if (videoUrl) {
+              try {
+                const vidRes = await fetch(videoUrl, { signal: AbortSignal.timeout(30000) })
+                if (vidRes.ok) {
+                  const buffer = await vidRes.arrayBuffer()
+                  if (buffer.byteLength > 10240) {
+                    const fileUri = await uploadVideoToGemini(buffer, `${ad.platform_ad_id}.mp4`, apiKey)
+                    if (fileUri) {
+                      geminiFilesToCleanup.push(fileUri)
+                      parts.push({ fileData: { mimeType: 'video/mp4', fileUri } })
+                      parts.push({ text: `[ACTUAL VIDEO for ad "${ad.name}". Watch it fully — transcribe all spoken words, describe every scene, analyze the hook, pacing, and storytelling.]` })
+                    }
+                  }
+                }
+              } catch {}
+            }
+            // Fallback to thumbnail if video failed
+            if (parts.length === 0 || !parts.some(p => p.fileData)) {
+              const thumbUrl = ad.creative_url || ad.creative_thumbnail_url
+              if (thumbUrl) {
+                const img = await fetchImageBase64(thumbUrl)
+                if (img) {
+                  parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
+                  parts.push({ text: `[THUMBNAIL for video ad "${ad.name}" — actual video could not be downloaded. Analyze what's visible in this frame.]` })
+                }
+              }
+            }
+          } else if (ad.creative_url) {
+            // Image ad
+            const img = await fetchImageBase64(ad.creative_url)
+            if (img) {
+              parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
+              parts.push({ text: `[IMAGE for ad "${ad.name}". Describe everything you see — text, layout, colors, subject, composition.]` })
+            }
+          }
+        }
+
+        // Add the user's original text at the end
+        parts.push({ text: latestUserMsg })
+        lastMsg.parts = parts
+      }
+    }
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse&key=${apiKey}`,
@@ -922,7 +1120,7 @@ ${result.context}`
           systemInstruction: { parts: [{ text: systemPrompt }] },
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 8192,
           },
         }),
       }
@@ -961,6 +1159,10 @@ ${result.context}`
           }
           controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
         } catch (e) { console.error('Stream error:', e) }
+        // Cleanup any uploaded Gemini files
+        for (const uri of geminiFilesToCleanup) {
+          deleteGeminiFile(uri, apiKey).catch(() => {})
+        }
         controller.close()
       },
     })
