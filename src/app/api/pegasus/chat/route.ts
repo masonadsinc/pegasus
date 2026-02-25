@@ -1060,12 +1060,14 @@ ${result.context}`
         // Replace the last user message with multimodal parts
         const lastMsg = geminiMessages[geminiMessages.length - 1]
         const parts: any[] = []
+        const wantsVideo = /transcript|transcribe|watch|video|hook|first 3 sec|audio|what are they saying|scene/i.test(latestUserMsg)
 
         for (const ad of referencedAds) {
-          const isVideo = !!(ad.creative_video_url && ad.creative_video_url.includes('/video'))
+          let videoAttached = false
 
-          if (isVideo) {
-            // Try to get actual video
+          // Always try to get video from Meta API if user wants video/transcript
+          // Many video ads have creative_video_url=null in our DB but have video_data in Meta
+          if (wantsVideo || (ad.creative_video_url && ad.creative_video_url.includes('/video'))) {
             const videoUrl = await getVideoSourceUrl(ad.platform_ad_id)
             if (videoUrl) {
               try {
@@ -1077,29 +1079,25 @@ ${result.context}`
                     if (fileUri) {
                       geminiFilesToCleanup.push(fileUri)
                       parts.push({ fileData: { mimeType: 'video/mp4', fileUri } })
-                      parts.push({ text: `[ACTUAL VIDEO for ad "${ad.name}". Watch it fully — transcribe all spoken words, describe every scene, analyze the hook, pacing, and storytelling.]` })
+                      parts.push({ text: `[ACTUAL VIDEO for ad "${ad.name}". Watch it fully — transcribe ALL spoken words verbatim, describe every scene and transition, analyze the hook (first 3 seconds), pacing, audio/music, and storytelling arc. Give a COMPLETE transcript.]` })
+                      videoAttached = true
                     }
                   }
                 }
               } catch {}
             }
-            // Fallback to thumbnail if video failed
-            if (parts.length === 0 || !parts.some(p => p.fileData)) {
-              const thumbUrl = ad.creative_url || ad.creative_thumbnail_url
-              if (thumbUrl) {
-                const img = await fetchImageBase64(thumbUrl)
-                if (img) {
-                  parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
-                  parts.push({ text: `[THUMBNAIL for video ad "${ad.name}" — actual video could not be downloaded. Analyze what's visible in this frame.]` })
-                }
-              }
-            }
-          } else if (ad.creative_url) {
-            // Image ad
+          }
+
+          // Fallback to image if no video attached
+          if (!videoAttached && ad.creative_url) {
             const img = await fetchImageBase64(ad.creative_url)
             if (img) {
               parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
-              parts.push({ text: `[IMAGE for ad "${ad.name}". Describe everything you see — text, layout, colors, subject, composition.]` })
+              const isKnownVideo = wantsVideo && !videoAttached
+              parts.push({ text: isKnownVideo
+                ? `[THUMBNAIL/FRAME for ad "${ad.name}" — video could not be downloaded. Analyze what's visible in this frame. Note: the user asked for a transcript but the video file was unavailable.]`
+                : `[IMAGE for ad "${ad.name}". Describe everything you see — text, layout, colors, subject, composition.]`
+              })
             }
           }
         }
