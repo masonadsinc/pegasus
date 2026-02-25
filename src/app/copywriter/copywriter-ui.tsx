@@ -49,10 +49,11 @@ function parseSections(raw: string): { title: string; content: string }[] {
   let currentContent: string[] = []
 
   for (const line of lines) {
-    const h2 = line.match(/^##\s+(?:SECTION \d+:\s*)?(.+)/i)
-    if (h2) {
+    // Match ## or ### section headers
+    const h = line.match(/^#{2,3}\s+(?:SECTION \d+:\s*)?(.+)/i)
+    if (h) {
       if (currentTitle) sections.push({ title: stripMarkdown(currentTitle), content: currentContent.join('\n') })
-      currentTitle = h2[1]
+      currentTitle = h[1]
       currentContent = []
     } else {
       currentContent.push(line)
@@ -66,82 +67,163 @@ function parseImageAdSets(raw: string): ImageAdSet[] {
   if (!raw) return []
   const sets: ImageAdSet[] = []
 
-  // Find the IMAGE AD TEXT section
-  const iatMatch = raw.match(/IMAGE AD TEXT[\s\S]*?(?=##\s*SECTION 3|##\s*PRIMARY TEXT|$)/i)
+  // Find the IMAGE AD TEXT section — flexible header matching
+  const iatMatch = raw.match(/#{2,4}\s*(?:SECTION 2[:\s]*)?IMAGE AD TEXT[\s\S]*?(?=#{2,3}\s*(?:SECTION [34]|PRIMARY TEXT|RETARGETING)|$)/i)
   if (!iatMatch) return sets
 
   const section = iatMatch[0]
 
-  // Split by angle headers (### Angle 1: Name)
-  const angleBlocks = section.split(/###\s+/g).filter(Boolean)
+  // Split by angle headers — match **Angle N: Name** or ### Angle N: Name or bold angle lines
+  const anglePattern = /(?:#{2,4}\s*|\*\*)\s*Angle\s*\d+[:\s—–-]*([^*\n]+?)(?:\*\*)?$/gim
+  const anglePositions: { name: string; start: number }[] = []
+  let m
+  while ((m = anglePattern.exec(section)) !== null) {
+    anglePositions.push({ name: stripMarkdown(m[1] || m[0]).replace(/^angle\s*\d+[:\s—–-]*/i, '').trim(), start: m.index })
+  }
 
-  for (const block of angleBlocks) {
-    const firstLine = block.split('\n')[0].trim()
-    if (!firstLine.toLowerCase().includes('angle') && !firstLine.toLowerCase().includes('pain') && !firstLine.toLowerCase().includes('dream') && !firstLine.toLowerCase().includes('proof') && !firstLine.toLowerCase().includes('convenience') && !firstLine.toLowerCase().includes('quality') && !firstLine.toLowerCase().includes('lifestyle') && !firstLine.toLowerCase().includes('urgency') && !firstLine.toLowerCase().includes('curiosity')) continue
+  if (anglePositions.length === 0) {
+    // Fallback: just find all headline/sub/cta/visual groups in the whole section
+    parseSetFields(section, 'Ad Copy', sets)
+    return sets
+  }
 
-    const angleName = stripMarkdown(firstLine).replace(/^angle\s*\d+[:\s]*/i, '').trim()
-
-    // Find sets within this angle block
-    const setMatches = block.split(/\*\*Set\s+(\d+)[:\s]*\*\*/gi)
-    if (setMatches.length < 2) {
-      // Try alternate format: just numbered sets or bullet points
-      const headlineMatches = [...block.matchAll(/[-*]\s*\*?\*?Headline\*?\*?[:\s]*(.+)/gi)]
-      const subMatches = [...block.matchAll(/[-*]\s*\*?\*?Sub-?headline\*?\*?[:\s]*(.+)/gi)]
-      const ctaMatches = [...block.matchAll(/[-*]\s*\*?\*?CTA\*?\*?[:\s]*(.+)/gi)]
-      const visualMatches = [...block.matchAll(/[-*]\s*\*?\*?Visual\s*(?:Concept)?\*?\*?[:\s]*(.+)/gi)]
-
-      for (let i = 0; i < headlineMatches.length; i++) {
-        sets.push({
-          angle: angleName || `Angle ${sets.length + 1}`,
-          setNumber: i + 1,
-          headline: stripMarkdown(headlineMatches[i]?.[1] || '').trim(),
-          subHeadline: stripMarkdown(subMatches[i]?.[1] || '').trim(),
-          cta: stripMarkdown(ctaMatches[i]?.[1] || '').trim(),
-          visualConcept: stripMarkdown(visualMatches[i]?.[1] || '').trim(),
-        })
-      }
-    } else {
-      for (let i = 1; i < setMatches.length; i += 2) {
-        const setNum = parseInt(setMatches[i]) || Math.ceil(i / 2)
-        const setContent = setMatches[i + 1] || ''
-        const hl = setContent.match(/[-*]\s*\*?\*?Headline\*?\*?[:\s]*(.+)/i)
-        const sh = setContent.match(/[-*]\s*\*?\*?Sub-?headline\*?\*?[:\s]*(.+)/i)
-        const ct = setContent.match(/[-*]\s*\*?\*?CTA\*?\*?[:\s]*(.+)/i)
-        const vc = setContent.match(/[-*]\s*\*?\*?Visual\s*(?:Concept)?\*?\*?[:\s]*(.+)/i)
-        sets.push({
-          angle: angleName || `Angle ${Math.ceil(i / 2)}`,
-          setNumber: setNum,
-          headline: stripMarkdown(hl?.[1] || '').trim(),
-          subHeadline: stripMarkdown(sh?.[1] || '').trim(),
-          cta: stripMarkdown(ct?.[1] || '').trim(),
-          visualConcept: stripMarkdown(vc?.[1] || '').trim(),
-        })
-      }
-    }
+  for (let a = 0; a < anglePositions.length; a++) {
+    const start = anglePositions[a].start
+    const end = a + 1 < anglePositions.length ? anglePositions[a + 1].start : section.length
+    const block = section.slice(start, end)
+    parseSetFields(block, anglePositions[a].name, sets)
   }
 
   return sets
 }
 
+function parseSetFields(block: string, angleName: string, sets: ImageAdSet[]) {
+  // Strategy 1: Split by **Set N** markers
+  const setChunks = block.split(/\*\*\s*Set\s+\d+\s*\*\*/gi)
+
+  if (setChunks.length > 1) {
+    // First chunk is pre-set header text, skip it
+    for (let i = 1; i < setChunks.length; i++) {
+      const chunk = setChunks[i]
+      extractAndPush(chunk, angleName, i, sets)
+    }
+    return
+  }
+
+  // Strategy 2: Find all Headline fields and group with following Sub/CTA/Visual
+  const lines = block.split('\n')
+  let currentSet: { headline: string; sub: string; cta: string; visual: string } | null = null
+  let setNum = 0
+
+  for (const line of lines) {
+    const hlMatch = line.match(/^\s*[*-]\s*\*?\*?Headline\*?\*?\s*[:]\s*(.+)/i)
+    if (hlMatch) {
+      if (currentSet && currentSet.headline) {
+        setNum++
+        sets.push({
+          angle: angleName,
+          setNumber: setNum,
+          headline: stripMarkdown(currentSet.headline).trim(),
+          subHeadline: stripMarkdown(currentSet.sub).trim(),
+          cta: stripMarkdown(currentSet.cta).trim(),
+          visualConcept: stripMarkdown(currentSet.visual).trim(),
+        })
+      }
+      currentSet = { headline: hlMatch[1], sub: '', cta: '', visual: '' }
+      continue
+    }
+    if (!currentSet) continue
+    const subMatch = line.match(/^\s*[*-]\s*\*?\*?Sub-?headline\*?\*?\s*[:]\s*(.+)/i)
+    if (subMatch) { currentSet.sub = subMatch[1]; continue }
+    const ctaMatch = line.match(/^\s*[*-]\s*\*?\*?CTA\*?\*?\s*[:]\s*(.+)/i)
+    if (ctaMatch) { currentSet.cta = ctaMatch[1]; continue }
+    const visMatch = line.match(/^\s*[*-]\s*\*?\*?Visual\s*(?:Concept)?\*?\*?\s*[:]\s*(.+)/i)
+    if (visMatch) { currentSet.visual = visMatch[1]; continue }
+  }
+  // Push last set
+  if (currentSet && currentSet.headline) {
+    setNum++
+    sets.push({
+      angle: angleName,
+      setNumber: setNum,
+      headline: stripMarkdown(currentSet.headline).trim(),
+      subHeadline: stripMarkdown(currentSet.sub).trim(),
+      cta: stripMarkdown(currentSet.cta).trim(),
+      visualConcept: stripMarkdown(currentSet.visual).trim(),
+    })
+  }
+}
+
+function extractAndPush(chunk: string, angleName: string, setNum: number, sets: ImageAdSet[]) {
+  const hl = chunk.match(/[*-]\s*\*?\*?Headline\*?\*?\s*[:]\s*(.+)/i)
+  const sh = chunk.match(/[*-]\s*\*?\*?Sub-?headline\*?\*?\s*[:]\s*(.+)/i)
+  const ct = chunk.match(/[*-]\s*\*?\*?CTA\*?\*?\s*[:]\s*(.+)/i)
+  const vc = chunk.match(/[*-]\s*\*?\*?Visual\s*(?:Concept)?\*?\*?\s*[:]\s*(.+)/i)
+  if (hl) {
+    sets.push({
+      angle: angleName,
+      setNumber: setNum,
+      headline: stripMarkdown(hl[1]).trim(),
+      subHeadline: stripMarkdown(sh?.[1] || '').trim(),
+      cta: stripMarkdown(ct?.[1] || '').trim(),
+      visualConcept: stripMarkdown(vc?.[1] || '').trim(),
+    })
+  }
+}
+
 function parsePrimaryTextBlocks(raw: string): { angle: string; label: string; text: string }[] {
   if (!raw) return []
   const blocks: { angle: string; label: string; text: string }[] = []
-  const primaryMatch = raw.match(/PRIMARY TEXT[\s\S]*?(?=##\s*SECTION 4|##\s*RETARGETING|$)/i)
+
+  // Match section 3 / PRIMARY TEXT with flexible headers
+  const primaryMatch = raw.match(/#{2,4}\s*(?:SECTION 3[:\s]*)?PRIMARY TEXT[\s\S]*?(?=#{2,3}\s*(?:SECTION 4|RETARGETING)|$)/i)
   if (!primaryMatch) return blocks
 
-  const parts = primaryMatch[0].split(/###\s+/g).filter(Boolean)
-  for (const part of parts) {
-    const firstLine = part.split('\n')[0].trim()
-    if (!firstLine.toLowerCase().includes('angle') && !firstLine.toLowerCase().includes('pain') && !firstLine.toLowerCase().includes('dream') && !firstLine.toLowerCase().includes('proof')) continue
-    const angleName = stripMarkdown(firstLine)
+  const section = primaryMatch[0]
 
-    const subs = part.split(/####\s+/g)
+  // Split by angle headers (### or ** Angle N: ... **)
+  const angleParts = section.split(/(?:#{2,4}|\*\*)\s*(?:ANGLE\s*\d+[:\s—–-]*)/i).filter(Boolean)
+
+  if (angleParts.length <= 1) {
+    // Fallback: split by #### sub-headers (Short/Medium/Long/Headlines/Strategy)
+    const subs = section.split(/#{3,4}\s+/g)
     for (let i = 1; i < subs.length; i++) {
-      const subFirstLine = subs[i].split('\n')[0].trim()
-      const subContent = subs[i].split('\n').slice(1).join('\n').trim()
-      if (subContent) {
-        blocks.push({ angle: angleName, label: stripMarkdown(subFirstLine), text: stripMarkdown(subContent) })
+      const firstLine = subs[i].split('\n')[0].trim()
+      const content = subs[i].split('\n').slice(1).join('\n').trim()
+      if (content && !firstLine.toLowerCase().includes('primary text')) {
+        blocks.push({ angle: 'Copy', label: stripMarkdown(firstLine), text: stripMarkdown(content) })
       }
+    }
+    return blocks
+  }
+
+  for (const part of angleParts) {
+    const lines = part.split('\n')
+    const firstLine = lines[0].trim().replace(/\*\*$/g, '')
+    const angleName = stripMarkdown(firstLine).trim()
+    if (!angleName || angleName.toLowerCase() === 'primary text') continue
+
+    // Split by sub-headers (#### Short Version, etc.) or **Short Version** bold markers
+    const subPattern = /(?:#{3,4}\s+|\*\*\s*)((?:Short|Medium|Long|Headlines?|Strategy)[^*\n]*?)(?:\*\*)?$/gim
+    const subPositions: { label: string; start: number }[] = []
+    let sm
+    while ((sm = subPattern.exec(part)) !== null) {
+      subPositions.push({ label: stripMarkdown(sm[1]).trim(), start: sm.index + sm[0].length })
+    }
+
+    for (let s = 0; s < subPositions.length; s++) {
+      const start = subPositions[s].start
+      const end = s + 1 < subPositions.length ? subPositions[s + 1].start - (subPositions[s + 1].label.length + 10) : part.length
+      const content = part.slice(start, end).trim()
+      if (content) {
+        blocks.push({ angle: angleName, label: subPositions[s].label, text: stripMarkdown(content) })
+      }
+    }
+
+    // If no sub-headers found, push the whole angle as one block
+    if (subPositions.length === 0) {
+      const content = lines.slice(1).join('\n').trim()
+      if (content) blocks.push({ angle: angleName, label: 'Full Copy', text: stripMarkdown(content) })
     }
   }
   return blocks
