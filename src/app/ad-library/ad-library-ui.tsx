@@ -75,10 +75,15 @@ export function AdLibraryUI({ clients }: { clients: Client[] }) {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
+    if (!selectedClient) {
+      setLiveAds([])
+      setGenerated([])
+      setPipelineCounts({})
+      return
+    }
     setLoading(true)
     try {
-      const params = new URLSearchParams({ tab: activeTab })
-      if (selectedClient) params.set('clientId', selectedClient)
+      const params = new URLSearchParams({ tab: activeTab, clientId: selectedClient })
       if (activeTab === 'generated' && filterStatus !== 'all') params.set('status', filterStatus)
 
       const res = await fetch(`/api/ad-library?${params}`)
@@ -170,6 +175,17 @@ export function AdLibraryUI({ clients }: { clients: Client[] }) {
         </div>
       </div>
 
+      {/* No client selected */}
+      {!selectedClient && !loading && (
+        <div className="bg-white border border-[#e8e8ec] rounded-md p-12 text-center">
+          <div className="w-10 h-10 rounded bg-[#f4f4f6] flex items-center justify-center mx-auto mb-3">
+            <svg className="w-5 h-5 text-[#9d9da8]" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="12" y="3" width="5" height="5" rx="1" /><rect x="3" y="12" width="5" height="5" rx="1" /><rect x="12" y="12" width="5" height="5" rx="1" /></svg>
+          </div>
+          <p className="text-[13px] text-[#6b6b76]">Select a client to view their ad library</p>
+          <p className="text-[11px] text-[#9d9da8] mt-1">Live ad creatives and generated assets organized by client</p>
+        </div>
+      )}
+
       {/* Loading */}
       {loading && (
         <div className="bg-white border border-[#e8e8ec] rounded-md p-12 text-center">
@@ -179,7 +195,7 @@ export function AdLibraryUI({ clients }: { clients: Client[] }) {
       )}
 
       {/* LIVE ADS TAB */}
-      {!loading && activeTab === 'live' && (
+      {!loading && selectedClient && activeTab === 'live' && (
         <>
           {liveAds.length === 0 ? (
             <div className="bg-white border border-[#e8e8ec] rounded-md p-12 text-center">
@@ -218,7 +234,7 @@ export function AdLibraryUI({ clients }: { clients: Client[] }) {
       )}
 
       {/* GENERATED CREATIVES TAB */}
-      {!loading && activeTab === 'generated' && (
+      {!loading && selectedClient && activeTab === 'generated' && (
         <>
           {generated.length === 0 ? (
             <div className="bg-white border border-[#e8e8ec] rounded-md p-12 text-center">

@@ -138,11 +138,14 @@ export async function GET(req: NextRequest) {
       image_data: undefined,
     }))
 
-    // Pipeline counts
-    const { data: countData } = await supabaseAdmin
+    // Pipeline counts (scoped to client if selected)
+    let countQuery = supabaseAdmin
       .from('generated_creatives')
       .select('pipeline_status')
       .eq('org_id', ORG_ID)
+    if (clientId) countQuery = countQuery.eq('client_id', clientId)
+
+    const { data: countData } = await countQuery
       .then(res => {
         const counts: Record<string, number> = {}
         for (const r of (res.data || [])) {
