@@ -73,12 +73,12 @@ function parseImageAdSets(raw: string): ImageAdSet[] {
 
   const section = iatMatch[0]
 
-  // Split by angle headers — match **Angle N: Name** or ### Angle N: Name or bold angle lines
-  const anglePattern = /(?:#{2,4}\s*|\*\*)\s*Angle\s*\d+[:\s—–-]*([^*\n]+?)(?:\*\*)?$/gim
+  // Split by angle headers — match **ANGLE N: Name** or ### Angle N: Name
+  const anglePattern = /(?:#{2,4}\s*|\*\*\s*)(?:ANGLE\s*\d+[:\s—–-]*)([\s\S]*?)(?:\*\*)?$/gim
   const anglePositions: { name: string; start: number }[] = []
   let m
   while ((m = anglePattern.exec(section)) !== null) {
-    anglePositions.push({ name: stripMarkdown(m[1] || m[0]).replace(/^angle\s*\d+[:\s—–-]*/i, '').trim(), start: m.index })
+    anglePositions.push({ name: stripMarkdown(m[1]).trim(), start: m.index })
   }
 
   if (anglePositions.length === 0) {
@@ -98,26 +98,16 @@ function parseImageAdSets(raw: string): ImageAdSet[] {
 }
 
 function parseSetFields(block: string, angleName: string, sets: ImageAdSet[]) {
-  // Strategy 1: Split by **Set N** markers
-  const setChunks = block.split(/\*\*\s*Set\s+\d+\s*\*\*/gi)
-
-  if (setChunks.length > 1) {
-    // First chunk is pre-set header text, skip it
-    for (let i = 1; i < setChunks.length; i++) {
-      const chunk = setChunks[i]
-      extractAndPush(chunk, angleName, i, sets)
-    }
-    return
-  }
-
-  // Strategy 2: Find all Headline fields and group with following Sub/CTA/Visual
+  // Universal approach: scan line by line, detect Headline fields, group into sets
   const lines = block.split('\n')
   let currentSet: { headline: string; sub: string; cta: string; visual: string } | null = null
   let setNum = 0
 
   for (const line of lines) {
-    const hlMatch = line.match(/^\s*[*-]\s*\*?\*?Headline\*?\*?\s*[:]\s*(.+)/i)
+    // Match headline with flexible formatting: "* Headline: ...", "    *   Headline: ...", "- **Headline:** ..."
+    const hlMatch = line.match(/^\s*[*-]\s*\*?\*?\s*Headline\s*\*?\*?\s*[:]\s*(.+)/i)
     if (hlMatch) {
+      // Push previous set if exists
       if (currentSet && currentSet.headline) {
         setNum++
         sets.push({
@@ -133,11 +123,14 @@ function parseSetFields(block: string, angleName: string, sets: ImageAdSet[]) {
       continue
     }
     if (!currentSet) continue
-    const subMatch = line.match(/^\s*[*-]\s*\*?\*?Sub-?headline\*?\*?\s*[:]\s*(.+)/i)
+
+    const subMatch = line.match(/^\s*[*-]\s*\*?\*?\s*Sub-?\s*headline\s*\*?\*?\s*[:]\s*(.+)/i)
     if (subMatch) { currentSet.sub = subMatch[1]; continue }
-    const ctaMatch = line.match(/^\s*[*-]\s*\*?\*?CTA\*?\*?\s*[:]\s*(.+)/i)
+
+    const ctaMatch = line.match(/^\s*[*-]\s*\*?\*?\s*CTA\s*\*?\*?\s*[:]\s*(.+)/i)
     if (ctaMatch) { currentSet.cta = ctaMatch[1]; continue }
-    const visMatch = line.match(/^\s*[*-]\s*\*?\*?Visual\s*(?:Concept)?\*?\*?\s*[:]\s*(.+)/i)
+
+    const visMatch = line.match(/^\s*[*-]\s*\*?\*?\s*Visual\s*(?:Concept)?\s*\*?\*?\s*[:]\s*(.+)/i)
     if (visMatch) { currentSet.visual = visMatch[1]; continue }
   }
   // Push last set
@@ -154,22 +147,7 @@ function parseSetFields(block: string, angleName: string, sets: ImageAdSet[]) {
   }
 }
 
-function extractAndPush(chunk: string, angleName: string, setNum: number, sets: ImageAdSet[]) {
-  const hl = chunk.match(/[*-]\s*\*?\*?Headline\*?\*?\s*[:]\s*(.+)/i)
-  const sh = chunk.match(/[*-]\s*\*?\*?Sub-?headline\*?\*?\s*[:]\s*(.+)/i)
-  const ct = chunk.match(/[*-]\s*\*?\*?CTA\*?\*?\s*[:]\s*(.+)/i)
-  const vc = chunk.match(/[*-]\s*\*?\*?Visual\s*(?:Concept)?\*?\*?\s*[:]\s*(.+)/i)
-  if (hl) {
-    sets.push({
-      angle: angleName,
-      setNumber: setNum,
-      headline: stripMarkdown(hl[1]).trim(),
-      subHeadline: stripMarkdown(sh?.[1] || '').trim(),
-      cta: stripMarkdown(ct?.[1] || '').trim(),
-      visualConcept: stripMarkdown(vc?.[1] || '').trim(),
-    })
-  }
-}
+// removed extractAndPush - now using parseSetFields only
 
 function parsePrimaryTextBlocks(raw: string): { angle: string; label: string; text: string }[] {
   if (!raw) return []
