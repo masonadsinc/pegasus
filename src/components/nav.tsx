@@ -82,17 +82,34 @@ function IconLibrary({ className }: { className?: string }) {
   )
 }
 
-export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'copywriter' | 'ad-library' | 'settings' }) {
+export type NavPage = 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'copywriter' | 'ad-library' | 'settings'
+
+export function Nav({ current }: { current: NavPage }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const links = [
-    { href: '/pegasus', label: 'Pegasus', icon: IconPegasus, key: 'pegasus' as const },
-    { href: '/', label: 'Health Tracker', icon: IconGrid, key: 'dashboard' as const },
-    { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
-    { href: '/reports', label: 'Reports', icon: IconReport, key: 'reports' as const },
-    { href: '/creative-studio', label: 'Creative Studio', icon: IconBrush, key: 'creative-studio' as const },
-    { href: '/copywriter', label: 'Copywriter', icon: IconPen, key: 'copywriter' as const },
-    { href: '/ad-library', label: 'Ad Library', icon: IconLibrary, key: 'ad-library' as const },
+  const sections = [
+    {
+      label: null, // No label for top section
+      links: [
+        { href: '/pegasus', label: 'Pegasus AI', icon: IconPegasus, key: 'pegasus' as const },
+      ],
+    },
+    {
+      label: 'MANAGE',
+      links: [
+        { href: '/', label: 'Health Tracker', icon: IconGrid, key: 'dashboard' as const },
+        { href: '/clients', label: 'Clients', icon: IconClients, key: 'clients' as const },
+        { href: '/reports', label: 'Reports', icon: IconReport, key: 'reports' as const },
+      ],
+    },
+    {
+      label: 'CREATE',
+      links: [
+        { href: '/creative-studio', label: 'Image Studio', icon: IconBrush, key: 'creative-studio' as const },
+        { href: '/copywriter', label: 'Copywriter', icon: IconPen, key: 'copywriter' as const },
+        { href: '/ad-library', label: 'Ad Library', icon: IconLibrary, key: 'ad-library' as const },
+      ],
+    },
   ]
 
   const sidebarContent = (
@@ -112,21 +129,28 @@ export function Nav({ current }: { current: 'dashboard' | 'clients' | 'reports' 
         </button>
       </div>
 
-      <nav className="flex-1 px-3">
-        {links.map(l => (
-          <Link
-            key={l.key}
-            href={l.href}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded text-[13px] font-medium mb-0.5 transition-all duration-150 ${
-              current === l.key
-                ? 'bg-[#111113] text-white'
-                : 'text-[#6b6b76] hover:text-[#111113] hover:bg-[#f4f4f6]'
-            }`}
-          >
-            <l.icon className="w-[16px] h-[16px]" />
-            {l.label}
-          </Link>
+      <nav className="flex-1 px-3 pt-1">
+        {sections.map((section, si) => (
+          <div key={si} className={si > 0 ? 'mt-4' : ''}>
+            {section.label && (
+              <p className="text-[9px] uppercase tracking-[0.1em] text-[#c4c4cc] font-semibold px-3 mb-1">{section.label}</p>
+            )}
+            {section.links.map(l => (
+              <Link
+                key={l.key}
+                href={l.href}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded text-[13px] font-medium mb-0.5 transition-all duration-150 ${
+                  current === l.key
+                    ? 'bg-[#111113] text-white'
+                    : 'text-[#6b6b76] hover:text-[#111113] hover:bg-[#f4f4f6]'
+                }`}
+              >
+                <l.icon className="w-[16px] h-[16px]" />
+                {l.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
 

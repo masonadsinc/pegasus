@@ -7,10 +7,11 @@ import { CopywriterUI } from './copywriter-ui'
 export const revalidate = 0
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
-export default async function CopywriterPage() {
+export default async function CopywriterPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const user = await getUser()
   if (!user) redirect('/login')
 
+  const params = await searchParams
   const { data: clients } = await supabaseAdmin
     .from('clients')
     .select('id, name, slug, ad_accounts(id, is_active, primary_action_type)')
@@ -25,7 +26,7 @@ export default async function CopywriterPage() {
     <>
       <Nav current="copywriter" />
       <PageWrapper>
-        <CopywriterUI clients={activeClients} />
+        <CopywriterUI clients={activeClients} initialClientId={params.client} />
       </PageWrapper>
     </>
   )

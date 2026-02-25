@@ -62,9 +62,9 @@ function fmt(n: number): string {
   return n.toFixed(n < 10 ? 2 : 0)
 }
 
-export function AdLibraryUI({ clients }: { clients: Client[] }) {
+export function AdLibraryUI({ clients, initialClientId }: { clients: Client[]; initialClientId?: string }) {
   const [activeTab, setActiveTab] = useState<'live' | 'generated'>('live')
-  const [selectedClient, setSelectedClient] = useState<string>('')
+  const [selectedClient, setSelectedClient] = useState<string>(initialClientId || '')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [liveAds, setLiveAds] = useState<LiveAd[]>([])
   const [generated, setGenerated] = useState<GeneratedCreative[]>([])
@@ -153,6 +153,20 @@ export function AdLibraryUI({ clients }: { clients: Client[] }) {
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
+
+          {/* Cross-links */}
+          {selectedClient && (
+            <div className="flex items-end">
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-medium mb-1 block">Tools</label>
+                <div className="flex items-center gap-2">
+                  <a href={`/copywriter?client=${selectedClient}`} className="px-2.5 py-2 text-[11px] font-medium text-[#6b6b76] bg-[#f4f4f6] hover:bg-[#e8e8ec] rounded transition-colors">Copywriter</a>
+                  <a href={`/creative-studio?client=${selectedClient}`} className="px-2.5 py-2 text-[11px] font-medium text-[#6b6b76] bg-[#f4f4f6] hover:bg-[#e8e8ec] rounded transition-colors">Image Studio</a>
+                  <a href={`/pegasus?client=${selectedClient}`} className="px-2.5 py-2 text-[11px] font-medium text-[#6b6b76] bg-[#f4f4f6] hover:bg-[#e8e8ec] rounded transition-colors">Pegasus</a>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Pipeline filter (generated tab only) */}
           {activeTab === 'generated' && (

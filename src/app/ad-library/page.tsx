@@ -7,10 +7,11 @@ import { AdLibraryUI } from './ad-library-ui'
 export const revalidate = 0
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
-export default async function AdLibraryPage() {
+export default async function AdLibraryPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const user = await getUser()
   if (!user) redirect('/login')
 
+  const params = await searchParams
   const { data: clients } = await supabaseAdmin
     .from('clients')
     .select('id, name, slug')
@@ -21,7 +22,7 @@ export default async function AdLibraryPage() {
     <>
       <Nav current="ad-library" />
       <PageWrapper>
-        <AdLibraryUI clients={clients || []} />
+        <AdLibraryUI clients={clients || []} initialClientId={params.client} />
       </PageWrapper>
     </>
   )

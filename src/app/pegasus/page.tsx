@@ -36,14 +36,14 @@ async function getClients() {
     .sort((a, b) => b.weeklySpend - a.weeklySpend) // Active spenders first
 }
 
-export default async function PegasusPage() {
-  const clients = await getClients()
+export default async function PegasusPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
+  const [clients, params] = await Promise.all([getClients(), searchParams])
 
   return (
     <>
       <Nav current="pegasus" />
       <PageWrapper>
-        <PegasusChat clients={clients} />
+        <PegasusChat clients={clients} initialClientId={params.client} />
       </PageWrapper>
     </>
   )

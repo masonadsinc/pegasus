@@ -500,6 +500,29 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
       </div>
     )}
 
+    {/* Quick Actions — cross-links to creative tools */}
+    {!portalMode && (
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wider text-[#c4c4cc] font-semibold mr-1">Quick Actions</span>
+        <a href={`/pegasus?client=${clientId}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-[#6b6b76] bg-[#f4f4f6] hover:bg-[#e8e8ec] hover:text-[#111113] rounded transition-colors">
+          <svg className="w-3 h-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2L4 7v7a2 2 0 002 2h8a2 2 0 002-2V7l-6-5z" /><path d="M10 16V10" /></svg>
+          Ask Pegasus
+        </a>
+        <a href={`/copywriter?client=${clientId}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-[#6b6b76] bg-[#f4f4f6] hover:bg-[#e8e8ec] hover:text-[#111113] rounded transition-colors">
+          <svg className="w-3 h-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" /><path d="M11 6l3 3" /></svg>
+          Generate Copy
+        </a>
+        <a href={`/creative-studio?client=${clientId}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-[#6b6b76] bg-[#f4f4f6] hover:bg-[#e8e8ec] hover:text-[#111113] rounded transition-colors">
+          <svg className="w-3 h-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l4-7h6l4 7-4 7H7l-4-7z" /></svg>
+          Image Studio
+        </a>
+        <a href={`/ad-library?client=${clientId}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-[#6b6b76] bg-[#f4f4f6] hover:bg-[#e8e8ec] hover:text-[#111113] rounded transition-colors">
+          <svg className="w-3 h-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="12" y="3" width="5" height="5" rx="1" /><rect x="3" y="12" width="5" height="5" rx="1" /><rect x="12" y="12" width="5" height="5" rx="1" /></svg>
+          Ad Library
+        </a>
+      </div>
+    )}
+
     <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== 'ads') setCampaignFilter(null) }}>
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>

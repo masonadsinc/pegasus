@@ -207,8 +207,8 @@ function parsePrimaryTextBlocks(raw: string): { angle: string; label: string; te
   return blocks
 }
 
-export function CopywriterUI({ clients }: { clients: Client[] }) {
-  const [selectedClient, setSelectedClient] = useState<string>('')
+export function CopywriterUI({ clients, initialClientId }: { clients: Client[]; initialClientId?: string }) {
+  const [selectedClient, setSelectedClient] = useState<string>(initialClientId || '')
   const [days, setDays] = useState(30)
   const [mode, setMode] = useState<'variation' | 'refresh'>('variation')
   const [generating, setGenerating] = useState(false)
@@ -446,11 +446,22 @@ NO LOGOS. NO placeholder text. NO gibberish. Every word spelled perfectly.`
             </button>
           </div>
         </div>
-        <div className="mt-3 px-1">
-          {mode === 'variation' ? (
-            <p className="text-[11px] text-[#6b6b76]">Variation mode iterates on winning ad patterns — same emotional angles, new words.</p>
-          ) : (
-            <p className="text-[11px] text-[#f59e0b]">Refresh mode finds new creative directions. Use when current copy is fatiguing.</p>
+        <div className="mt-3 px-1 flex items-center justify-between">
+          <div>
+            {mode === 'variation' ? (
+              <p className="text-[11px] text-[#6b6b76]">Variation mode iterates on winning ad patterns — same emotional angles, new words.</p>
+            ) : (
+              <p className="text-[11px] text-[#f59e0b]">Refresh mode finds new creative directions. Use when current copy is fatiguing.</p>
+            )}
+          </div>
+          {selectedClient && (
+            <div className="flex items-center gap-2 ml-4 shrink-0">
+              <a href={`/creative-studio?client=${selectedClient}`} className="text-[10px] text-[#9d9da8] hover:text-[#2563eb] transition-colors">Image Studio</a>
+              <span className="text-[#e8e8ec]">|</span>
+              <a href={`/ad-library?client=${selectedClient}`} className="text-[10px] text-[#9d9da8] hover:text-[#2563eb] transition-colors">Ad Library</a>
+              <span className="text-[#e8e8ec]">|</span>
+              <a href={`/pegasus?client=${selectedClient}`} className="text-[10px] text-[#9d9da8] hover:text-[#2563eb] transition-colors">Ask Pegasus</a>
+            </div>
           )}
         </div>
       </div>

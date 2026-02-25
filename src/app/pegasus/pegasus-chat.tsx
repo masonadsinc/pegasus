@@ -67,8 +67,10 @@ const DATE_RANGES = [
   { label: '90 days', value: 90 },
 ]
 
-export function PegasusChat({ clients }: { clients: ClientOption[] }) {
-  const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null)
+export function PegasusChat({ clients, initialClientId }: { clients: ClientOption[]; initialClientId?: string }) {
+  const [selectedClient, setSelectedClient] = useState<ClientOption | null>(
+    initialClientId ? clients.find(c => c.id === initialClientId) || null : null
+  )
   const [days, setDays] = useState(7)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')

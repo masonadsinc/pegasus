@@ -28,8 +28,8 @@ const ASPECT_RATIOS = [
   { label: '16:9', value: '16:9', desc: 'Landscape' },
 ]
 
-export function CreativeStudioUI({ clients }: { clients: Client[] }) {
-  const [selectedClient, setSelectedClient] = useState('')
+export function CreativeStudioUI({ clients, initialClientId }: { clients: Client[]; initialClientId?: string }) {
+  const [selectedClient, setSelectedClient] = useState(initialClientId || '')
   const [winningAds, setWinningAds] = useState<WinningAd[]>([])
   const [selectedWinner, setSelectedWinner] = useState<WinningAd | null>(null)
   const [additionalRefs, setAdditionalRefs] = useState<Set<string>>(new Set())
