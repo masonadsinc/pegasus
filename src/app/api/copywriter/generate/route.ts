@@ -304,6 +304,7 @@ For each of 3 angles, write 3 sets of:
 - Headline (3-7 words, bold, unmissable)
 - Sub-headline (5-12 words)
 - CTA (2-4 words, action verb)
+- Visual Concept (1-2 sentences describing the image scene — what the viewer sees behind the text. Be specific: environment, subject, lighting, mood, camera angle. NOT a description of the text — a description of the VISUAL.)
 = 9 total image ad text sets
 
 ### SECTION 3: PRIMARY TEXT (feed copy)
