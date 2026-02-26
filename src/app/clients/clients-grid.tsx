@@ -135,7 +135,7 @@ function ClientCard({ account }: { account: Account }) {
         <div className="mb-4">
           <DaysOnTarget daily={account.daily} targetCpl={account.target_cpl} targetRoas={account.target_roas} isEcom={isEcom} />
         </div>
-        <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider mb-2">Last 7 Days</p>
+        <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider mb-2">Last 30 Days</p>
         <div className="flex items-center justify-between text-[13px] mb-1">
           <span className="text-[12px] text-[#9d9da8]">Spend</span>
           <span className="font-semibold tabular-nums">{formatCurrency(account.spend)}</span>

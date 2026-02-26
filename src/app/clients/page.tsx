@@ -8,7 +8,7 @@ export const revalidate = 300
 const ORG_ID = await getOrgId()
 
 export default async function ClientsPage() {
-  const accounts = await getDashboardData(ORG_ID, 7)
+  const accounts = await getDashboardData(ORG_ID, 30)
   const totalSpend = accounts.reduce((s, a) => s + a.spend, 0)
   const activeCount = accounts.filter(a => a.spend > 0).length
 
@@ -20,7 +20,7 @@ export default async function ClientsPage() {
           <div className="flex items-end justify-between mb-4">
             <div>
               <h2 className="text-[20px] font-semibold text-[#111113]">Clients</h2>
-              <p className="text-[13px] text-[#9d9da8]">{accounts.length} accounts · {activeCount} active · {formatCurrency(totalSpend)} total spend (7d)</p>
+              <p className="text-[13px] text-[#9d9da8]">{accounts.length} accounts · {activeCount} active · {formatCurrency(totalSpend)} total spend (30d)</p>
             </div>
           </div>
           <ClientsGrid accounts={accounts} />
