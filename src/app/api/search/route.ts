@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 
 // Escape special Postgres LIKE characters
 function escapeLike(input: string): string {
@@ -10,6 +10,7 @@ function escapeLike(input: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   try {
     // Auth check
     const user = await getUser()

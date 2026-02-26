@@ -5,10 +5,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import { PortalTabs } from './portal-tabs'
 import { PortalDatePicker } from './portal-date-picker'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 0
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 const VALID_DAYS = [7, 14, 30, 60, 90]
 
 function KpiCard({ label, value, target, sub, status, progressPct }: {

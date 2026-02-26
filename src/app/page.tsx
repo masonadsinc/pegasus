@@ -6,8 +6,9 @@ import { OnboardingChecklist } from '@/components/onboarding-checklist'
 import { Card } from '@/components/ui/card'
 import { DataFreshness } from '@/components/data-freshness'
 import Link from 'next/link'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 export const revalidate = 300
 
 let _orgTz = 'America/Los_Angeles'

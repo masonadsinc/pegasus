@@ -5,9 +5,9 @@ import { isEcomActionType } from '@/lib/utils'
 import { preAnalyze } from '@/lib/analysis'
 import { logApiUsage, extractTokenCounts } from '@/lib/api-usage'
 import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
-const ORG_ID = process.env.ADSINC_ORG_ID!
+import { getOrgId } from '@/lib/org'
 
-async function getGeminiKey() {
+async function getGeminiKey(ORG_ID: string) {
   const { data } = await supabaseAdmin
     .from('organizations')
     .select('gemini_api_key')
@@ -42,7 +42,7 @@ function getDateRange(days: number, tz: string) {
   }
 }
 
-async function generateClientReport(clientId: string, apiKey: string, dates: ReturnType<typeof getDateRange>) {
+async function generateClientReport(clientId: string, apiKey: string, dates: ReturnType<typeof getDateRange>, ORG_ID: string) {
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('*, ad_accounts(*)')
@@ -379,6 +379,7 @@ function formatDateRange(start: string, end: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   try {
     // Allow cron-triggered calls (Vercel Cron or CRON_SECRET)
     const isCron = req.headers.get('x-vercel-cron') === '1' ||
@@ -390,7 +391,7 @@ export async function POST(req: NextRequest) {
       if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const apiKey = await getGeminiKey()
+    const apiKey = await getGeminiKey(ORG_ID)
     if (!apiKey) return NextResponse.json({ error: 'No Gemini API key configured' }, { status: 400 })
 
     const body = await req.json()
@@ -416,7 +417,7 @@ export async function POST(req: NextRequest) {
 
     for (const c of clients) {
       try {
-        const result = await generateClientReport(c.id, apiKey, dates)
+        const result = await generateClientReport(c.id, apiKey, dates, ORG_ID)
         if (!result || result.error) {
           results.push({ client: c.name, status: 'error', error: result?.error || 'Unknown error' })
           continue

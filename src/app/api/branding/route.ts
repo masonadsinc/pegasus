@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getOrgIdSync } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = getOrgIdSync()
 
 // Public endpoint — returns non-sensitive org branding for nav/login
 // No auth required (login page needs it before user is authenticated)

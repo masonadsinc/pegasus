@@ -2,9 +2,10 @@ import { getDashboardData } from '@/lib/queries'
 import { formatCurrency } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { ClientsGrid } from './clients-grid'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 300
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 export default async function ClientsPage() {
   const accounts = await getDashboardData(ORG_ID, 30)

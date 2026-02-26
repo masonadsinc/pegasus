@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logApiUsage, extractTokenCounts } from '@/lib/api-usage'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 
-async function getGeminiKey(): Promise<string | null> {
+async function getGeminiKey(ORG_ID: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from('organizations')
     .select('gemini_api_key')
@@ -24,10 +24,11 @@ async function fetchImageBase64(url: string): Promise<{ data: string; mimeType: 
 }
 
 export async function POST(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const apiKey = await getGeminiKey()
+  const apiKey = await getGeminiKey(ORG_ID)
   if (!apiKey) return NextResponse.json({ error: 'No Gemini API key configured' }, { status: 400 })
 
   const { clientId } = await req.json()

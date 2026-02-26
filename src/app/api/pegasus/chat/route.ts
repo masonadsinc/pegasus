@@ -4,8 +4,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { isEcomActionType } from '@/lib/utils'
 import { preAnalyze, analyzeAudience } from '@/lib/analysis'
 import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 const META_TOKEN = process.env.META_ACCESS_TOKEN!
 const META_VERSION = process.env.META_API_VERSION || 'v21.0'
 
@@ -134,7 +134,7 @@ function findReferencedAds(message: string, activeAds: any[]): any[] {
   return []
 }
 
-async function getOrgGeminiKey() {
+async function getOrgGeminiKey(ORG_ID: string) {
   const { data } = await supabaseAdmin
     .from('organizations')
     .select('gemini_api_key')
@@ -144,7 +144,7 @@ async function getOrgGeminiKey() {
   return stored || process.env.GEMINI_API_KEY || null
 }
 
-async function getClientContext(clientId: string, days = 7) {
+async function getClientContext(clientId: string, days = 7, ORG_ID: string) {
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('*, ad_accounts(*)')
@@ -982,11 +982,12 @@ async function getClientContext(clientId: string, days = 7) {
 }
 
 export async function POST(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   try {
     const user = await getUser()
     if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } })
 
-    const apiKey = await getOrgGeminiKey()
+    const apiKey = await getOrgGeminiKey(ORG_ID)
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'No Gemini API key configured. Add one in Settings > Agency.' }), {
         status: 400, headers: { 'Content-Type': 'application/json' }
@@ -998,7 +999,7 @@ export async function POST(req: NextRequest) {
     if (!clientId) return new Response(JSON.stringify({ error: 'No client selected' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
 
     const lookbackDays = Math.min(Math.max(days || 7, 7), 90)
-    const result = await getClientContext(clientId, lookbackDays)
+    const result = await getClientContext(clientId, lookbackDays, ORG_ID)
     if (!result) return new Response(JSON.stringify({ error: 'Client not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } })
 
     const member = await getUserOrgRole(user.id)

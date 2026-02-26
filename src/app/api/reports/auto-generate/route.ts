@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getOrgIdSync } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = getOrgIdSync()
 const CRON_SECRET = process.env.CRON_SECRET
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']

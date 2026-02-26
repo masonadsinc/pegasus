@@ -2,9 +2,10 @@ import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 60
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 async function getOrgData() {
   const [orgRes, membersRes, clientsRes, accountsRes, syncRes] = await Promise.all([

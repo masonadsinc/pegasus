@@ -5,9 +5,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { formatNumber } from '@/lib/utils'
 import Link from 'next/link'
 import { SyncSettings } from './sync-settings'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 30
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 async function getSyncData() {
   const [orgRes, logsRes, accountsRes, insightsRes] = await Promise.all([

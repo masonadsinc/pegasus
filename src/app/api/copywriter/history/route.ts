@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 
 export async function GET(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

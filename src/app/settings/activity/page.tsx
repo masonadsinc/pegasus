@@ -2,9 +2,10 @@ import { Nav, PageWrapper } from '@/components/nav'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 import { ActivityLog } from './activity-log'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 30
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 async function getActivity() {
   const { data } = await supabaseAdmin

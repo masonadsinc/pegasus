@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import { Nav, PageWrapper } from '@/components/nav'
 import { CopywriterUI } from './copywriter-ui'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 0
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 export default async function CopywriterPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const user = await getUser()

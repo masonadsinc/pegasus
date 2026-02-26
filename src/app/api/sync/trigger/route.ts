@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
+import { getOrgIdSync } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = getOrgIdSync()
 
 /**
  * GET /api/sync/trigger

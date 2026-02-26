@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 let cachedTz: string | null = null
 let cacheTime = 0

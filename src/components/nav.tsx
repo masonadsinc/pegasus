@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 function IconGrid({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4z" opacity=".8" /><path d="M16 4h0m0 6h0m0 6h0M4 16h4v0H4zm6 0h4v0h-4z" /></svg>
@@ -84,13 +85,32 @@ function IconLibrary({ className }: { className?: string }) {
 
 export type NavPage = 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creative-studio' | 'copywriter' | 'ad-library' | 'settings'
 
-export function Nav({ current }: { current: NavPage }) {
+export function Nav({ current: _current }: { current?: NavPage }) {
+  const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [branding, setBranding] = useState<{ name: string; logo_url: string | null; primary_color: string; initials: string } | null>(null)
+  const [branding, setBranding] = useState<{ name: string; logo_url: string | null; primary_color: string; initials: string } | null>(() => {
+    if (typeof window === 'undefined') return null
+    try { const c = localStorage.getItem('branding'); return c ? JSON.parse(c) : null } catch { return null }
+  })
 
   useEffect(() => {
-    fetch('/api/branding').then(r => r.ok ? r.json() : null).then(d => d && setBranding(d)).catch(() => {})
+    fetch('/api/branding').then(r => r.ok ? r.json() : null).then(d => {
+      if (d) { setBranding(d); try { localStorage.setItem('branding', JSON.stringify(d)) } catch {} }
+    }).catch(() => {})
   }, [])
+
+  // Derive current page from pathname for instant active state
+  const current: NavPage = (() => {
+    if (pathname === '/') return 'dashboard'
+    if (pathname.startsWith('/pegasus')) return 'pegasus'
+    if (pathname.startsWith('/clients')) return 'clients'
+    if (pathname.startsWith('/reports')) return 'reports'
+    if (pathname.startsWith('/creative-studio')) return 'creative-studio'
+    if (pathname.startsWith('/copywriter')) return 'copywriter'
+    if (pathname.startsWith('/ad-library')) return 'ad-library'
+    if (pathname.startsWith('/settings')) return 'settings'
+    return _current || 'dashboard'
+  })()
 
   const orgName = branding?.name || 'Agency'
   const orgInitial = branding?.initials || 'A'

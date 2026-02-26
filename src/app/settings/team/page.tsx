@@ -4,9 +4,10 @@ import { Badge } from '@/components/ui/badge'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 import { TeamActions, MemberActions } from './team-actions'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 30
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 async function getTeam() {
   const { data, error } = await supabaseAdmin

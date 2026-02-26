@@ -4,12 +4,12 @@ import { getUser } from '@/lib/auth'
 import { isEcomActionType } from '@/lib/utils'
 import { logApiUsage } from '@/lib/api-usage'
 import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 const META_TOKEN = process.env.META_ACCESS_TOKEN!
 const META_VERSION = process.env.META_API_VERSION || 'v21.0'
 
-async function getGeminiKey() {
+async function getGeminiKey(ORG_ID: string) {
   const { data } = await supabaseAdmin
     .from('organizations')
     .select('gemini_api_key')
@@ -131,11 +131,12 @@ async function deleteGeminiFile(fileUri: string, apiKey: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   try {
     const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const apiKey = await getGeminiKey()
+    const apiKey = await getGeminiKey(ORG_ID)
     if (!apiKey) return NextResponse.json({ error: 'No Gemini API key configured' }, { status: 400 })
 
     const { clientId, days = 30 } = await req.json()

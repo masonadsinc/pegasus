@@ -8,8 +8,9 @@ import { notFound } from 'next/navigation'
 import { ClientEditForm } from './client-edit-form'
 import { AccountEditor } from './account-editor'
 import { PortalManager } from './portal-manager'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 async function getClient(id: string) {
   const { data, error } = await supabaseAdmin

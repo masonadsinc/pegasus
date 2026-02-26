@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase'
 import { getOrgTimezone, getYesterdayInTz, getNowInTz } from './timezone'
+import { getOrgId } from '@/lib/org'
 
 // All data is through yesterday — today's data is incomplete
 // Uses org timezone setting (defaults to America/Los_Angeles)
@@ -133,7 +134,7 @@ function deriveResults(row: any, primaryActionType: string | null): { results: n
   }
 }
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 // ─── Dashboard ────────────────────────────────────────────────
 

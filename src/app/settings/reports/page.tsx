@@ -1,8 +1,9 @@
 import { Nav, PageWrapper } from '@/components/nav'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ReportSettingsForm } from './report-settings-form'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 export const revalidate = 0
 
 async function getData() {

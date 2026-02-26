@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 
 // Returns top performing ads with creative URLs for use as reference images
 export async function GET(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

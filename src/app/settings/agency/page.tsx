@@ -3,9 +3,10 @@ import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 import { AgencyForm, GeminiKeyForm } from './agency-form'
+import { getOrgId } from '@/lib/org'
 
 export const revalidate = 30
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 function maskKey(key: string): string {
   if (!key) return ''

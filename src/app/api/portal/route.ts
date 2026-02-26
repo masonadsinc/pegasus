@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
 import crypto from 'crypto'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 
 // POST /api/portal — generate or regenerate portal token for a client
 export async function POST(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/portal — revoke portal token
 export async function DELETE(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

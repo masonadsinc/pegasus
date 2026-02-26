@@ -2,8 +2,8 @@ import { NextRequest } from 'next/server'
 import { getUser } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logApiUsage } from '@/lib/api-usage'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
 const MODEL = 'gemini-3-flash-preview'
 
 function stripMarkdown(text: string): string {
@@ -11,6 +11,7 @@ function stripMarkdown(text: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const ORG_ID = await getOrgId()
   const user = await getUser()
   if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 

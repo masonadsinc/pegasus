@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabase'
+import { getOrgId } from '@/lib/org'
 
-const ORG_ID = process.env.ADSINC_ORG_ID!
+const ORG_ID = await getOrgId()
 
 // Gemini pricing (per 1M tokens) — approximate as of Feb 2026
 const PRICING: Record<string, { input: number; output: number; image?: number }> = {
