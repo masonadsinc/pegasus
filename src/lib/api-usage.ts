@@ -6,7 +6,7 @@ const ORG_ID = await getOrgId()
 // Gemini pricing (per 1M tokens) — approximate as of Feb 2026
 const PRICING: Record<string, { input: number; output: number; image?: number }> = {
   'gemini-3-flash-preview': { input: 0.10, output: 0.40 },
-  'gemini-3-pro-image-preview': { input: 1.25, output: 5.00, image: 0.04 },
+  'gemini-3.1-flash-image-preview': { input: 1.25, output: 5.00, image: 0.04 },
   'gemini-2.5-pro': { input: 1.25, output: 5.00 },
   'gemini-2.0-flash': { input: 0.10, output: 0.40 },
 }

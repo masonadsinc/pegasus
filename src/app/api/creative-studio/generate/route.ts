@@ -486,7 +486,7 @@ export async function POST(req: NextRequest) {
 
         // Call Nano Banana Pro with proper imageConfig (per Google best practices)
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -514,7 +514,7 @@ export async function POST(req: NextRequest) {
 
         const result = await response.json()
         const genTok = extractTokenCounts(result)
-        logApiUsage({ model: 'gemini-3-pro-image-preview', feature: 'creative-studio-generation', inputTokens: genTok.inputTokens, outputTokens: genTok.outputTokens, imagesGenerated: 1 })
+        logApiUsage({ model: 'gemini-3.1-flash-image-preview', feature: 'creative-studio-generation', inputTokens: genTok.inputTokens, outputTokens: genTok.outputTokens, imagesGenerated: 1 })
         const parts = result.candidates?.[0]?.content?.parts || []
 
         let imageData: string | null = null
@@ -556,7 +556,7 @@ This time, follow these STRICT rules:
 - Prioritize legibility over aesthetics` })
 
           const retryResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -618,7 +618,7 @@ This time, follow these STRICT rules:
             resolution,
             reference_ad_ids: [winnerImageUrl, ...referenceImageUrls].filter(Boolean),
             image_data: dataUrl,
-            model: 'gemini-3-pro-image-preview',
+            model: 'gemini-3.1-flash-image-preview',
             status: qa.pass ? 'completed' : 'qa_warning',
             metadata: {
               modelNotes,
