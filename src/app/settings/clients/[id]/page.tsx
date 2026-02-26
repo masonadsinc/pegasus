@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ClientEditForm } from './client-edit-form'
 import { AccountEditor } from './account-editor'
+import { PortalManager } from './portal-manager'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
@@ -62,6 +63,11 @@ export default async function ClientSettingPage({ params }: { params: Promise<{ 
             {/* Client Form */}
             <Card className="p-6">
               <ClientEditForm client={client} />
+            </Card>
+
+            {/* Client Portal */}
+            <Card className="p-6">
+              <PortalManager clientId={client.id} initialToken={client.portal_token} />
             </Card>
 
             {/* Ad Accounts */}

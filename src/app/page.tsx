@@ -2,6 +2,7 @@ import { getDashboardData, initTimezone } from '@/lib/queries'
 import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
 import { formatCurrency, formatNumber, formatPercent, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
+import { OnboardingChecklist } from '@/components/onboarding-checklist'
 import { Card } from '@/components/ui/card'
 import { DataFreshness } from '@/components/data-freshness'
 import Link from 'next/link'
@@ -202,6 +203,8 @@ export default async function Dashboard() {
       <Nav current="dashboard" />
       <PageWrapper>
         <div className="p-6 lg:p-8 max-w-[1440px] mx-auto">
+
+          <OnboardingChecklist />
 
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
