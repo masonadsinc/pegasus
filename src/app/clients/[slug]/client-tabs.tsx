@@ -101,8 +101,8 @@ function StatBox({ label, value, sub, change, sparkData, sparkColor, sparkLabels
 /* ── Ad Image ───────────────────────────────────── */
 
 /* ── Ad Detail Modal ────────────────────────────── */
-function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNext }: {
-  ad: any; open: boolean; onClose: () => void; resultLabel: string; targetCpl: number | null; onPrev?: () => void; onNext?: () => void
+function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNext, days }: {
+  ad: any; open: boolean; onClose: () => void; resultLabel: string; targetCpl: number | null; onPrev?: () => void; onNext?: () => void; days?: number
 }) {
   const [fbUrl, setFbUrl] = useState<string | null>(null)
   const [fbLoading, setFbLoading] = useState(false)
@@ -183,6 +183,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
             </a>
 
             {/* Metrics Grid */}
+            <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider font-medium">Last {days} days</p>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { label: 'Spend', value: formatCurrency(ad.spend) },
@@ -1042,6 +1043,7 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
         const idx = list.findIndex(a => a.platform_ad_id === selectedAd.platform_ad_id)
         if (idx < list.length - 1) setSelectedAd(list[idx + 1])
       }) : undefined}
+      days={daily.length}
     />
     </>
   )

@@ -53,7 +53,7 @@ export default async function ClientDetailPage({ params, searchParams }: { param
 
   const pat = activeAccount.primary_action_type
   const isEcom = isEcomActionType(pat)
-  const days = [7, 14, 30, 60, 90].includes(Number(sp.days)) ? Number(sp.days) : 30
+  const days = [7, 14, 30, 60, 90].includes(Number(sp.days)) ? Number(sp.days) : 7
 
   const [daily, campaigns, adSets, ads, ageGender, placement, device, region] = await Promise.all([
     getClientInsights(activeAccount.id, days, pat),
