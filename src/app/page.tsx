@@ -168,10 +168,9 @@ export default async function Dashboard() {
   _orgTz = await getOrgTimezone()
   await initTimezone()
   const accounts = await getDashboardData(ORG_ID, 14)
-  const activeAccounts = accounts.filter(a => a.spend > 0)
 
-  // Compute health for all active accounts
-  const scored = activeAccounts.map(a => ({
+  // Compute health for all accounts (zero-spend shown as no-data)
+  const scored = accounts.map(a => ({
     ...a,
     health: getHealthScore(a),
   })).sort((a, b) => a.health.score - b.health.score) // worst first
@@ -185,8 +184,8 @@ export default async function Dashboard() {
   const totalTwResults = scored.reduce((s, a) => s + a.health.twResults, 0)
   const totalLwSpend = scored.reduce((s, a) => s + a.health.lwSpend, 0)
   const totalLwResults = scored.reduce((s, a) => s + a.health.lwResults, 0)
-  const totalImpressions = activeAccounts.reduce((s, a) => s + a.impressions, 0)
-  const totalClicks = activeAccounts.reduce((s, a) => s + a.clicks, 0)
+  const totalImpressions = scored.reduce((s, a) => s + a.impressions, 0)
+  const totalClicks = scored.reduce((s, a) => s + a.clicks, 0)
 
   const nonEcom = scored.filter(a => !isEcomActionType(a.primary_action_type))
   const nonEcomTwSpend = nonEcom.reduce((s, a) => s + a.health.twSpend, 0)
@@ -225,7 +224,7 @@ export default async function Dashboard() {
             </div>
           </div>
 
-          {activeAccounts.length === 0 && (
+          {scored.length === 0 && (
             <div className="bg-white border border-[#e8e8ec] rounded-md p-12 text-center mb-6">
               <div className="w-12 h-12 rounded-md bg-[#f4f4f6] flex items-center justify-center mx-auto mb-4 text-[#9d9da8]">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 17V13m5 4V7m5 10v-4"/></svg>
@@ -239,7 +238,7 @@ export default async function Dashboard() {
           )}
 
           {/* Agency KPIs */}
-          <div className={`grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6 ${activeAccounts.length === 0 ? 'hidden' : ''}`}>
+          <div className={`grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6 ${scored.length === 0 ? 'hidden' : ''}`}>
             <Card className="p-4">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1.5">Weekly Spend</p>
               <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">{formatCurrency(totalTwSpend)}</p>
@@ -337,7 +336,7 @@ export default async function Dashboard() {
           <Card>
             <div className="px-5 py-4 border-b border-[#e8e8ec] flex items-center justify-between">
               <h3 className="text-[13px] font-semibold text-[#111113]">All Accounts</h3>
-              <span className="text-[12px] text-[#9d9da8]">{activeAccounts.length} active of {accounts.length}</span>
+              <span className="text-[12px] text-[#9d9da8]">{scored.filter(a => a.spend > 0).length} active of {scored.length}</span>
             </div>
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-[12px]">
@@ -395,7 +394,7 @@ export default async function Dashboard() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-[#e8e8ec] bg-[#fafafb] font-semibold text-[12px]">
-                    <td className="py-3 px-4 sticky left-0 bg-[#fafafb] z-10" colSpan={2}>Totals ({activeAccounts.length})</td>
+                    <td className="py-3 px-4 sticky left-0 bg-[#fafafb] z-10" colSpan={2}>Totals ({scored.length})</td>
                     <td className="py-3 px-4 text-right tabular-nums">{formatCurrency(totalTwSpend)}</td>
                     <td className="py-3 px-4 text-right tabular-nums">{formatNumber(totalTwResults)}</td>
                     <td className="py-3 px-4 text-right tabular-nums">{totalTwResults > 0 ? formatCurrency(totalTwSpend / totalTwResults) : '—'}</td>
