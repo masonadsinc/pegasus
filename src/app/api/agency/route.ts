@@ -17,7 +17,7 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from('organizations')
-      .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key, timezone')
+      .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key, timezone, sync_time, sync_enabled')
       .eq('id', ORG_ID)
       .single()
 
@@ -41,10 +41,13 @@ export async function PATCH(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const allowed = ['name', 'logo_url', 'primary_color', 'gemini_api_key', 'timezone']
+    const allowed = ['name', 'logo_url', 'primary_color', 'gemini_api_key', 'timezone', 'sync_time', 'sync_enabled']
     const update: any = {}
     for (const key of allowed) {
-      if (key in body) update[key] = body[key] === '' ? null : body[key]
+      if (key in body) {
+        if (key === 'sync_enabled') update[key] = body[key] === true || body[key] === 'true'
+        else update[key] = body[key] === '' ? null : body[key]
+      }
     }
 
     if (update.name) {

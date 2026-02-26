@@ -2,7 +2,7 @@ import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
-import { AgencyForm, GeminiKeyForm } from './agency-form'
+import { AgencyForm, GeminiKeyForm, SyncSettingsForm } from './agency-form'
 
 export const revalidate = 30
 const ORG_ID = process.env.ADSINC_ORG_ID!
@@ -16,7 +16,7 @@ function maskKey(key: string): string {
 async function getOrg() {
   const { data } = await supabaseAdmin
     .from('organizations')
-    .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key, timezone')
+    .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key, timezone, sync_time, sync_enabled')
     .eq('id', ORG_ID)
     .single()
   
@@ -31,6 +31,8 @@ async function getOrg() {
     logo_url: data.logo_url,
     primary_color: data.primary_color,
     timezone: data.timezone,
+    sync_time: data.sync_time,
+    sync_enabled: data.sync_enabled,
     plan: data.plan,
     has_gemini_key: hasKey,
     gemini_key_masked: hasKey ? maskKey(data.gemini_api_key) : '',
@@ -57,6 +59,11 @@ export default async function AgencySettingsPage() {
             <Card className="p-6">
               <h3 className="text-[13px] font-semibold text-[#111113] mb-4">Branding</h3>
               <AgencyForm org={org} />
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="text-[13px] font-semibold text-[#111113] mb-4">Data Sync</h3>
+              <SyncSettingsForm org={org} />
             </Card>
 
             <Card className="p-6">

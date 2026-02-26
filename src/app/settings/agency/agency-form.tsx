@@ -66,9 +66,72 @@ export function AgencyForm({ org }: { org: any }) {
       </div>
 
       <button type="submit" disabled={saving} className="w-full py-2.5 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors">
-        {saving ? 'Saving...' : saved ? 'Saved' : 'Save Branding'}
+        {saving ? 'Saving...' : saved ? 'Saved' : 'Save Settings'}
       </button>
     </form>
+  )
+}
+
+export function SyncSettingsForm({ org }: { org: any }) {
+  const [syncEnabled, setSyncEnabled] = useState(org?.sync_enabled ?? true)
+  const [syncTime, setSyncTime] = useState(org?.sync_time || '01:30')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/agency', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sync_enabled: syncEnabled, sync_time: syncTime }),
+      })
+      if (res.ok) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Failed to save')
+      }
+    } catch { alert('Failed to save') }
+    setSaving(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between p-3 rounded bg-[#f8f8fa] border border-[#e8e8ec]">
+        <div>
+          <p className="text-[13px] font-medium text-[#111113]">Daily data sync</p>
+          <p className="text-[11px] text-[#9d9da8] mt-0.5">Automatically refresh Meta ad account data</p>
+        </div>
+        <button
+          onClick={() => setSyncEnabled(!syncEnabled)}
+          className={`relative w-11 h-6 rounded-full transition-colors ${syncEnabled ? 'bg-[#2563eb]' : 'bg-[#d4d4d8]'}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${syncEnabled ? 'translate-x-5' : ''}`} />
+        </button>
+      </div>
+
+      <div>
+        <label className={labelClass}>Sync Time</label>
+        <input
+          type="time"
+          value={syncTime}
+          onChange={e => setSyncTime(e.target.value)}
+          className={inputClass}
+        />
+        <p className="text-[10px] text-[#9d9da8] mt-1">
+          Meta data refreshes daily at this time (in your org timezone). Recommended: between 12:00 AM and 4:00 AM.
+        </p>
+      </div>
+
+      <button
+        onClick={save}
+        disabled={saving}
+        className="w-full py-2.5 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors"
+      >
+        {saving ? 'Saving...' : saved ? 'Saved' : 'Save Sync Settings'}
+      </button>
+    </div>
   )
 }
 
