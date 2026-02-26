@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils'
+import { AdImage } from './shared'
 
 interface CampaignsTabProps {
   campaigns: any[]
@@ -12,10 +13,9 @@ interface CampaignsTabProps {
   resultLabel: string
   targetCpl: number | null
   onSelectAd: (ad: any) => void
-  AdImage: React.ComponentType<{ src?: string | null; alt: string; className?: string }>
 }
 
-export function CampaignsTab({ campaigns, adSets, ads, resultLabel, targetCpl, onSelectAd, AdImage }: CampaignsTabProps) {
+export function CampaignsTab({ campaigns, adSets, ads, resultLabel, targetCpl, onSelectAd }: CampaignsTabProps) {
   const [drillLevel, setDrillLevel] = useState<'campaigns' | 'adsets' | 'ads'>('campaigns')
   const [drillCampaignId, setDrillCampaignId] = useState<string | null>(null)
   const [drillAdSetId, setDrillAdSetId] = useState<string | null>(null)
