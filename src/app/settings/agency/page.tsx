@@ -2,28 +2,20 @@ import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
-import { AgencyForm, GeminiKeyForm } from './agency-form'
+import { AgencyForm } from './agency-form'
 import { getOrgId } from '@/lib/org'
 
 export const revalidate = 30
 const ORG_ID = await getOrgId()
 
-function maskKey(key: string): string {
-  if (!key) return ''
-  if (key.length <= 8) return '****'
-  return key.slice(0, 4) + '****' + key.slice(-4)
-}
-
 async function getOrg() {
   const { data } = await supabaseAdmin
     .from('organizations')
-    .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key, timezone')
+    .select('id, name, slug, logo_url, primary_color, plan, timezone')
     .eq('id', ORG_ID)
     .single()
   
   if (!data) return null
-
-  const hasKey = !!data.gemini_api_key
 
   return {
     id: data.id,
@@ -33,8 +25,6 @@ async function getOrg() {
     primary_color: data.primary_color,
     timezone: data.timezone,
     plan: data.plan,
-    has_gemini_key: hasKey,
-    gemini_key_masked: hasKey ? maskKey(data.gemini_api_key) : '',
   }
 }
 
@@ -59,12 +49,6 @@ export default async function AgencySettingsPage() {
               <h3 className="text-[13px] font-semibold text-[#111113] mb-1">Agency Profile</h3>
               <p className="text-[11px] text-[#9d9da8] mb-4">Your agency name, logo, brand color, and timezone. The timezone setting controls all date calculations across the platform.</p>
               <AgencyForm org={org} />
-            </Card>
-
-            <Card className="p-6" id="ai">
-              <h3 className="text-[13px] font-semibold text-[#111113] mb-1">AI Configuration</h3>
-              <p className="text-[11px] text-[#9d9da8] mb-4">Powers Pegasus AI chat, report generation, creative analysis, and the copywriter. Required for AI features.</p>
-              <GeminiKeyForm hasKey={org?.has_gemini_key || false} maskedKey={org?.gemini_key_masked || ''} />
             </Card>
 
             <Card className="p-6">
