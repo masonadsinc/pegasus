@@ -14,12 +14,18 @@ async function getGeminiKey(ORG_ID: string): Promise<string | null> {
   return data?.gemini_api_key || process.env.GEMINI_API_KEY || null
 }
 
-async function fetchImageBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
+async function fetchImageBase64(url: string, maxWidth = 1024): Promise<{ data: string; mimeType: string } | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
     if (!res.ok) return null
-    const buffer = await res.arrayBuffer()
-    return { data: Buffer.from(buffer).toString('base64'), mimeType: res.headers.get('content-type') || 'image/jpeg' }
+    const buffer = Buffer.from(await res.arrayBuffer())
+    // Resize to keep under token limits (65K input for flash model)
+    const sharp = (await import('sharp')).default
+    const resized = await sharp(buffer)
+      .resize({ width: maxWidth, withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer()
+    return { data: resized.toString('base64'), mimeType: 'image/jpeg' }
   } catch { return null }
 }
 
@@ -506,8 +512,10 @@ export async function POST(req: NextRequest) {
 
         if (!response.ok) {
           const errText = await response.text()
-          console.error('Gemini generation error:', errText)
-          send({ type: 'error', message: `Generation failed: ${response.status}` })
+          console.error('Gemini generation error:', response.status, errText)
+          let detail = ''
+          try { detail = JSON.parse(errText)?.error?.message || '' } catch {}
+          send({ type: 'error', message: `Generation failed: ${response.status}${detail ? ' — ' + detail : ''}` })
           controller.close()
           return
         }
