@@ -224,8 +224,21 @@ export default async function Dashboard() {
             </div>
           </div>
 
+          {activeAccounts.length === 0 && (
+            <div className="bg-white border border-[#e8e8ec] rounded-md p-12 text-center mb-6">
+              <div className="w-12 h-12 rounded-md bg-[#f4f4f6] flex items-center justify-center mx-auto mb-4 text-[#9d9da8]">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 17V13m5 4V7m5 10v-4"/></svg>
+              </div>
+              <h3 className="text-[14px] font-semibold text-[#111113]">No active ad accounts</h3>
+              <p className="text-[12px] text-[#9d9da8] mt-1 max-w-sm mx-auto">Connect Meta ad accounts to your clients, then run a data sync to start tracking performance.</p>
+              <a href="/settings/clients" className="inline-block mt-4 px-4 py-2 rounded-md bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] transition-colors">
+                Manage Clients
+              </a>
+            </div>
+          )}
+
           {/* Agency KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className={`grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6 ${activeAccounts.length === 0 ? 'hidden' : ''}`}>
             <Card className="p-4">
               <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1.5">Weekly Spend</p>
               <p className="text-[24px] font-semibold tabular-nums text-[#111113] tracking-tight">{formatCurrency(totalTwSpend)}</p>

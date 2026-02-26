@@ -531,8 +531,19 @@ export function ReportsHub({ activeClients, initialReports, reportSettings }: { 
 
       {sortedWeeks.length === 0 && (
         <div className="bg-white border border-[#e8e8ec] rounded-md p-12 text-center">
-          <p className="text-[13px] text-[#6b6b76]">No reports generated yet</p>
-          <p className="text-[11px] text-[#9d9da8] mt-1">Use "Generate All" to create reports for all active clients</p>
+          <div className="w-12 h-12 rounded-md bg-[#f4f4f6] flex items-center justify-center mx-auto mb-4 text-[#9d9da8]">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 13V9m5 4V7m5 6v-3"/></svg>
+          </div>
+          <h3 className="text-[14px] font-semibold text-[#111113]">No reports yet</h3>
+          <p className="text-[12px] text-[#9d9da8] mt-1 max-w-sm mx-auto">Generate your first client reports using the period selector above, or enable auto-generation in report settings.</p>
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <button onClick={generateAll} disabled={generating} className="px-4 py-2 rounded-md bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] transition-colors">
+              {generating ? 'Generating...' : 'Generate All Reports'}
+            </button>
+            <a href="/settings/reports" className="px-4 py-2 rounded-md bg-[#f4f4f6] text-[#6b6b76] text-[12px] font-medium hover:bg-[#e8e8ec] transition-colors">
+              Report Settings
+            </a>
+          </div>
         </div>
       )}
     </div>

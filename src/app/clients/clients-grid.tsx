@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { formatCurrency, formatNumber, isEcomActionType } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { EmptyState } from '@/components/empty-state'
 
 type Status = 'excellent' | 'on-track' | 'watch' | 'attention' | 'no-data'
 type SortKey = 'performance' | 'spend' | 'name'
@@ -247,8 +248,17 @@ export function ClientsGrid({ accounts }: { accounts: Account[] }) {
         {filtered.map(a => <ClientCard key={a.ad_account_id} account={a} />)}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-[#9d9da8]">No clients match this filter</div>
+      {filtered.length === 0 && accounts.length === 0 && (
+        <EmptyState
+          icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>}
+          title="No clients yet"
+          description="Add your first client and connect their Meta ad account to start tracking performance."
+          actionLabel="Add Client"
+          actionHref="/settings/clients"
+        />
+      )}
+      {filtered.length === 0 && accounts.length > 0 && (
+        <div className="text-center py-12 text-[#9d9da8] text-[13px]">No clients match this filter</div>
       )}
     </>
   )
