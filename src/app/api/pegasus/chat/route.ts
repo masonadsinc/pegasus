@@ -3,6 +3,7 @@ import { getUser, getUserOrgRole } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isEcomActionType } from '@/lib/utils'
 import { preAnalyze, analyzeAudience } from '@/lib/analysis'
+import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 const META_TOKEN = process.env.META_ACCESS_TOKEN!
@@ -158,9 +159,10 @@ async function getClientContext(clientId: string, days = 7) {
 
   const isEcom = isEcomActionType(account.primary_action_type)
 
-  // Date calculations in PST
+  // Date calculations in org timezone
+  const orgTz = await getOrgTimezone()
   const now = new Date()
-  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+  const pst = getNowInTz(orgTz)
   const yesterday = new Date(pst); yesterday.setDate(pst.getDate() - 1)
   const daysAgo = new Date(yesterday); daysAgo.setDate(yesterday.getDate() - (days - 1))
   const prevEnd = new Date(daysAgo); prevEnd.setDate(daysAgo.getDate() - 1)

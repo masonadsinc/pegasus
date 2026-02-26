@@ -8,7 +8,7 @@ export const revalidate = 0
 async function getData() {
   const { data: org } = await supabaseAdmin
     .from('organizations')
-    .select('report_day, report_time, report_auto_generate, report_default_days, report_timezone')
+    .select('report_day, report_time, report_auto_generate, report_default_days, timezone')
     .eq('id', ORG_ID)
     .single()
 
@@ -34,7 +34,7 @@ async function getData() {
       report_time: org?.report_time ?? '08:00',
       report_auto_generate: org?.report_auto_generate ?? false,
       report_default_days: org?.report_default_days ?? 7,
-      report_timezone: org?.report_timezone ?? 'America/Los_Angeles',
+      report_timezone: org?.timezone ?? 'America/Los_Angeles',
     },
     clients: activeClients,
     overrides: overrides || [],

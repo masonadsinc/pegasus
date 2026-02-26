@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   // Get org settings
   const { data: org } = await supabaseAdmin
     .from('organizations')
-    .select('report_day, report_time, report_auto_generate, report_default_days, report_timezone')
+    .select('report_day, report_time, report_auto_generate, report_default_days, timezone')
     .eq('id', ORG_ID)
     .single()
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: true, reason: 'Auto-generate is off' })
   }
 
-  const tz = org.report_timezone || 'America/Los_Angeles'
+  const tz = org.timezone || 'America/Los_Angeles'
   const now = new Date()
   const localTime = new Date(now.toLocaleString('en-US', { timeZone: tz }))
   const currentDay = localTime.getDay()

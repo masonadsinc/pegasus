@@ -22,7 +22,7 @@ async function getData() {
       .limit(500),
     supabaseAdmin
       .from('organizations')
-      .select('report_day, report_time, report_auto_generate, report_default_days, report_timezone')
+      .select('report_day, report_time, report_auto_generate, report_default_days, timezone')
       .eq('id', ORG_ID)
       .single(),
   ])
@@ -39,7 +39,7 @@ async function getData() {
       report_time: orgRes.data?.report_time ?? '08:00',
       report_auto_generate: orgRes.data?.report_auto_generate ?? false,
       report_default_days: orgRes.data?.report_default_days ?? 7,
-      report_timezone: orgRes.data?.report_timezone ?? 'America/Los_Angeles',
+      report_timezone: orgRes.data?.timezone ?? 'America/Los_Angeles',
     },
   }
 }

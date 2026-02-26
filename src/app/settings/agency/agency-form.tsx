@@ -53,6 +53,17 @@ export function AgencyForm({ org }: { org: any }) {
           <input defaultValue={org?.primary_color || '#2563eb'} disabled className={inputClass + ' flex-1 opacity-60'} />
         </div>
       </div>
+      <div>
+        <label className={labelClass}>Organization Timezone</label>
+        <select name="timezone" defaultValue={org?.timezone || 'America/Los_Angeles'} className={inputClass + ' appearance-none cursor-pointer'}>
+          <option value="America/Los_Angeles">Pacific (PST/PDT)</option>
+          <option value="America/Denver">Mountain (MST/MDT)</option>
+          <option value="America/Chicago">Central (CST/CDT)</option>
+          <option value="America/New_York">Eastern (EST/EDT)</option>
+          <option value="UTC">UTC</option>
+        </select>
+        <p className="text-[10px] text-[#9d9da8] mt-1">All date calculations, reports, and data cutoffs use this timezone</p>
+      </div>
 
       <button type="submit" disabled={saving} className="w-full py-2.5 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors">
         {saving ? 'Saving...' : saved ? 'Saved' : 'Save Branding'}

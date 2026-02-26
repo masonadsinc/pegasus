@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
 import { isEcomActionType } from '@/lib/utils'
 import { logApiUsage } from '@/lib/api-usage'
+import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
 
 const ORG_ID = process.env.ADSINC_ORG_ID!
 const META_TOKEN = process.env.META_ACCESS_TOKEN!
@@ -153,9 +154,10 @@ export async function POST(req: NextRequest) {
 
     const isEcom = isEcomActionType(account.primary_action_type)
 
-    // Date range (PST)
+    // Date range (org timezone)
+    const orgTz = await getOrgTimezone()
     const now = new Date()
-    const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+    const pst = getNowInTz(orgTz)
     const yesterday = new Date(pst); yesterday.setDate(pst.getDate() - 1)
     const start = new Date(yesterday); start.setDate(yesterday.getDate() - (days - 1))
     const yStr = yesterday.toISOString().split('T')[0]

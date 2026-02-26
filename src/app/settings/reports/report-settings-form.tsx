@@ -11,14 +11,6 @@ const PERIOD_OPTIONS = [
   { value: 60, label: '60 days' },
   { value: 90, label: '90 days' },
 ]
-const TIMEZONES = [
-  { value: 'America/Los_Angeles', label: 'Pacific (PST/PDT)' },
-  { value: 'America/Denver', label: 'Mountain (MST/MDT)' },
-  { value: 'America/Chicago', label: 'Central (CST/CDT)' },
-  { value: 'America/New_York', label: 'Eastern (EST/EDT)' },
-  { value: 'UTC', label: 'UTC' },
-]
-
 const inputClass = "w-full px-3 py-2.5 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb] transition-colors"
 const labelClass = "text-[11px] text-[#9d9da8] font-medium uppercase tracking-wider mb-1 block"
 const selectClass = "w-full px-3 py-2.5 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb] transition-colors appearance-none cursor-pointer"
@@ -38,7 +30,7 @@ interface Props {
     report_time: string
     report_auto_generate: boolean
     report_default_days: number
-    report_timezone: string
+    report_timezone: string // from org.timezone
   }
   clients: { id: string; name: string }[]
   initialOverrides: Override[]
@@ -157,20 +149,6 @@ export function ReportSettingsForm({ initialSettings, clients, initialOverrides 
                 className={inputClass}
               />
               <p className="text-[10px] text-[#9d9da8] mt-1">Reports will be auto-generated at this time</p>
-            </div>
-
-            {/* Timezone */}
-            <div>
-              <label className={labelClass}>Timezone</label>
-              <select
-                value={settings.report_timezone}
-                onChange={e => setSettings(s => ({ ...s, report_timezone: e.target.value }))}
-                className={selectClass}
-              >
-                {TIMEZONES.map(tz => (
-                  <option key={tz.value} value={tz.value}>{tz.label}</option>
-                ))}
-              </select>
             </div>
 
             {/* Default period */}

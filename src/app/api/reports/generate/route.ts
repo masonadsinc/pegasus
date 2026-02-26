@@ -4,6 +4,7 @@ import { getUser } from '@/lib/auth'
 import { isEcomActionType } from '@/lib/utils'
 import { preAnalyze } from '@/lib/analysis'
 import { logApiUsage, extractTokenCounts } from '@/lib/api-usage'
+import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
 const ORG_ID = process.env.ADSINC_ORG_ID!
 
 async function getGeminiKey() {
@@ -16,9 +17,9 @@ async function getGeminiKey() {
   return stored || process.env.GEMINI_API_KEY || null
 }
 
-function getDateRange(days: number) {
+function getDateRange(days: number, tz: string) {
   const now = new Date()
-  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+  const pst = getNowInTz(tz)
   const yesterday = new Date(pst); yesterday.setDate(pst.getDate() - 1)
   const start = new Date(yesterday); start.setDate(yesterday.getDate() - (days - 1))
   const prevEnd = new Date(start); prevEnd.setDate(start.getDate() - 1)
@@ -395,7 +396,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const clientIds: string[] | null = body.clientIds
     const days: number = Math.min(Math.max(body.days || 7, 7), 90)
-    const dates = getDateRange(days)
+    const tz = await getOrgTimezone()
+    const dates = getDateRange(days, tz)
 
     let query = supabaseAdmin
       .from('clients')

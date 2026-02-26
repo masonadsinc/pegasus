@@ -10,7 +10,7 @@ export async function GET() {
 
   const { data: org } = await supabaseAdmin
     .from('organizations')
-    .select('report_day, report_time, report_auto_generate, report_default_days, report_timezone')
+    .select('report_day, report_time, report_auto_generate, report_default_days, timezone')
     .eq('id', ORG_ID)
     .single()
 
@@ -26,7 +26,7 @@ export async function GET() {
       report_time: org?.report_time ?? '08:00',
       report_auto_generate: org?.report_auto_generate ?? false,
       report_default_days: org?.report_default_days ?? 7,
-      report_timezone: org?.report_timezone ?? 'America/Los_Angeles',
+      report_timezone: org?.timezone ?? 'America/Los_Angeles',
     },
     overrides: overrides || [],
   })
@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const allowed = ['report_day', 'report_time', 'report_auto_generate', 'report_default_days', 'report_timezone']
+  const allowed = ['report_day', 'report_time', 'report_auto_generate', 'report_default_days']
   const updates: Record<string, any> = {}
 
   for (const key of allowed) {

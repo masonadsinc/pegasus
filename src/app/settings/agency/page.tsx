@@ -16,7 +16,7 @@ function maskKey(key: string): string {
 async function getOrg() {
   const { data } = await supabaseAdmin
     .from('organizations')
-    .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key')
+    .select('id, name, slug, logo_url, primary_color, plan, gemini_api_key, timezone')
     .eq('id', ORG_ID)
     .single()
   
@@ -30,6 +30,7 @@ async function getOrg() {
     slug: data.slug,
     logo_url: data.logo_url,
     primary_color: data.primary_color,
+    timezone: data.timezone,
     plan: data.plan,
     has_gemini_key: hasKey,
     gemini_key_masked: hasKey ? maskKey(data.gemini_api_key) : '',

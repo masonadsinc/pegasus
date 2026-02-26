@@ -1,4 +1,5 @@
-import { getDashboardData } from '@/lib/queries'
+import { getDashboardData, initTimezone } from '@/lib/queries'
+import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
 import { formatCurrency, formatNumber, formatPercent, isEcomActionType } from '@/lib/utils'
 import { Nav, PageWrapper } from '@/components/nav'
 import { Card } from '@/components/ui/card'
@@ -8,12 +9,14 @@ import Link from 'next/link'
 const ORG_ID = process.env.ADSINC_ORG_ID!
 export const revalidate = 300
 
+let _orgTz = 'America/Los_Angeles'
+
 type HealthStatus = 'critical' | 'warning' | 'healthy' | 'no-data'
 
 function getHealthScore(account: any) {
   // Split by date, not array position — handles accounts with < 14 days of data
   const now = new Date()
-  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+  const pst = getNowInTz(_orgTz)
   const yesterday = new Date(pst); yesterday.setDate(pst.getDate() - 1)
   const sevenAgo = new Date(pst); sevenAgo.setDate(pst.getDate() - 7)
   const yStr = yesterday.toISOString().split('T')[0]
@@ -160,6 +163,8 @@ function WarningTag({ children }: { children: React.ReactNode }) {
 }
 
 export default async function Dashboard() {
+  _orgTz = await getOrgTimezone()
+  await initTimezone()
   const accounts = await getDashboardData(ORG_ID, 14)
   const activeAccounts = accounts.filter(a => a.spend > 0)
 
@@ -204,7 +209,7 @@ export default async function Dashboard() {
               <h2 className="text-[20px] font-semibold text-[#111113] tracking-tight">Health Tracker</h2>
               <div className="flex items-center gap-3 mt-0.5">
                 <p className="text-[13px] text-[#9d9da8]">Last 7 days vs prior 7 — sorted by health score</p>
-                <DataFreshness />
+                <DataFreshness timezone={_orgTz} />
               </div>
             </div>
             <div className="flex items-center gap-4">

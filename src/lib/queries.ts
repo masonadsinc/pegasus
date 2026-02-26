@@ -1,20 +1,26 @@
 import { supabaseAdmin } from './supabase'
+import { getOrgTimezone, getYesterdayInTz, getNowInTz } from './timezone'
 
 // All data is through yesterday — today's data is incomplete
-// Uses PST/PDT (America/Los_Angeles) to match Meta's reporting timezone
+// Uses org timezone setting (defaults to America/Los_Angeles)
+let _tz: string | null = null
+async function ensureTz() { if (!_tz) _tz = await getOrgTimezone(); return _tz }
+
 function getYesterday(): string {
-  const now = new Date()
-  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
-  pst.setDate(pst.getDate() - 1)
-  return pst.toISOString().split('T')[0]
+  // Sync fallback — async callers should use getYesterdayAsync
+  const tz = _tz || 'America/Los_Angeles'
+  return getYesterdayInTz(tz)
 }
 
 function getDaysAgo(days: number): string {
-  const now = new Date()
-  const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
-  pst.setDate(pst.getDate() - days)
-  return pst.toISOString().split('T')[0]
+  const tz = _tz || 'America/Los_Angeles'
+  const now = getNowInTz(tz)
+  now.setDate(now.getDate() - days)
+  return now.toISOString().split('T')[0]
 }
+
+/** Call once at request start to load org timezone */
+export async function initTimezone() { await ensureTz() }
 
 export interface AccountSummary {
   client_name: string
