@@ -23,8 +23,8 @@ function getHealthScore(account: any) {
   const sevenAgo = new Date(pst); sevenAgo.setDate(pst.getDate() - 7)
   const yStr = yesterday.toISOString().split('T')[0]
   const sStr = sevenAgo.toISOString().split('T')[0]
-  const tw7 = account.daily.filter((d: any) => d.date > sStr && d.date <= yStr)
-  const lw7 = account.daily.filter((d: any) => d.date <= sStr)
+  const tw7 = account.daily.filter((d: any) => d.date >= sStr && d.date <= yStr)
+  const lw7 = account.daily.filter((d: any) => d.date < sStr)
   const twSpend = tw7.reduce((s: number, d: any) => s + d.spend, 0)
   const twResults = tw7.reduce((s: number, d: any) => s + d.results, 0)
   const lwSpend = lw7.reduce((s: number, d: any) => s + d.spend, 0)

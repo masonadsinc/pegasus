@@ -8,7 +8,7 @@ export const revalidate = 300
 const ORG_ID = await getOrgId()
 
 export default async function ClientsPage() {
-  const accounts = await getDashboardData(ORG_ID, 30)
+  const accounts = await getDashboardData(ORG_ID, 7)
   const totalSpend = accounts.reduce((s, a) => s + a.spend, 0)
   const activeCount = accounts.filter(a => a.spend > 0).length
 

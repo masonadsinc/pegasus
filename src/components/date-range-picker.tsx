@@ -14,11 +14,11 @@ export function DateRangePicker() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const current = Number(searchParams.get('days')) || 30
+  const current = Number(searchParams.get('days')) || 7
 
   const handleChange = (days: number) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (days === 30) params.delete('days')
+    if (days === 7) params.delete('days')
     else params.set('days', String(days))
     router.push(`${pathname}${params.toString() ? '?' + params.toString() : ''}`)
   }
