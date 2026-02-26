@@ -7,6 +7,8 @@ import { CreativeAnalysis } from './creative-analysis'
 import { DeepDiveTab } from './tabs/deep-dive-tab'
 import { CampaignsTab } from './tabs/campaigns-tab'
 import { DataTable, AdImage } from './tabs/shared'
+import { AudienceTab } from './tabs/audience-tab'
+import { PlacementsTab } from './tabs/placements-tab'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { formatCurrency, formatNumber, formatPercent, formatCompact, wowChange, wowChangeCPL } from '@/lib/utils'
@@ -324,29 +326,6 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
 
   // Audience processing
   const totalResults = daily.reduce((s, d) => s + d.results, 0)
-  const audienceTotal = { spend: 0, results: 0, impressions: 0, clicks: 0 }
-  ageGender.forEach(r => { audienceTotal.spend += r.spend; audienceTotal.results += r.results; audienceTotal.impressions += r.impressions; audienceTotal.clicks += r.clicks })
-  const bestAudienceSegment = [...ageGender].filter(a => a.results > 0).sort((a, b) => a.cpr - b.cpr)[0]
-  const worstAudienceSegments = [...ageGender].filter(a => a.results > 0 && a.cpr > 0).sort((a, b) => b.cpr - a.cpr).slice(0, 3)
-  const topAudienceSegments = [...ageGender].filter(a => a.results > 0 && a.cpr > 0).sort((a, b) => a.cpr - b.cpr).slice(0, 3)
-
-  // Placement processing
-  const placementTotal = { spend: 0, results: 0 }
-  placement.forEach(p => { placementTotal.spend += p.spend; placementTotal.results += p.results })
-  const bestPlacement = [...placement].filter(p => p.results > 0).sort((a, b) => a.cpr - b.cpr)[0]
-  const topPlacements = [...placement].filter(p => p.results > 0).sort((a, b) => a.cpr - b.cpr).slice(0, 5)
-  const worstPlacements = [...placement].filter(p => p.results > 0).sort((a, b) => b.cpr - a.cpr).slice(0, 5)
-  const maxPlacementSpend = Math.max(...placement.map(p => p.spend), 1)
-
-  // Platform aggregation for placements donut
-  const platformSpend: Record<string, number> = {}
-  placement.forEach(p => {
-    const platform = p.dimension_value?.split(' ')[0] || 'Other'
-    platformSpend[platform] = (platformSpend[platform] || 0) + p.spend
-  })
-  const platformData = Object.entries(platformSpend).sort((a, b) => b[1] - a[1]).map(([name, spend]) => ({ name, spend }))
-  const platformColors = ['#2563eb', '#dc2626', '#f59e0b', '#16a34a', '#8b5cf6']
-
   // Anomaly detection: flag days with significant deviations
   const anomalies = useMemo(() => {
     const flags: Record<string, string[]> = {}
@@ -795,273 +774,17 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
         </div>
       </TabsContent>
 
-      {/* ═══════════════════ AUDIENCE ═══════════════════ */}
+      {/* Audience Tab */}
       {ageGender.length > 0 && (
         <TabsContent value="audience">
-          <div className="space-y-5">
-            {/* KPI Strip */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-              <Card className="p-4">
-                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Segments</p>
-                <p className="text-[18px] font-semibold tabular-nums mt-1">{ageGender.length}</p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Total Spend</p>
-                <p className="text-[18px] font-semibold tabular-nums mt-1">{formatCurrency(audienceTotal.spend)}</p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">{resultLabel}</p>
-                <p className="text-[18px] font-semibold tabular-nums mt-1">{formatNumber(audienceTotal.results)}</p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Overall CPR</p>
-                <p className={`text-[18px] font-semibold tabular-nums mt-1 ${targetCpl && audienceTotal.results > 0 && (audienceTotal.spend / audienceTotal.results) > targetCpl ? 'text-[#dc2626]' : ''}`}>{audienceTotal.results > 0 ? formatCurrency(audienceTotal.spend / audienceTotal.results) : '—'}</p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-[10px] text-[#9d9da8] font-medium uppercase tracking-wider">Best Segment</p>
-                <p className="text-[13px] font-semibold text-[#16a34a] mt-1">{bestAudienceSegment?.dimension_value || '—'}</p>
-                <p className="text-[11px] text-[#9d9da8]">{bestAudienceSegment ? `${formatCurrency(bestAudienceSegment.cpr)} CPR` : ''}</p>
-              </Card>
-            </div>
-
-            {/* Spend by Segment + Device — 2 col */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="p-5">
-                <h3 className="text-[13px] font-semibold mb-4">Spend by Segment</h3>
-                <div className="space-y-2.5">
-                  {ageGender.slice(0, 10).map(seg => {
-                    const maxSeg = ageGender[0]?.spend || 1
-                    return (
-                      <div key={seg.dimension_value} className="flex items-center gap-3">
-                        <span className="text-[11px] font-medium w-[100px] truncate text-[#6b6b76]">{seg.dimension_value}</span>
-                        <div className="flex-1 h-5 bg-[#f4f4f6] rounded overflow-hidden">
-                          <div className="h-full rounded" style={{ width: `${(seg.spend / maxSeg) * 100}%`, backgroundColor: seg.dimension_value?.includes('female') ? '#dc2626' : seg.dimension_value?.includes('male') ? '#2563eb' : '#f59e0b' }} />
-                        </div>
-                        <span className="text-[11px] tabular-nums text-right w-[60px] font-medium">{formatCurrency(seg.spend)}</span>
-                        <span className="text-[11px] tabular-nums text-right w-[70px] text-[#9d9da8]">{seg.results} {resultLabel.toLowerCase()}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Card>
-
-              {/* Device Performance — table style */}
-              <Card>
-                <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                  <h3 className="text-[13px] font-semibold">Device Performance</h3>
-                </div>
-                <DataTable
-                  columns={[
-                    { key: 'dimension_value', label: 'Device', format: (v) => <span className="font-medium">{v}</span> },
-                    { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
-                    { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
-                    { key: 'cpr', label: 'CPR', format: (v: number) => v > 0 ? <span className={targetCpl && v > targetCpl ? 'text-[#dc2626] font-semibold' : 'text-[#16a34a] font-semibold'}>{formatCurrency(v)}</span> : <span className="text-[#c4c4cc]">—</span>, align: 'right' },
-                    { key: '_pct', label: '% Spend', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
-                  ]}
-                  data={device}
-                  pageSize={20}
-                />
-              </Card>
-            </div>
-
-            {/* Performance Ranking — Best vs Worst */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {topAudienceSegments.length > 0 && (
-                <Card className="p-5">
-                  <h3 className="text-[13px] font-semibold mb-3">Best Performers</h3>
-                  <div className="space-y-2">
-                    {topAudienceSegments.map((seg, i) => (
-                      <div key={seg.dimension_value} className="flex items-center gap-3 py-2.5 border-b border-[#f4f4f6] last:border-0">
-                        <span className="w-5 h-5 rounded bg-[#f0fdf4] text-[#16a34a] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-medium">{seg.dimension_value}</p>
-                          <p className="text-[11px] text-[#9d9da8]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-[13px] font-semibold tabular-nums text-[#16a34a]">{formatCurrency(seg.cpr)}</p>
-                          {targetCpl && <p className="text-[10px] text-[#16a34a]">{(((seg.cpr / targetCpl) - 1) * 100).toFixed(0)}% vs target</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-              {worstAudienceSegments.length > 0 && (
-                <Card className="p-5">
-                  <h3 className="text-[13px] font-semibold mb-3">Needs Attention</h3>
-                  <div className="space-y-2">
-                    {worstAudienceSegments.map((seg, i) => {
-                      const potentialSavings = targetCpl && seg.cpr > targetCpl ? (seg.cpr - targetCpl) * seg.results : 0
-                      return (
-                        <div key={seg.dimension_value} className="flex items-center gap-3 py-2.5 border-b border-[#f4f4f6] last:border-0">
-                          <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium">{seg.dimension_value}</p>
-                            <p className="text-[11px] text-[#9d9da8]">{seg.results} {resultLabel.toLowerCase()} · {((seg.spend / totalSpend) * 100).toFixed(1)}% spend</p>
-                            {potentialSavings > 0 && <p className="text-[10px] text-[#dc2626]">Potential savings: {formatCurrency(potentialSavings)}</p>}
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-[13px] font-semibold tabular-nums text-[#dc2626]">{formatCurrency(seg.cpr)}</p>
-                            {targetCpl && <p className="text-[10px] text-[#dc2626]">+{(((seg.cpr / targetCpl) - 1) * 100).toFixed(0)}% vs target</p>}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </Card>
-              )}
-            </div>
-
-            {/* Full Breakdown Table */}
-            <Card>
-              <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                <h3 className="text-[13px] font-semibold">All Segments</h3>
-              </div>
-              <DataTable
-                columns={[
-                  { key: 'dimension_value', label: 'Segment', format: (v) => <span className="font-medium">{v}</span> },
-                  { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
-                  { key: 'impressions', label: 'Impressions', format: (v) => formatNumber(v), align: 'right' },
-                  { key: 'clicks', label: 'Clicks', format: (v) => formatNumber(v), align: 'right' },
-                  { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
-                  { key: 'ctr', label: 'CTR', format: (v: number) => formatPercent(v), align: 'right' },
-                  { key: 'cpr', label: 'CPR', format: (v: number) => {
-                    if (v === 0) return <span className="text-[#c4c4cc]">—</span>
-                    const isOver = targetCpl ? v > targetCpl : false
-                    return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
-                  }, align: 'right' },
-                  { key: '_pct', label: '% Spend', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
-                ]}
-                data={ageGender}
-              />
-            </Card>
-          </div>
+          <AudienceTab ageGender={ageGender} device={device} resultLabel={resultLabel} targetCpl={targetCpl} totalSpend={totalSpend} />
         </TabsContent>
       )}
 
-      {/* ═══════════════════ PLACEMENTS ═══════════════════ */}
+      {/* Placements Tab */}
       {placement.length > 0 && (
         <TabsContent value="placements">
-          <div className="space-y-5">
-            {/* Overview + Platform + Distribution */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-[13px] font-semibold">Placements Overview</h3>
-                </div>
-                <p className="text-[11px] text-[#9d9da8]">{placement.length} active placements</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-3 text-[12px]">
-                  <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-semibold text-[18px]">{formatCompact(placementTotal.spend)}</p></div>
-                  <div><span className="text-[#9d9da8]">Overall CPR</span><p className="font-semibold text-[18px]">{placementTotal.results > 0 ? formatCurrency(placementTotal.spend / placementTotal.results) : '—'}</p></div>
-                </div>
-                {bestPlacement && (
-                  <div className="mt-3 pt-3 border-t border-[#e8e8ec]">
-                    <p className="text-[11px] text-[#9d9da8]">Best Performer</p>
-                    <p className="text-[13px] font-semibold text-[#16a34a]">{bestPlacement.dimension_value}</p>
-                    <p className="text-[12px] text-[#9d9da8]">{formatCurrency(bestPlacement.cpr)} CPR</p>
-                  </div>
-                )}
-              </Card>
-
-              <Card className="p-5">
-                <h3 className="text-[13px] font-semibold mb-3">Spend by Platform</h3>
-                <div className="space-y-2">
-                  {platformData.map((p, i) => (
-                    <div key={p.name} className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: platformColors[i % platformColors.length] }} />
-                      <span className="text-[12px] flex-1">{p.name}</span>
-                      <span className="text-[12px] font-semibold tabular-nums">{formatCurrency(p.spend)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              <Card className="p-5">
-                <h3 className="text-[13px] font-semibold mb-3">Spend Distribution</h3>
-                <div className="space-y-2">
-                  {placement.slice(0, 6).map(p => (
-                    <div key={p.dimension_value}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[11px] truncate max-w-[60%]">{p.dimension_value}</span>
-                        <span className="text-[11px] text-[#9d9da8] tabular-nums">{formatCurrency(p.spend)}</span>
-                      </div>
-                      <div className="h-3 bg-[#f4f4f6] rounded overflow-hidden">
-                        <div className="h-full bg-[#dc2626] rounded" style={{ width: `${(p.spend / maxPlacementSpend) * 100}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            {/* Top Placements Chart */}
-            <Card className="p-5">
-              <h3 className="text-[13px] font-semibold mb-3">Top Placements</h3>
-              <div className="space-y-2">
-                {placement.slice(0, 12).map(p => (
-                  <div key={p.dimension_value} className="flex items-center gap-3">
-                    <span className="text-[11px] text-[#6b6b76] truncate w-[180px] text-right">{p.dimension_value}</span>
-                    <div className="flex-1 h-5 bg-[#f4f4f6] rounded overflow-hidden">
-                      <div className="h-full bg-[#16a34a] rounded" style={{ width: `${(p.spend / maxPlacementSpend) * 100}%` }} />
-                    </div>
-                    <span className="text-[11px] tabular-nums w-16 text-right">{formatCurrency(p.spend)}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Performance Ranking */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="p-5">
-                <h3 className="text-[13px] font-semibold text-[#16a34a] mb-3">Top Performers</h3>
-                <div className="space-y-2">
-                  {topPlacements.map((p, i) => (
-                    <div key={p.dimension_value} className="flex items-center gap-3">
-                      <span className="w-5 h-5 rounded bg-[#dcfce7] text-[#16a34a] text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
-                      <span className="text-[12px] flex-1 truncate">{p.dimension_value}</span>
-                      <span className="text-[12px] font-semibold tabular-nums">{formatCurrency(p.cpr)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-              <Card className="p-5">
-                <h3 className="text-[13px] font-semibold text-[#dc2626] mb-3">Needs Attention</h3>
-                <div className="space-y-2">
-                  {worstPlacements.map((p, i) => (
-                    <div key={p.dimension_value} className="flex items-center gap-3">
-                      <span className="w-5 h-5 rounded bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center">{placement.length - i}</span>
-                      <span className="text-[12px] flex-1 truncate">{p.dimension_value}</span>
-                      <span className="text-[12px] font-semibold tabular-nums">{formatCurrency(p.cpr)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            {/* All Placements Table */}
-            <Card>
-              <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                <h3 className="text-[13px] font-semibold">All Placements</h3>
-              </div>
-              <DataTable
-                columns={[
-                  { key: 'dimension_value', label: 'Placement', format: (v) => <span className="font-medium">{v}</span> },
-                  { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
-                  { key: 'impressions', label: 'Impressions', format: (v) => formatNumber(v), align: 'right' },
-                  { key: 'clicks', label: 'Clicks', format: (v) => formatNumber(v), align: 'right' },
-                  { key: 'results', label: resultLabel, format: (v) => formatNumber(v), align: 'right' },
-                  { key: 'ctr', label: 'CTR', format: (v: number) => formatPercent(v), align: 'right' },
-                  { key: 'cpr', label: 'CPR', format: (v: number) => {
-                    if (v === 0) return <span className="text-[#c4c4cc]">—</span>
-                    const isOver = targetCpl ? v > targetCpl : false
-                    return <span className={`font-semibold ${isOver ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{formatCurrency(v)}</span>
-                  }, align: 'right' },
-                  { key: '_pct', label: '% Total', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
-                ]}
-                data={placement}
-              />
-            </Card>
-          </div>
+          <PlacementsTab placement={placement} resultLabel={resultLabel} targetCpl={targetCpl} totalSpend={totalSpend} />
         </TabsContent>
       )}
 
