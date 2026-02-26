@@ -5,6 +5,7 @@ import { isEcomActionType } from '@/lib/utils'
 import { preAnalyze, analyzeAudience } from '@/lib/analysis'
 import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
 import { getOrgId } from '@/lib/org'
+import { logActivity, userActor } from '@/lib/activity'
 
 const META_TOKEN = process.env.META_ACCESS_TOKEN!
 const META_VERSION = process.env.META_API_VERSION || 'v21.0'
@@ -1001,6 +1002,8 @@ export async function POST(req: NextRequest) {
     const lookbackDays = Math.min(Math.max(days || 7, 7), 90)
     const result = await getClientContext(clientId, lookbackDays, ORG_ID)
     if (!result) return new Response(JSON.stringify({ error: 'Client not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+
+    logActivity({ orgId: ORG_ID, ...userActor(user), action: 'pegasus.chat', category: 'ai', targetType: 'client', targetId: clientId, targetName: result.client.name, clientId, details: `${lookbackDays}d lookback, ${messages.length} messages` })
 
     const member = await getUserOrgRole(user.id)
 

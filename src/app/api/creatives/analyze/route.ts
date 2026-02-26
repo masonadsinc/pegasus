@@ -5,6 +5,7 @@ import { isEcomActionType } from '@/lib/utils'
 import { logApiUsage } from '@/lib/api-usage'
 import { getOrgTimezone, getNowInTz } from '@/lib/timezone'
 import { getOrgId } from '@/lib/org'
+import { logActivity, userActor } from '@/lib/activity'
 
 const META_TOKEN = process.env.META_ACCESS_TOKEN!
 const META_VERSION = process.env.META_API_VERSION || 'v21.0'
@@ -152,6 +153,8 @@ export async function POST(req: NextRequest) {
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     const account = (client.ad_accounts as any[])?.find((a: any) => a.is_active)
     if (!account) return NextResponse.json({ error: 'No active ad account' }, { status: 404 })
+
+    logActivity({ orgId: ORG_ID, ...userActor(user), action: 'creative.analyzed', category: 'creative', targetType: 'client', targetId: clientId, targetName: client.name, clientId, details: `${days}d range` })
 
     const isEcom = isEcomActionType(account.primary_action_type)
 

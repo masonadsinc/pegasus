@@ -3,6 +3,7 @@ import { getUser } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logApiUsage } from '@/lib/api-usage'
 import { getOrgId } from '@/lib/org'
+import { logActivity, userActor } from '@/lib/activity'
 
 const MODEL = 'gemini-3-flash-preview'
 
@@ -122,6 +123,8 @@ export async function POST(req: NextRequest) {
 
   // Build the system prompt based on Cleo's framework
   const systemPrompt = buildSystemPrompt(client, brandAssets, winners, activeCampaigns, mode, account.primary_action_type)
+
+  logActivity({ orgId: ORG_ID, ...userActor(user), action: 'copy.generated', category: 'creative', targetType: 'client', targetId: clientId, targetName: client.name, clientId, details: `${mode} mode, ${days}d range` })
 
   // Stream response via SSE
   const encoder = new TextEncoder()

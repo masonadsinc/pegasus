@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
 import { getOrgId } from '@/lib/org'
+import { logActivity, userActor } from '@/lib/activity'
 
 
 export async function GET(req: NextRequest) {
@@ -45,6 +46,8 @@ export async function GET(req: NextRequest) {
       const cpc = r.clicks > 0 ? (r.spend / r.clicks).toFixed(2) : '0'
       csv += `"${(acc.clients as any).name}","${acc.name}",${r.date},${r.spend},${r.impressions},${r.clicks},${r.leads},${r.purchases},${r.purchase_value},${r.schedules},${r.landing_page_views},${ctr},${cpc}\n`
     }
+
+    logActivity({ orgId: ORG_ID, ...userActor(user), action: 'data.exported', category: 'export', details: `All accounts, ${days}d, ${accounts.length} accounts` })
 
     return new NextResponse(csv, {
       headers: {

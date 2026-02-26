@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getUser } from '@/lib/auth'
 import { getOrgId } from '@/lib/org'
+import { logActivity, userActor } from '@/lib/activity'
 
 
 export async function POST(req: NextRequest) {
