@@ -86,6 +86,15 @@ export type NavPage = 'dashboard' | 'clients' | 'reports' | 'pegasus' | 'creativ
 
 export function Nav({ current }: { current: NavPage }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [branding, setBranding] = useState<{ name: string; logo_url: string | null; primary_color: string; initials: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/branding').then(r => r.ok ? r.json() : null).then(d => d && setBranding(d)).catch(() => {})
+  }, [])
+
+  const orgName = branding?.name || 'Agency'
+  const orgInitial = branding?.initials || 'A'
+  const orgColor = branding?.primary_color || '#dc2626'
 
   const sections = [
     {
@@ -116,12 +125,16 @@ export function Nav({ current }: { current: NavPage }) {
     <>
       <div className="px-5 py-4 flex items-center justify-between border-b border-[#f4f4f6]">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded bg-[#dc2626] flex items-center justify-center">
-            <span className="text-white text-[12px] font-semibold">A</span>
-          </div>
+          {branding?.logo_url ? (
+            <img src={branding.logo_url} alt={orgName} className="w-7 h-7 rounded object-contain" />
+          ) : (
+            <div className="w-7 h-7 rounded flex items-center justify-center" style={{ backgroundColor: orgColor }}>
+              <span className="text-white text-[12px] font-semibold">{orgInitial}</span>
+            </div>
+          )}
           <div>
-            <h1 className="text-[14px] font-semibold text-[#111113] tracking-tight leading-none">Ads.Inc</h1>
-            <p className="text-[10px] text-[#9d9da8] leading-none mt-0.5">Command Center</p>
+            <h1 className="text-[14px] font-semibold text-[#111113] tracking-tight leading-none">{orgName}</h1>
+            <p className="text-[10px] text-[#9d9da8] leading-none mt-0.5">Ad Management</p>
           </div>
         </div>
         <button className="lg:hidden p-1 rounded-md hover:bg-[#f4f4f6]" onClick={() => setMobileOpen(false)}>
