@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Link from 'next/link'
 
 interface Client {
   id: string
@@ -25,6 +26,17 @@ interface Report {
   notes: string | null
 }
 
+interface ReportSettings {
+  report_day: number
+  report_time: string
+  report_auto_generate: boolean
+  report_default_days: number
+  report_timezone: string
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
 const STATUS = {
   pending: { label: 'Pending', color: '#9d9da8', bg: '#f4f4f6' },
   draft: { label: 'Draft', color: '#2563eb', bg: '#dbeafe' },
@@ -40,46 +52,46 @@ function Badge({ status }: { status: string }) {
 function fmtShort(d: string) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
 function fmtFull(d: string) { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) }
 
-// Get the Monday of the current week (PST)
-function getCurrentMonday(): string {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+// Get the target day of the current week in the given timezone
+function getCurrentTargetDay(targetDay: number, tz: string): string {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
   const day = now.getDay()
-  const diff = day === 0 ? 6 : day - 1
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - diff)
-  return monday.toISOString().split('T')[0]
+  const diff = day >= targetDay ? day - targetDay : day + 7 - targetDay
+  const target = new Date(now)
+  target.setDate(now.getDate() - diff)
+  return target.toISOString().split('T')[0]
 }
 
-// Get Monday N weeks ago
-function getMondayOffset(baseMonday: string, weeksBack: number): string {
-  const d = new Date(baseMonday + 'T12:00:00')
+function getTargetDayOffset(base: string, weeksBack: number): string {
+  const d = new Date(base + 'T12:00:00')
   d.setDate(d.getDate() - (weeksBack * 7))
   return d.toISOString().split('T')[0]
 }
 
-function getMondayLabel(monday: string): string {
-  const current = getCurrentMonday()
-  if (monday === current) return 'This Week'
-  const lastWeek = getMondayOffset(current, 1)
-  if (monday === lastWeek) return 'Last Week'
-  return `Week of ${fmtShort(monday)}`
+function getWeekLabel(date: string, currentWeekDate: string): string {
+  if (date === currentWeekDate) return 'This Week'
+  const lastWeek = getTargetDayOffset(currentWeekDate, 1)
+  if (date === lastWeek) return 'Last Week'
+  return `Week of ${fmtShort(date)}`
 }
 
-// Assign a report to a Monday based on period_end
-function getReportMonday(report: Report): string {
+// Assign a report to a week based on period_end and configured report day
+function getReportWeekDate(report: Report, reportDay: number): string {
   const end = new Date(report.period_end + 'T12:00:00')
   const day = end.getDay()
-  // Find the next Monday after period_end (the Monday we'd send this report)
-  const daysUntilMonday = day === 0 ? 1 : day === 1 ? 0 : 8 - day
-  const monday = new Date(end)
-  monday.setDate(end.getDate() + daysUntilMonday)
-  return monday.toISOString().split('T')[0]
+  // Find the next target day after period_end
+  const daysUntil = day <= reportDay ? reportDay - day : 7 - day + reportDay
+  const target = new Date(end)
+  target.setDate(end.getDate() + (daysUntil === 0 ? 0 : daysUntil))
+  return target.toISOString().split('T')[0]
 }
 
 const PERIODS = [
   { label: '7d', value: 7 },
   { label: '14d', value: 14 },
   { label: '30d', value: 30 },
+  { label: '60d', value: 60 },
+  { label: '90d', value: 90 },
 ]
 
 function markdownToHtml(text: string): string {
@@ -95,9 +107,9 @@ function markdownToHtml(text: string): string {
   }).filter(Boolean).join('')
 }
 
-export function ReportsHub({ activeClients, initialReports }: { activeClients: Client[]; initialReports: Report[] }) {
+export function ReportsHub({ activeClients, initialReports, reportSettings }: { activeClients: Client[]; initialReports: Report[]; reportSettings: ReportSettings }) {
   const [reports, setReports] = useState<Report[]>(initialReports)
-  const [selectedDays, setSelectedDays] = useState(7)
+  const [selectedDays, setSelectedDays] = useState(reportSettings.report_default_days)
   const [generating, setGenerating] = useState(false)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Report | null>(null)
@@ -108,6 +120,9 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null)
   const [clientView, setClientView] = useState<string | null>(null)
 
+  const reportDay = reportSettings.report_day
+  const tz = reportSettings.report_timezone
+
   const reload = useCallback(async () => {
     try {
       const r = await fetch('/api/reports')
@@ -116,33 +131,28 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
     } catch {}
   }, [])
 
-  // Build week structure
-  const currentMonday = getCurrentMonday()
-  const weeks = new Map<string, Map<string, Report>>() // monday -> clientId -> latest report
+  // Build week structure using configured report day
+  const currentWeekDate = getCurrentTargetDay(reportDay, tz)
+  const weeks = new Map<string, Map<string, Report>>()
 
   for (const report of reports) {
-    const monday = getReportMonday(report)
-    if (!weeks.has(monday)) weeks.set(monday, new Map())
-    const weekMap = weeks.get(monday)!
+    const weekDate = getReportWeekDate(report, reportDay)
+    if (!weeks.has(weekDate)) weeks.set(weekDate, new Map())
+    const weekMap = weeks.get(weekDate)!
     const existing = weekMap.get(report.client_id)
     if (!existing || report.period_end > existing.period_end) {
       weekMap.set(report.client_id, report)
     }
   }
 
-  // Ensure current week exists
-  if (!weeks.has(currentMonday)) weeks.set(currentMonday, new Map())
-
-  // Sort weeks newest first
+  if (!weeks.has(currentWeekDate)) weeks.set(currentWeekDate, new Map())
   const sortedWeeks = [...weeks.entries()].sort((a, b) => b[0].localeCompare(a[0]))
 
-  // Current week stats
-  const currentWeekReports = weeks.get(currentMonday) || new Map()
+  const currentWeekReports = weeks.get(currentWeekDate) || new Map()
   const cwSent = [...currentWeekReports.values()].filter(r => r.status === 'sent').length
   const cwDraft = [...currentWeekReports.values()].filter(r => r.status === 'draft' || r.status === 'reviewed').length
   const cwMissing = activeClients.length - currentWeekReports.size
 
-  // Client history
   const getClientReports = (clientId: string) =>
     reports.filter(r => r.client_id === clientId).sort((a, b) => b.period_end.localeCompare(a.period_end))
 
@@ -177,6 +187,12 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
         if (editing?.id === id) setEditing(updated)
       }
     } catch {}
+  }
+
+  async function batchUpdateStatus(reportIds: string[], status: string) {
+    for (const id of reportIds) {
+      await updateStatus(id, status)
+    }
   }
 
   async function save() {
@@ -214,15 +230,19 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
 
   function openEditor(r: Report) { setEditing(r); setEditContent(r.content || ''); setEditNotes(r.notes || '') }
 
+  const BackButton = ({ onClick }: { onClick: () => void }) => (
+    <button onClick={onClick} className="text-[#9d9da8] hover:text-[#111113]">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6" /></svg>
+    </button>
+  )
+
   // ═══════════════════ EDITOR ═══════════════════
   if (editing) {
     return (
       <div className="flex flex-col h-[calc(100vh-44px)]">
         <div className="border-b border-[#e8e8ec] px-4 sm:px-6 py-3 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setEditing(null)} className="text-[#9d9da8] hover:text-[#111113] shrink-0">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6" /></svg>
-            </button>
+            <BackButton onClick={() => setEditing(null)} />
             <div className="min-w-0">
               <p className="text-[13px] font-semibold text-[#111113] truncate">{editing.client_name}</p>
               <p className="text-[10px] text-[#9d9da8]">{fmtShort(editing.period_start)} — {fmtShort(editing.period_end)}</p>
@@ -278,9 +298,7 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
     return (
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => setClientView(null)} className="text-[#9d9da8] hover:text-[#111113]">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6" /></svg>
-          </button>
+          <BackButton onClick={() => setClientView(null)} />
           <div>
             <h1 className="text-[20px] font-semibold text-[#111113] tracking-tight">{client?.name || 'Client'}</h1>
             <p className="text-[12px] text-[#9d9da8] mt-0.5">{history.length} report{history.length !== 1 ? 's' : ''} — {history.filter(r => r.status === 'sent').length} sent</p>
@@ -312,7 +330,7 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
                   <div className="flex items-center gap-3">
                     <Badge status={r.status} />
                     <span className="text-[13px] font-medium text-[#111113]">{fmtShort(r.period_start)} — {fmtShort(r.period_end)}</span>
-                    <span className="text-[10px] text-[#9d9da8]">{getMondayLabel(getReportMonday(r))}</span>
+                    <span className="text-[10px] text-[#9d9da8]">{getWeekLabel(getReportWeekDate(r, reportDay), currentWeekDate)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {r.content && <button onClick={e => { e.stopPropagation(); copy(r.content!) }} className="text-[10px] text-[#9d9da8] hover:text-[#111113] px-2 py-1 rounded hover:bg-[#f4f4f6]">Copy</button>}
@@ -337,16 +355,15 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
     const weekReports = weeks.get(selectedWeek) || new Map()
     const sent = [...weekReports.values()].filter(r => r.status === 'sent').length
     const total = activeClients.length
+    const draftOrReviewed = [...weekReports.values()].filter(r => r.status === 'draft' || r.status === 'reviewed')
 
     return (
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => setSelectedWeek(null)} className="text-[#9d9da8] hover:text-[#111113]">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2L4 8l6 6" /></svg>
-          </button>
+          <BackButton onClick={() => setSelectedWeek(null)} />
           <div>
-            <h1 className="text-[20px] font-semibold text-[#111113] tracking-tight">{getMondayLabel(selectedWeek)}</h1>
-            <p className="text-[12px] text-[#9d9da8] mt-0.5">Monday {fmtShort(selectedWeek)} — {sent}/{total} sent</p>
+            <h1 className="text-[20px] font-semibold text-[#111113] tracking-tight">{getWeekLabel(selectedWeek, currentWeekDate)}</h1>
+            <p className="text-[12px] text-[#9d9da8] mt-0.5">{DAY_NAMES[reportDay]} {fmtShort(selectedWeek)} — {sent}/{total} sent</p>
           </div>
         </div>
 
@@ -354,7 +371,17 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
         <div className="bg-white border border-[#e8e8ec] rounded-md p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[12px] font-medium text-[#111113]">{sent} of {total} reports sent</span>
-            <span className="text-[11px] text-[#9d9da8]">{total - weekReports.size} not generated</span>
+            <div className="flex items-center gap-2">
+              {draftOrReviewed.length > 0 && (
+                <button
+                  onClick={() => batchUpdateStatus(draftOrReviewed.map(r => r.id), 'sent')}
+                  className="text-[10px] px-2.5 py-1 rounded font-medium text-[#16a34a] hover:bg-[#dcfce7] transition-colors"
+                >
+                  Mark All Sent ({draftOrReviewed.length})
+                </button>
+              )}
+              <span className="text-[11px] text-[#9d9da8]">{total - weekReports.size} not generated</span>
+            </div>
           </div>
           <div className="h-2 bg-[#f4f4f6] rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${total > 0 ? (sent / total) * 100 : 0}%`, backgroundColor: sent === total ? '#16a34a' : '#2563eb' }} />
@@ -409,7 +436,7 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-[20px] font-semibold text-[#111113] tracking-tight">Reports</h1>
-          <p className="text-[12px] text-[#9d9da8] mt-0.5">Weekly Monday reports — generate, edit, copy to Gmail, mark sent</p>
+          <p className="text-[12px] text-[#9d9da8] mt-0.5">Weekly {DAY_SHORT[reportDay]} reports — generate, edit, copy to Gmail, mark sent</p>
         </div>
         <div className="flex items-center gap-2">
           {PERIODS.map(p => (
@@ -421,14 +448,30 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
         </div>
       </div>
 
+      {/* Schedule indicator */}
+      <div className="flex items-center gap-3 mb-4 px-3 py-2.5 rounded-md bg-[#f8f8fa] border border-[#e8e8ec]">
+        <div className={`w-2 h-2 rounded-full ${reportSettings.report_auto_generate ? 'bg-[#16a34a]' : 'bg-[#d4d4d8]'}`} />
+        <span className="text-[12px] text-[#6b6b76]">
+          {reportSettings.report_auto_generate
+            ? `Auto-generating ${DAY_NAMES[reportDay]}s at ${reportSettings.report_time} ${tz === 'America/Los_Angeles' ? 'PST' : tz === 'America/New_York' ? 'EST' : tz === 'America/Chicago' ? 'CST' : tz === 'America/Denver' ? 'MST' : 'UTC'}`
+            : `Schedule: ${DAY_NAMES[reportDay]}s (auto-generate off)`
+          }
+        </span>
+        <span className="text-[11px] text-[#9d9da8]">|</span>
+        <span className="text-[11px] text-[#9d9da8]">{reportSettings.report_default_days}d default period</span>
+        <Link href="/settings/reports" className="ml-auto text-[11px] text-[#2563eb] hover:underline font-medium">
+          Settings
+        </Link>
+      </div>
+
       {/* This Week Banner */}
       <div className="bg-white border border-[#e8e8ec] rounded-md p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-[14px] font-semibold text-[#111113]">This Week — Monday {fmtShort(currentMonday)}</h2>
+            <h2 className="text-[14px] font-semibold text-[#111113]">This Week — {DAY_NAMES[reportDay]} {fmtShort(currentWeekDate)}</h2>
             <p className="text-[11px] text-[#9d9da8] mt-0.5">{cwSent} sent, {cwDraft} in progress, {cwMissing} not generated</p>
           </div>
-          <button onClick={() => setSelectedWeek(currentMonday)} className="px-3 py-1.5 text-[11px] font-medium text-[#2563eb] hover:bg-[#dbeafe] rounded transition-colors">
+          <button onClick={() => setSelectedWeek(currentWeekDate)} className="px-3 py-1.5 text-[11px] font-medium text-[#2563eb] hover:bg-[#dbeafe] rounded transition-colors">
             View All Clients
           </button>
         </div>
@@ -444,16 +487,16 @@ export function ReportsHub({ activeClients, initialReports }: { activeClients: C
 
       {/* Week history */}
       <div className="space-y-4">
-        {sortedWeeks.map(([monday, weekMap]) => {
+        {sortedWeeks.map(([weekDate, weekMap]) => {
           const sent = [...weekMap.values()].filter(r => r.status === 'sent').length
           const total = weekMap.size
-          const isCurrentWeek = monday === currentMonday
+          const isCurrentWeek = weekDate === currentWeekDate
 
           return (
-            <div key={monday}>
+            <div key={weekDate}>
               <div className="flex items-center justify-between mb-2">
-                <button onClick={() => setSelectedWeek(monday)} className="text-[13px] font-semibold text-[#111113] hover:text-[#2563eb] transition-colors">
-                  {getMondayLabel(monday)}
+                <button onClick={() => setSelectedWeek(weekDate)} className="text-[13px] font-semibold text-[#111113] hover:text-[#2563eb] transition-colors">
+                  {getWeekLabel(weekDate, currentWeekDate)}
                   <span className="text-[11px] font-normal text-[#9d9da8] ml-2">{sent}/{total} sent</span>
                 </button>
                 {isCurrentWeek && cwMissing > 0 && (

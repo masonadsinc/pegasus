@@ -49,6 +49,9 @@ export default async function SettingsPage() {
     { href: '/settings/usage', title: 'API Usage', desc: 'Gemini API usage and estimated costs', stat: '', icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9d9da8" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 17V13m5 4V7m5 10v-4"/></svg>
     )},
+    { href: '/settings/reports', title: 'Report Schedule', desc: 'Auto-generation day, time, and per-client overrides', stat: '', icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9d9da8" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+    )},
     { href: '/settings/activity', title: 'Activity Log', desc: 'Track all changes and actions', stat: '', icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9d9da8" strokeWidth="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     )},

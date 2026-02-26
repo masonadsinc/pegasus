@@ -379,8 +379,15 @@ function formatDateRange(start: string, end: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Allow cron-triggered calls (Vercel Cron or CRON_SECRET)
+    const isCron = req.headers.get('x-vercel-cron') === '1' ||
+      (process.env.CRON_SECRET && req.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`)
+
+    let user: any = null
+    if (!isCron) {
+      user = await getUser()
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const apiKey = await getGeminiKey()
     if (!apiKey) return NextResponse.json({ error: 'No Gemini API key configured' }, { status: 400 })
@@ -440,9 +447,9 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin.from('activity_log').insert({
       org_id: ORG_ID,
-      actor_type: 'user',
-      actor_id: user.id,
-      actor_name: user.email,
+      actor_type: isCron ? 'system' : 'user',
+      actor_id: isCron ? 'cron' : user?.id || 'unknown',
+      actor_name: isCron ? 'Auto-Generator' : (user?.email || 'unknown'),
       action: 'generated reports',
       target_type: 'report',
       details: `${dates.days}d report (${dates.periodStart} to ${dates.periodEnd}): ${results.filter(r => r.status === 'generated').length}/${results.length} generated`,
