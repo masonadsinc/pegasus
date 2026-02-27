@@ -37,6 +37,7 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
   const [generating, setGenerating] = useState(false)
   const [aspectRatio, setAspectRatio] = useState('1:1')
   const [resolution, setResolution] = useState('2K')
+  const [imageCount, setImageCount] = useState(1)
   const [history, setHistory] = useState<GeneratedCreative[]>([])
   const [viewMode, setViewMode] = useState<'chat' | 'gallery' | 'settings'>('chat')
   const [previewCreative, setPreviewCreative] = useState<GeneratedCreative | null>(null)
@@ -174,32 +175,9 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  async function handleSend() {
-    const prompt = input.trim()
-    if (!prompt || generating) return
-
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: prompt,
-      timestamp: now(),
-    }
-    setMessages(prev => [...prev, userMsg])
-    setInput('')
-    setGenerating(true)
-
-    // Add a placeholder assistant message for status updates
-    const assistantId = crypto.randomUUID()
-    const assistantMsg: ChatMessage = {
-      id: assistantId,
-      role: 'assistant',
-      content: '',
-      status: 'Starting generation...',
-      timestamp: now(),
-    }
-    setMessages(prev => [...prev, assistantMsg])
-
+  async function generateOne(prompt: string, assistantId: string, label?: string) {
     try {
+      const statusPrefix = label ? `[${label}] ` : ''
       const res = await fetch('/api/creative-studio/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -219,7 +197,6 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
       let buffer = ''
       let finalImageData = ''
       let finalNotes = ''
-      let qaResult: any = null
 
       while (true) {
         const { done, value } = await reader.read()
@@ -232,32 +209,17 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
             const data = JSON.parse(line.slice(6))
             if (data.type === 'status') {
               setMessages(prev => prev.map(m =>
-                m.id === assistantId ? { ...m, status: data.message } : m
+                m.id === assistantId ? { ...m, status: statusPrefix + data.message } : m
               ))
             } else if (data.type === 'error') {
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, content: `Generation failed: ${data.message}`, status: undefined } : m
               ))
+              return null
             } else if (data.type === 'complete') {
               finalImageData = data.imageData || ''
-              finalNotes = data.modelNotes || ''
-              qaResult = data.qa
-              // Strip markdown from notes
-              const cleanNotes = finalNotes
-                .replace(/\*\*(.*?)\*\*/g, '$1')
-                .replace(/\*(.*?)\*/g, '$1')
-                .replace(/#{1,3}\s/g, '')
-                .trim()
-              setMessages(prev => prev.map(m =>
-                m.id === assistantId ? {
-                  ...m,
-                  content: cleanNotes || 'Here\'s what I generated:',
-                  imageData: finalImageData,
-                  status: undefined,
-                } : m
-              ))
-              setUploadedImages([])
-              await loadHistory()
+              finalNotes = (data.modelNotes || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/#{1,3}\s/g, '').trim()
+              return { imageData: finalImageData, notes: finalNotes }
             }
           } catch {}
         }
@@ -267,6 +229,53 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
         m.id === assistantId ? { ...m, content: `Error: ${e.message || 'Generation failed'}`, status: undefined } : m
       ))
     }
+    return null
+  }
+
+  async function handleSend() {
+    const prompt = input.trim()
+    if (!prompt || generating) return
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: imageCount > 1 ? `${prompt}\n(generating ${imageCount} variations)` : prompt,
+      timestamp: now(),
+    }
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
+    setGenerating(true)
+
+    const count = imageCount
+
+    if (count === 1) {
+      const assistantId = crypto.randomUUID()
+      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', status: 'Starting generation...', timestamp: now() }])
+      const result = await generateOne(prompt, assistantId)
+      if (result) {
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId ? { ...m, content: result.notes || 'Here\'s what I generated:', imageData: result.imageData, status: undefined } : m
+        ))
+      }
+      setUploadedImages([])
+      await loadHistory()
+    } else {
+      // Multiple generations — one message per image
+      for (let i = 0; i < count; i++) {
+        const assistantId = crypto.randomUUID()
+        const label = `${i + 1}/${count}`
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', status: `[${label}] Starting generation...`, timestamp: now() }])
+        const result = await generateOne(prompt, assistantId, label)
+        if (result) {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId ? { ...m, content: result.notes || `Variation ${i + 1}`, imageData: result.imageData, status: undefined } : m
+          ))
+        }
+      }
+      setUploadedImages([])
+      await loadHistory()
+    }
+
     setGenerating(false)
   }
 
@@ -347,6 +356,17 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
                     aspectRatio === r.value ? 'bg-[#111113] text-white' : 'bg-[#f4f4f6] text-[#6b6b76] hover:bg-[#e8e8ec]'
                   }`}>
                   {r.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Count</span>
+              {[1, 2, 3, 4].map(n => (
+                <button key={n} onClick={() => setImageCount(n)}
+                  className={`w-6 h-6 text-[11px] rounded flex items-center justify-center transition-colors ${
+                    imageCount === n ? 'bg-[#111113] text-white' : 'bg-[#f4f4f6] text-[#6b6b76] hover:bg-[#e8e8ec]'
+                  }`}>
+                  {n}
                 </button>
               ))}
             </div>
