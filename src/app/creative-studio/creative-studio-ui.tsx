@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 interface Client { id: string; name: string; slug: string }
 
-interface WinningAd {
-  platformAdId: string; name: string; imageUrl: string; thumbnailUrl: string | null
-  headline: string | null; body: string | null; spend: number; results: number
-  cpr: number; ctr: number; isVideo: boolean
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  imageData?: string
+  imageMime?: string
+  status?: string
+  timestamp: string
 }
 
 interface GeneratedCreative {
@@ -16,10 +20,6 @@ interface GeneratedCreative {
 }
 
 interface BrandColor { name: string; hex: string }
-interface BrandAssets {
-  brand_colors: BrandColor[]; style_guide: string; creative_prefs: string
-  hard_rules: string; visual_tone: string
-}
 
 const ASPECT_RATIOS = [
   { label: '1:1', value: '1:1', desc: 'Feed' },
@@ -28,33 +28,18 @@ const ASPECT_RATIOS = [
   { label: '16:9', value: '16:9', desc: 'Landscape' },
 ]
 
+function now() { return new Date().toISOString() }
+
 export function CreativeStudioUI({ clients, initialClientId }: { clients: Client[]; initialClientId?: string }) {
   const [selectedClient, setSelectedClient] = useState(initialClientId || '')
-  const [winningAds, setWinningAds] = useState<WinningAd[]>([])
-  const [selectedWinner, setSelectedWinner] = useState<WinningAd | null>(null)
-  const [additionalRefs, setAdditionalRefs] = useState<Set<string>>(new Set())
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [generating, setGenerating] = useState(false)
   const [aspectRatio, setAspectRatio] = useState('1:1')
   const [resolution, setResolution] = useState('2K')
-  const [mode, setMode] = useState<'variation' | 'refresh'>('variation')
-  const [direction, setDirection] = useState('')
-  const [generating, setGenerating] = useState(false)
-  const [statusMsg, setStatusMsg] = useState('')
-  const [logEntries, setLogEntries] = useState<{ time: string; type: string; message: string }[]>([])
-  const [winnerAnalysis, setWinnerAnalysis] = useState('')
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null)
-  const [modelNotes, setModelNotes] = useState('')
-  const [qaResult, setQaResult] = useState<{ pass: boolean; issues: string[] } | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<GeneratedCreative[]>([])
-  const [loadingAds, setLoadingAds] = useState(false)
-  const [viewMode, setViewMode] = useState<'generate' | 'gallery' | 'settings'>('generate')
+  const [viewMode, setViewMode] = useState<'chat' | 'gallery' | 'settings'>('chat')
   const [previewCreative, setPreviewCreative] = useState<GeneratedCreative | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [feedback, setFeedback] = useState('')
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [uploadedImages, setUploadedImages] = useState<{ name: string; dataUrl: string }[]>([])
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   // Brand settings
   const [brandColors, setBrandColors] = useState<BrandColor[]>([])
   const [styleGuide, setStyleGuide] = useState('')
@@ -65,52 +50,47 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
   const [assetsSaved, setAssetsSaved] = useState(false)
   const [assetsLoaded, setAssetsLoaded] = useState(false)
   const [autoConfiguring, setAutoConfiguring] = useState(false)
-  const outputRef = useRef<HTMLDivElement>(null)
+  const [uploadedImages, setUploadedImages] = useState<{ name: string; dataUrl: string }[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (selectedClient) {
-      loadWinningAds()
       loadHistory()
       loadBrandAssets()
-      setSelectedWinner(null)
-      setAdditionalRefs(new Set())
-      setGeneratedImage(null)
-      setWinnerAnalysis('')
-      setError(null)
-      setShowFeedback(false)
-      setFeedback('')
+      setMessages([{
+        id: 'welcome',
+        role: 'system',
+        content: `Ready to generate images${clients.find(c => c.id === selectedClient)?.name ? ` for ${clients.find(c => c.id === selectedClient)?.name}` : ''}. Describe what you want and I'll create it.`,
+        timestamp: now(),
+      }])
       setUploadedImages([])
+    } else {
+      setMessages([{
+        id: 'welcome-no-client',
+        role: 'system',
+        content: 'Describe any image and I\'ll generate it. Select a client to use their brand context.',
+        timestamp: now(),
+      }])
     }
   }, [selectedClient])
 
-  async function handleFileUpload(files: FileList | null) {
-    if (!files?.length) return
-    setUploading(true)
-    const formData = new FormData()
-    for (let i = 0; i < Math.min(files.length, 6 - uploadedImages.length); i++) {
-      formData.append('images', files[i])
+  // Set initial welcome
+  useEffect(() => {
+    if (!selectedClient) {
+      setMessages([{
+        id: 'welcome-init',
+        role: 'system',
+        content: 'Describe any image and I\'ll generate it. Select a client to use their brand context.',
+        timestamp: now(),
+      }])
     }
-    try {
-      const res = await fetch('/api/creative-studio/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (data.images) setUploadedImages(prev => [...prev, ...data.images].slice(0, 6))
-    } catch {}
-    setUploading(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
+  }, [])
 
-  function removeUpload(index: number) {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index))
-  }
-
-  async function loadWinningAds() {
-    setLoadingAds(true)
-    try {
-      const res = await fetch(`/api/creative-studio/winning-ads?clientId=${selectedClient}&days=60`)
-      setWinningAds((await res.json()).ads || [])
-    } catch {}
-    setLoadingAds(false)
-  }
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   async function loadHistory() {
     try {
@@ -178,42 +158,66 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
     setBrandColors(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: value } : c))
   }
 
-  function toggleAdditionalRef(adId: string) {
-    if (selectedWinner?.platformAdId === adId) return
-    const next = new Set(additionalRefs)
-    if (next.has(adId)) next.delete(adId); else if (next.size < 5) next.add(adId)
-    setAdditionalRefs(next)
+  async function handleFileUpload(files: FileList | null) {
+    if (!files?.length) return
+    const formData = new FormData()
+    for (let i = 0; i < Math.min(files.length, 6 - uploadedImages.length); i++) {
+      formData.append('images', files[i])
+    }
+    try {
+      const res = await fetch('/api/creative-studio/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (data.images) setUploadedImages(prev => [...prev, ...data.images].slice(0, 6))
+    } catch {}
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  function selectWinner(ad: WinningAd) {
-    setSelectedWinner(ad); setAdditionalRefs(new Set()); setGeneratedImage(null)
-    setWinnerAnalysis(''); setError(null); setQaResult(null); setModelNotes('')
-    setShowFeedback(false); setFeedback('')
-  }
+  async function handleSend() {
+    const prompt = input.trim()
+    if (!prompt || generating) return
 
-  async function generate() {
-    if (!selectedWinner) return
-    setGenerating(true); setGeneratedImage(null); setWinnerAnalysis(''); setModelNotes('')
-    setError(null); setQaResult(null); setStatusMsg('Starting...')
-    setLogEntries([{ time: now(), type: 'info', message: 'Starting generation...' }])
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: prompt,
+      timestamp: now(),
+    }
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
+    setGenerating(true)
 
-    const refUrls = winningAds.filter(a => additionalRefs.has(a.platformAdId)).map(a => a.imageUrl)
+    // Add a placeholder assistant message for status updates
+    const assistantId = crypto.randomUUID()
+    const assistantMsg: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      status: 'Starting generation...',
+      timestamp: now(),
+    }
+    setMessages(prev => [...prev, assistantMsg])
 
     try {
       const res = await fetch('/api/creative-studio/generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientId: selectedClient, winnerImageUrl: selectedWinner.imageUrl,
-          winnerName: selectedWinner.name,
-          winnerStats: { spend: selectedWinner.spend, results: selectedWinner.results, cpr: selectedWinner.cpr, ctr: selectedWinner.ctr },
-          aspectRatio, resolution, mode, additionalDirection: direction, referenceImageUrls: refUrls,
+          clientId: selectedClient || undefined,
+          manualPrompt: prompt,
+          mode: 'manual',
+          aspectRatio,
+          resolution,
           uploadedImages: uploadedImages.map(img => img.dataUrl),
+          source: 'image-studio-chat',
         }),
       })
 
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let finalImageData = ''
+      let finalNotes = ''
+      let qaResult: any = null
 
       while (true) {
         const { done, value } = await reader.read()
@@ -225,41 +229,54 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
           try {
             const data = JSON.parse(line.slice(6))
             if (data.type === 'status') {
-              setStatusMsg(data.message)
-              setLogEntries(prev => [...prev, { time: now(), type: 'info', message: data.message }])
-            }
-            else if (data.type === 'analysis') {
-              setWinnerAnalysis(data.text)
-              const lines = (data.text || '').split('\n').filter(Boolean).length
-              setLogEntries(prev => [...prev, { time: now(), type: 'success', message: `Winner analysis complete (${lines} data points extracted)` }])
-            }
-            else if (data.type === 'qa_warning') {
-              setQaResult({ pass: false, issues: data.issues })
-              setLogEntries(prev => [...prev, { time: now(), type: 'warning', message: `QA issues detected: ${data.issues.join(', ')}` }])
-            }
-            else if (data.type === 'error') {
-              setError(data.message)
-              setLogEntries(prev => [...prev, { time: now(), type: 'error', message: data.message }])
-              break
-            }
-            else if (data.type === 'complete') {
-              setGeneratedImage(data.imageData); setModelNotes(data.modelNotes || '')
-              setQaResult(data.qa)
-              if (data.winnerAnalysis) setWinnerAnalysis(data.winnerAnalysis)
-              const logItems: { time: string; type: string; message: string }[] = []
-              if (data.qa?.pass) logItems.push({ time: now(), type: 'success', message: 'QA check passed' })
-              else if (data.qa && !data.qa.pass) logItems.push({ time: now(), type: 'warning', message: `QA retry — issues: ${data.qa.issues?.join(', ') || 'unknown'}` })
-              if (data.conceptSummary) logItems.push({ time: now(), type: 'info', message: `Concept: ${data.conceptSummary}` })
-              logItems.push({ time: now(), type: 'success', message: 'Creative generated and saved' })
-              setLogEntries(prev => [...prev, ...logItems])
-              outputRef.current?.scrollIntoView({ behavior: 'smooth' })
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId ? { ...m, status: data.message } : m
+              ))
+            } else if (data.type === 'error') {
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId ? { ...m, content: `Generation failed: ${data.message}`, status: undefined } : m
+              ))
+            } else if (data.type === 'complete') {
+              finalImageData = data.imageData || ''
+              finalNotes = data.modelNotes || ''
+              qaResult = data.qa
+              // Strip markdown from notes
+              const cleanNotes = finalNotes
+                .replace(/\*\*(.*?)\*\*/g, '$1')
+                .replace(/\*(.*?)\*/g, '$1')
+                .replace(/#{1,3}\s/g, '')
+                .trim()
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId ? {
+                  ...m,
+                  content: cleanNotes || 'Here\'s what I generated:',
+                  imageData: finalImageData,
+                  status: undefined,
+                } : m
+              ))
+              setUploadedImages([])
               await loadHistory()
             }
           } catch {}
         }
       }
-    } catch (e: any) { setError(e.message || 'Generation failed') }
-    setGenerating(false); setStatusMsg('')
+    } catch (e: any) {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId ? { ...m, content: `Error: ${e.message || 'Generation failed'}`, status: undefined } : m
+      ))
+    }
+    setGenerating(false)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  function downloadImage(dataUrl: string, name: string) {
+    const a = document.createElement('a'); a.href = dataUrl; a.download = `${name || 'creative'}.png`; a.click()
   }
 
   async function deleteCreative(id: string) {
@@ -268,23 +285,18 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
     if (previewCreative?.id === id) setPreviewCreative(null)
   }
 
-  function downloadImage(dataUrl: string, name: string) {
-    const a = document.createElement('a'); a.href = dataUrl; a.download = `${name || 'creative'}.png`; a.click()
-  }
-
   const clientName = clients.find(c => c.id === selectedClient)?.name || ''
-  const imageAds = winningAds.filter(a => !a.isVideo)
   const hasAssets = brandColors.length > 0 || styleGuide || creativePrefs || hardRules
   const assetsCount = [brandColors.length > 0, !!styleGuide, !!creativePrefs, !!hardRules, !!visualTone].filter(Boolean).length
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-[20px] font-semibold text-[#111113]">Creative Studio</h1>
+          <h1 className="text-[20px] font-semibold text-[#111113]">Image Studio</h1>
           <p className="text-[12px] text-[#9d9da8] mt-0.5">
-            {selectedClient ? `Generating for ${clientName}` : 'Select a winning ad to generate variations automatically'}
+            {selectedClient ? `Generating for ${clientName}` : 'Describe any image to generate it'}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -293,12 +305,12 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
             onChange={e => setSelectedClient(e.target.value)}
             className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[13px] text-[#111113] bg-white min-w-[200px]"
           >
-            <option value="">Select client...</option>
+            <option value="">No client (freestyle)</option>
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           {selectedClient && (
             <div className="flex items-center border border-[#e8e8ec] rounded overflow-hidden">
-              {(['generate', 'gallery', 'settings'] as const).map(v => (
+              {(['chat', 'gallery', 'settings'] as const).map(v => (
                 <button
                   key={v}
                   onClick={() => setViewMode(v)}
@@ -306,549 +318,321 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
                     viewMode === v ? 'bg-[#111113] text-white' : 'bg-white text-[#9d9da8] hover:text-[#111113]'
                   }`}
                 >
-                  {v === 'generate' ? 'Generate' : v === 'gallery' ? `Gallery (${history.length})` : `Brand ${hasAssets ? `(${assetsCount}/5)` : ''}`}
+                  {v === 'chat' ? 'Generate' : v === 'gallery' ? `Gallery (${history.length})` : `Brand ${hasAssets ? `(${assetsCount}/5)` : ''}`}
                 </button>
               ))}
             </div>
           )}
+          {!selectedClient && history.length > 0 && (
+            <button onClick={() => setViewMode(viewMode === 'gallery' ? 'chat' : 'gallery')}
+              className={`px-3 py-1.5 text-[11px] font-medium rounded border border-[#e8e8ec] transition-colors ${viewMode === 'gallery' ? 'bg-[#111113] text-white' : 'bg-white text-[#9d9da8] hover:text-[#111113]'}`}>
+              Gallery ({history.length})
+            </button>
+          )}
         </div>
       </div>
 
-      {!selectedClient && (
-        <div className="border border-dashed border-[#e8e8ec] rounded-md p-12 text-center">
-          <p className="text-[14px] text-[#9d9da8]">Select a client to start generating creatives</p>
-        </div>
-      )}
-
-      {/* ══════════ GENERATE VIEW ══════════ */}
-      {selectedClient && viewMode === 'generate' && (
-        <div className="space-y-6">
-          {/* Brand context banner */}
-          {assetsLoaded && !hasAssets && (
-            <div className="bg-[#fef9c3] border border-[#fde68a] rounded-md px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <p className="text-[12px] text-[#92400e]">No brand assets configured for {clientName}. Auto-detect from winning ads or set up manually.</p>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button onClick={autoConfigure} disabled={autoConfiguring}
-                  className="px-3 py-1.5 rounded bg-[#111113] text-white text-[11px] font-medium hover:bg-[#2a2a2e] disabled:opacity-50 transition-colors">
-                  {autoConfiguring ? 'Analyzing ads...' : 'Auto-Configure from Winners'}
+      {/* ══════════ CHAT VIEW ══════════ */}
+      {viewMode === 'chat' && (
+        <div className="border border-[#e8e8ec] rounded-md bg-white flex flex-col" style={{ height: 'calc(100vh - 200px)', minHeight: '500px' }}>
+          {/* Settings bar */}
+          <div className="px-4 py-2.5 border-b border-[#e8e8ec] flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Ratio</span>
+              {ASPECT_RATIOS.map(r => (
+                <button key={r.value} onClick={() => setAspectRatio(r.value)}
+                  className={`px-2 py-0.5 text-[11px] rounded transition-colors ${
+                    aspectRatio === r.value ? 'bg-[#111113] text-white' : 'bg-[#f4f4f6] text-[#6b6b76] hover:bg-[#e8e8ec]'
+                  }`}>
+                  {r.label}
                 </button>
-                <button onClick={() => setViewMode('settings')} className="text-[11px] font-medium text-[#92400e] hover:text-[#78350f] underline">Manual</button>
-              </div>
+              ))}
             </div>
-          )}
-
-          {/* Step 1: Select Winner */}
-          <div className="border border-[#e8e8ec] rounded-md bg-white">
-            <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
-              <div>
-                <h3 className="text-[13px] font-semibold text-[#111113]">Select a Winning Ad</h3>
-                <p className="text-[11px] text-[#9d9da8] mt-0.5">Top performers from the last 60 days, ranked by CPR</p>
-              </div>
-              <span className="text-[10px] text-[#9d9da8]">{imageAds.length} image ads</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Quality</span>
+              {['1K', '2K'].map(r => (
+                <button key={r} onClick={() => setResolution(r)}
+                  className={`px-2 py-0.5 text-[11px] rounded transition-colors ${
+                    resolution === r ? 'bg-[#111113] text-white' : 'bg-[#f4f4f6] text-[#6b6b76] hover:bg-[#e8e8ec]'
+                  }`}>
+                  {r}
+                </button>
+              ))}
             </div>
-            {loadingAds ? (
-              <div className="p-6 text-[12px] text-[#9d9da8] text-center">Loading winning ads...</div>
-            ) : imageAds.length === 0 ? (
-              <div className="p-6 text-[12px] text-[#9d9da8] text-center">No winning image ads found</div>
-            ) : (
-              <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                {imageAds.map((ad, i) => (
-                  <button
-                    key={ad.platformAdId}
-                    onClick={() => selectWinner(ad)}
-                    className={`relative rounded-md overflow-hidden border-2 transition-all text-left ${
-                      selectedWinner?.platformAdId === ad.platformAdId
-                        ? 'border-[#2563eb] ring-2 ring-[#2563eb]/20'
-                        : additionalRefs.has(ad.platformAdId) ? 'border-[#16a34a] ring-1 ring-[#16a34a]/20'
-                        : 'border-transparent hover:border-[#e8e8ec]'
-                    }`}
-                  >
-                    <div className="aspect-square bg-[#f8f8fa] relative">
-                      <img src={ad.imageUrl} alt={ad.name} className="w-full h-full object-cover" />
-                      <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] font-bold rounded">#{i + 1}</div>
-                      {selectedWinner?.platformAdId === ad.platformAdId && (
-                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#2563eb] text-white text-[9px] font-bold rounded">SELECTED</div>
-                      )}
-                      {additionalRefs.has(ad.platformAdId) && (
-                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#16a34a] text-white text-[9px] font-bold rounded">REF</div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                        <p className="text-[10px] text-white font-semibold">${ad.cpr.toFixed(2)} CPR</p>
-                        <p className="text-[9px] text-white/70">${ad.spend.toFixed(0)} / {ad.results} results</p>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-white">
-                      <p className="text-[10px] text-[#111113] truncate">{ad.name}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            {selectedClient && assetsLoaded && hasAssets && (
+              <span className="text-[10px] text-[#16a34a] ml-auto">Brand context active</span>
+            )}
+            {selectedClient && assetsLoaded && !hasAssets && (
+              <button onClick={() => setViewMode('settings')} className="text-[10px] text-[#f59e0b] ml-auto hover:underline">
+                No brand assets — configure
+              </button>
+            )}
+            {!selectedClient && (
+              <span className="text-[10px] text-[#9d9da8] ml-auto">Freestyle mode — no brand context</span>
             )}
           </div>
 
-          {/* Step 2: Generate (only if winner selected) */}
-          {selectedWinner && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left: Selected winner + refs (4 cols) */}
-              <div className="lg:col-span-4 space-y-4">
-                <div className="border border-[#2563eb] rounded-md bg-white overflow-hidden">
-                  <div className="px-4 py-2 bg-[#2563eb]/5 border-b border-[#2563eb]/20 flex items-center justify-between">
-                    <p className="text-[11px] font-semibold text-[#2563eb]">STYLE ANCHOR</p>
-                    <p className="text-[10px] text-[#2563eb]/60">{selectedWinner.ctr.toFixed(2)}% CTR</p>
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            {messages.map(msg => (
+              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'system' ? (
+                  <div className="text-center w-full py-2">
+                    <p className="text-[11px] text-[#9d9da8]">{msg.content}</p>
                   </div>
-                  <div className="aspect-square bg-[#f8f8fa]">
-                    <img src={selectedWinner.imageUrl} alt={selectedWinner.name} className="w-full h-full object-contain" />
-                  </div>
-                  <div className="p-3 space-y-1">
-                    <p className="text-[12px] font-semibold text-[#111113] truncate">{selectedWinner.name}</p>
-                    <div className="flex gap-3 text-[10px] text-[#9d9da8]">
-                      <span>${selectedWinner.cpr.toFixed(2)} CPR</span>
-                      <span>{selectedWinner.results} results</span>
-                      <span>${selectedWinner.spend.toFixed(0)} spent</span>
+                ) : msg.role === 'user' ? (
+                  <div className="max-w-[70%]">
+                    <div className="bg-[#111113] text-white rounded-md rounded-br-none px-4 py-2.5">
+                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                     </div>
-                    {selectedWinner.headline && <p className="text-[11px] text-[#6b6b76] italic truncate">"{selectedWinner.headline}"</p>}
+                    <p className="text-[10px] text-[#9d9da8] mt-1 text-right">
+                      {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </p>
                   </div>
-                </div>
-
-                {/* Additional refs */}
-                {imageAds.length > 1 && (
-                  <div className="border border-[#e8e8ec] rounded-md bg-white">
-                    <div className="px-4 py-2 border-b border-[#e8e8ec] flex items-center justify-between">
-                      <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Additional References</p>
-                      <span className="text-[10px] text-[#9d9da8]">{additionalRefs.size}/5</span>
-                    </div>
-                    <div className="p-2 grid grid-cols-4 gap-1.5 max-h-[180px] overflow-y-auto">
-                      {imageAds.filter(a => a.platformAdId !== selectedWinner.platformAdId).map(ad => (
-                        <button key={ad.platformAdId} onClick={() => toggleAdditionalRef(ad.platformAdId)}
-                          className={`relative aspect-square rounded overflow-hidden border-2 transition-all ${
-                            additionalRefs.has(ad.platformAdId) ? 'border-[#16a34a]' : 'border-transparent hover:border-[#e8e8ec]'
-                          }`}>
-                          <img src={ad.imageUrl} alt="" className="w-full h-full object-cover" />
-                          {additionalRefs.has(ad.platformAdId) && (
-                            <div className="absolute inset-0 bg-[#16a34a]/20 flex items-center justify-center">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><path d="M3 8l4 4 6-7" /></svg>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Upload client photos */}
-                <div className="border border-[#e8e8ec] rounded-md bg-white">
-                  <div className="px-4 py-2 border-b border-[#e8e8ec] flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Client Photos</p>
-                      <p className="text-[10px] text-[#9d9da8]">Use real photos in the ad</p>
-                    </div>
-                    <span className="text-[10px] text-[#9d9da8]">{uploadedImages.length}/6</span>
-                  </div>
-                  <div className="p-3">
-                    {uploadedImages.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        {uploadedImages.map((img, i) => (
-                          <div key={i} className="relative aspect-square rounded overflow-hidden border border-[#e8e8ec] group">
-                            <img src={img.dataUrl} alt={img.name} className="w-full h-full object-cover" />
-                            <button onClick={() => removeUpload(i)}
-                              className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                            </button>
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5">
-                              <p className="text-[8px] text-white truncate">{img.name}</p>
-                            </div>
-                          </div>
-                        ))}
+                ) : (
+                  <div className="max-w-[80%]">
+                    {msg.status && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 border-2 border-[#2563eb] border-t-transparent rounded-full animate-spin" />
+                        <p className="text-[12px] text-[#6b6b76]">{msg.status}</p>
                       </div>
                     )}
-                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={e => handleFileUpload(e.target.files)} className="hidden" />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading || uploadedImages.length >= 6}
-                      className="w-full py-2.5 border border-dashed border-[#e8e8ec] rounded text-[11px] text-[#9d9da8] hover:text-[#111113] hover:border-[#2563eb] transition-colors disabled:opacity-50"
-                    >
-                      {uploading ? 'Uploading...' : uploadedImages.length >= 6 ? 'Max 6 photos' : 'Upload Photos'}
-                    </button>
-                    {uploadedImages.length > 0 && (
-                      <p className="text-[10px] text-[#2563eb] mt-1.5">The winning ad's layout will be used as a template with your photos as the hero visual</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Brand context summary */}
-                {hasAssets && (
-                  <div className="border border-[#e8e8ec] rounded-md bg-white p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Brand Context</p>
-                      <button onClick={() => setViewMode('settings')} className="text-[10px] text-[#2563eb] hover:text-[#1d4ed8]">Edit</button>
-                    </div>
-                    {brandColors.length > 0 && (
-                      <div className="flex gap-1 mb-2">
-                        {brandColors.map((c, i) => (
-                          <div key={i} className="w-6 h-6 rounded border border-[#e8e8ec]" style={{ backgroundColor: c.hex }} title={`${c.name}: ${c.hex}`} />
-                        ))}
+                    {msg.imageData && (
+                      <div className="mb-2 group relative">
+                        <img
+                          src={msg.imageData}
+                          alt="Generated"
+                          className="rounded-md max-w-full max-h-[500px] object-contain border border-[#e8e8ec]"
+                        />
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5">
+                          <button onClick={() => downloadImage(msg.imageData!, 'image-studio')}
+                            className="bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-medium text-[#111113] hover:bg-white shadow-sm">
+                            Download
+                          </button>
+                        </div>
                       </div>
                     )}
-                    {visualTone && <p className="text-[10px] text-[#6b6b76] mb-1">{visualTone}</p>}
-                    <p className="text-[10px] text-[#9d9da8]">{assetsCount}/5 brand settings configured</p>
+                    {msg.content && !msg.status && (
+                      <div className="bg-[#f4f4f6] rounded-md rounded-bl-none px-4 py-2.5">
+                        <p className="text-[13px] text-[#111113] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    )}
+                    {!msg.status && (
+                      <p className="text-[10px] text-[#9d9da8] mt-1">
+                        {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
 
-              {/* Right: Controls + Output (8 cols) */}
-              <div className="lg:col-span-8 space-y-4">
-                {/* Controls bar */}
-                <div className="border border-[#e8e8ec] rounded-md bg-white p-4">
-                  <div className="flex flex-wrap gap-4 items-end">
-                    <div>
-                      <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Mode</label>
-                      <div className="flex gap-2">
-                        <button onClick={() => setMode('variation')}
-                          className={`px-3 py-1.5 rounded border text-[12px] font-medium transition-colors ${mode === 'variation' ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]' : 'border-[#e8e8ec] text-[#111113]'}`}>
-                          Variation
-                        </button>
-                        <button onClick={() => setMode('refresh')}
-                          className={`px-3 py-1.5 rounded border text-[12px] font-medium transition-colors ${mode === 'refresh' ? 'border-[#f59e0b] bg-[#f59e0b]/5 text-[#f59e0b]' : 'border-[#e8e8ec] text-[#111113]'}`}>
-                          Refresh
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Ratio</label>
-                      <div className="flex gap-1">
-                        {ASPECT_RATIOS.map(ar => (
-                          <button key={ar.value} onClick={() => setAspectRatio(ar.value)} title={ar.desc}
-                            className={`px-2.5 py-1.5 rounded border text-[11px] font-medium transition-colors ${aspectRatio === ar.value ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]' : 'border-[#e8e8ec] text-[#111113]'}`}>
-                            {ar.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-2">Quality</label>
-                      <div className="flex gap-1">
-                        {['1K', '2K', '4K'].map(r => (
-                          <button key={r} onClick={() => setResolution(r)}
-                            className={`px-2.5 py-1.5 rounded border text-[11px] font-medium transition-colors ${resolution === r ? 'border-[#2563eb] bg-[#2563eb]/5 text-[#2563eb]' : 'border-[#e8e8ec] text-[#111113]'}`}>
-                            {r}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <button onClick={generate} disabled={generating}
-                      className="px-6 py-2 rounded bg-[#2563eb] text-white text-[13px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors ml-auto">
-                      {generating ? 'Generating...' : mode === 'refresh' ? 'Generate Refresh' : 'Generate Variation'}
+          {/* Uploaded images preview */}
+          {uploadedImages.length > 0 && (
+            <div className="px-4 py-2 border-t border-[#e8e8ec] bg-[#fafafb]">
+              <div className="flex items-center gap-2 overflow-x-auto">
+                <span className="text-[10px] text-[#9d9da8] flex-shrink-0">Attached:</span>
+                {uploadedImages.map((img, i) => (
+                  <div key={i} className="relative flex-shrink-0">
+                    <img src={img.dataUrl} className="w-10 h-10 rounded object-cover border border-[#e8e8ec]" />
+                    <button onClick={() => setUploadedImages(prev => prev.filter((_, idx) => idx !== i))}
+                      className="absolute -top-1 -right-1 w-4 h-4 bg-[#dc2626] text-white rounded-full text-[9px] flex items-center justify-center">
+                      x
                     </button>
                   </div>
-                  {/* Additional direction */}
-                  <div className="mt-3">
-                    <button onClick={() => setShowAdvanced(!showAdvanced)}
-                      className="text-[11px] text-[#9d9da8] hover:text-[#111113] transition-colors flex items-center gap-1">
-                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`transition-transform ${showAdvanced ? 'rotate-90' : ''}`}><path d="M6 4l4 4-4 4" /></svg>
-                      Additional direction (optional)
-                    </button>
-                    {showAdvanced && (
-                      <textarea value={direction} onChange={e => setDirection(e.target.value)} rows={3}
-                        placeholder="e.g. 'Use a before/after split', 'Focus on the pricing angle', 'Show the service being performed', 'Make the headline about winter specials'"
-                        className="w-full mt-2 px-3 py-2 rounded border border-[#e8e8ec] text-[12px] text-[#111113] placeholder:text-[#9d9da8] resize-none focus:outline-none focus:border-[#2563eb]" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Activity Log */}
-                {logEntries.length > 0 && (
-                  <div className="border border-[#e8e8ec] rounded-md bg-white overflow-hidden">
-                    <div className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Generation Log</span>
-                        {generating && <div className="w-1.5 h-1.5 bg-[#2563eb] rounded-full animate-pulse" />}
-                      </div>
-                      {!generating && (
-                        <button onClick={() => setLogEntries([])} className="text-[10px] text-[#9d9da8] hover:text-[#111113] transition-colors">Clear</button>
-                      )}
-                    </div>
-                    <div className="divide-y divide-[#f4f4f6] max-h-[200px] overflow-y-auto">
-                      {logEntries.map((entry, i) => (
-                        <div key={i} className="px-4 py-1.5 flex items-start gap-2.5">
-                          <span className="text-[10px] text-[#9d9da8] font-mono flex-shrink-0 mt-0.5 w-[52px]">{entry.time}</span>
-                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${
-                            entry.type === 'success' ? 'bg-[#16a34a]' :
-                            entry.type === 'warning' ? 'bg-[#f59e0b]' :
-                            entry.type === 'error' ? 'bg-[#dc2626]' :
-                            i === logEntries.length - 1 && generating ? 'bg-[#2563eb] animate-pulse' : 'bg-[#9d9da8]'
-                          }`} />
-                          <span className={`text-[11px] leading-relaxed ${
-                            entry.type === 'error' ? 'text-[#dc2626]' :
-                            entry.type === 'warning' ? 'text-[#92400e]' :
-                            entry.type === 'success' ? 'text-[#166534]' :
-                            'text-[#111113]'
-                          }`}>{entry.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Error */}
-                {error && <div className="bg-[#fef2f2] border border-[#fecaca] rounded-md p-3 text-[12px] text-[#dc2626]">{error}</div>}
-
-                {/* ═══ SIDE BY SIDE: Winner vs Generated ═══ */}
-                {generatedImage && !generating && (
-                  <div ref={outputRef} className="border border-[#e8e8ec] rounded-md bg-white overflow-hidden">
-                    <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-[13px] font-semibold text-[#111113]">Result</h3>
-                        {qaResult && (
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${qaResult.pass ? 'bg-[#16a34a]/10 text-[#16a34a]' : 'bg-[#f59e0b]/10 text-[#f59e0b]'}`}>
-                            {qaResult.pass ? 'QA Passed' : `QA: ${qaResult.issues.join(', ')}`}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={generate}
-                          className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors">
-                          Regenerate
-                        </button>
-                        <button onClick={() => downloadImage(generatedImage, `${clientName}-${mode}`)}
-                          className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors">
-                          Download
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Side-by-side comparison */}
-                    <div className="grid grid-cols-1 md:grid-cols-2">
-                      <div className="border-b md:border-b-0 md:border-r border-[#e8e8ec]">
-                        <div className="px-3 py-1.5 bg-[#f8f8fa] border-b border-[#e8e8ec]">
-                          <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Original Winner</p>
-                        </div>
-                        <div className="p-3 flex justify-center bg-[#fafafa]">
-                          <img src={selectedWinner.imageUrl} alt="Winner" className="max-w-full max-h-[400px] object-contain rounded" />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="px-3 py-1.5 bg-[#f8f8fa] border-b border-[#e8e8ec]">
-                          <p className="text-[10px] font-semibold text-[#2563eb] uppercase tracking-wider">Generated {mode === 'refresh' ? 'Refresh' : 'Variation'}</p>
-                        </div>
-                        <div className="p-3 flex justify-center bg-[#fafafa]">
-                          <img src={generatedImage} alt="Generated" className="max-w-full max-h-[400px] object-contain rounded" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Model notes */}
-                    {modelNotes && (
-                      <div className="px-4 py-3 border-t border-[#e8e8ec]">
-                        <p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1">Model Notes</p>
-                        <p className="text-[12px] text-[#111113] whitespace-pre-line">{stripMarkdown(modelNotes)}</p>
-                      </div>
-                    )}
-
-                    {/* Feedback */}
-                    <div className="px-4 py-3 border-t border-[#e8e8ec]">
-                      {!showFeedback ? (
-                        <button onClick={() => setShowFeedback(true)} className="text-[12px] text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">
-                          Give feedback and regenerate
-                        </button>
-                      ) : (
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block">What should change?</label>
-                          <textarea value={feedback} onChange={e => setFeedback(e.target.value)} rows={3} autoFocus
-                            placeholder="e.g. 'Make the headline larger', 'Use warmer colors', 'The text is hard to read', 'Try a different angle'"
-                            className="w-full px-3 py-2 rounded border border-[#e8e8ec] text-[12px] text-[#111113] placeholder:text-[#9d9da8] resize-none focus:outline-none focus:border-[#2563eb]" />
-                          <div className="flex items-center gap-2">
-                            <button disabled={!feedback.trim() || generating}
-                              onClick={() => { setDirection(prev => prev ? `${prev}\n\nFEEDBACK ON PREVIOUS VERSION: ${feedback}` : `FEEDBACK ON PREVIOUS VERSION: ${feedback}`); setShowFeedback(false); setFeedback(''); generate() }}
-                              className="px-4 py-1.5 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50 transition-colors">
-                              Regenerate with Feedback
-                            </button>
-                            <button onClick={() => { setShowFeedback(false); setFeedback('') }}
-                              className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[12px] text-[#9d9da8] hover:text-[#111113] transition-colors">Cancel</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Winner analysis (collapsed, below output) */}
-                {winnerAnalysis && (
-                  <details className="border border-[#e8e8ec] rounded-md bg-white" open={generating && !generatedImage}>
-                    <summary className="px-4 py-2 border-b border-[#e8e8ec] bg-[#f8f8fa] cursor-pointer">
-                      <span className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Winner Analysis</span>
-                    </summary>
-                    <div className="p-4 text-[12px] text-[#111113] leading-relaxed whitespace-pre-line">{stripMarkdown(winnerAnalysis)}</div>
-                  </details>
-                )}
+                ))}
               </div>
             </div>
           )}
+
+          {/* Input area */}
+          <div className="px-4 py-3 border-t border-[#e8e8ec] bg-[#fafafb]">
+            <div className="flex items-end gap-2">
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple
+                onChange={e => handleFileUpload(e.target.files)} />
+              <button onClick={() => fileInputRef.current?.click()} disabled={generating || uploadedImages.length >= 6}
+                className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded border border-[#e8e8ec] bg-white text-[#9d9da8] hover:text-[#111113] hover:border-[#111113] transition-colors disabled:opacity-40"
+                title="Attach reference images">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={generating ? 'Generating...' : 'Describe the image you want to create...'}
+                disabled={generating}
+                rows={1}
+                className="flex-1 resize-none rounded border border-[#e8e8ec] bg-white px-3 py-2 text-[13px] text-[#111113] placeholder:text-[#9d9da8] focus:outline-none focus:border-[#111113] disabled:opacity-50 max-h-[120px]"
+                style={{ minHeight: '36px' }}
+                onInput={e => {
+                  const t = e.target as HTMLTextAreaElement
+                  t.style.height = 'auto'
+                  t.style.height = Math.min(t.scrollHeight, 120) + 'px'
+                }}
+              />
+              <button onClick={handleSend} disabled={!input.trim() || generating}
+                className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded bg-[#111113] text-white hover:bg-[#2a2a2e] disabled:opacity-40 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ══════════ GALLERY VIEW ══════════ */}
-      {selectedClient && viewMode === 'gallery' && (
+      {viewMode === 'gallery' && (
         <div>
           {history.length === 0 ? (
             <div className="border border-dashed border-[#e8e8ec] rounded-md p-12 text-center">
-              <p className="text-[14px] text-[#9d9da8]">No creatives generated yet for {clientName}</p>
+              <p className="text-[14px] text-[#9d9da8]">No generated images yet</p>
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {history.map(c => (
-                  <div key={c.id} onClick={() => setPreviewCreative(c)}
-                    className="border border-[#e8e8ec] rounded-md overflow-hidden bg-white group cursor-pointer hover:border-[#2563eb]/30 transition-colors">
-                    <div className="aspect-square bg-[#f8f8fa] relative">
-                      {c.image_data ? <img src={c.image_data} alt={c.concept || ''} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-[11px] text-[#9d9da8]">No preview</div>}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                      {c.metadata?.mode === 'refresh' && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-[#f59e0b] text-white text-[9px] font-bold rounded">REFRESH</div>}
-                      {c.metadata?.qaPass === false && <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 bg-[#f59e0b] text-white text-[9px] font-bold rounded">QA</div>}
-                    </div>
-                    <div className="p-3">
-                      <p className="text-[12px] font-semibold text-[#111113] truncate">{c.concept || 'Untitled'}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] text-[#9d9da8]">{c.aspect_ratio} / {c.resolution}</span>
-                        <span className="text-[10px] text-[#9d9da8]">{formatTimeAgo(c.created_at)}</span>
-                      </div>
-                      {c.metadata?.winnerName && <p className="text-[10px] text-[#9d9da8] mt-0.5 truncate">From: {c.metadata.winnerName}</p>}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {history.map(creative => (
+                <div key={creative.id} className="group relative border border-[#e8e8ec] rounded-md overflow-hidden bg-white">
+                  <div className="cursor-pointer" onClick={() => setPreviewCreative(creative)}>
+                    <img src={creative.image_data} alt={creative.concept || 'Generated'} className="w-full aspect-square object-cover" />
+                  </div>
+                  <div className="p-2.5">
+                    <p className="text-[11px] text-[#111113] font-medium truncate">{creative.concept || creative.prompt?.substring(0, 40) || 'Generated'}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] text-[#9d9da8]">{creative.aspect_ratio}</span>
+                      <span className="text-[10px] text-[#9d9da8]">{new Date(creative.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <button onClick={() => downloadImage(creative.image_data, creative.concept || 'creative')}
+                      className="bg-white/90 backdrop-blur w-7 h-7 flex items-center justify-center rounded text-[#111113] shadow-sm hover:bg-white">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </button>
+                    <button onClick={() => deleteCreative(creative.id)}
+                      className="bg-white/90 backdrop-blur w-7 h-7 flex items-center justify-center rounded text-[#dc2626] shadow-sm hover:bg-white">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-              {/* Preview modal */}
-              {previewCreative && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setPreviewCreative(null)}>
-                  <div className="bg-white rounded-md max-w-[900px] w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                    <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
-                      <h3 className="text-[14px] font-semibold text-[#111113]">{previewCreative.concept || 'Creative'}</h3>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => downloadImage(previewCreative.image_data, previewCreative.concept || 'creative')} className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] transition-colors">Download</button>
-                        <button onClick={() => { deleteCreative(previewCreative.id); setPreviewCreative(null) }} className="px-3 py-1 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#dc2626] hover:border-[#dc2626] transition-colors">Delete</button>
-                        <button onClick={() => setPreviewCreative(null)} className="text-[#9d9da8] hover:text-[#111113]">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                        </button>
-                      </div>
+          {/* Preview modal */}
+          {previewCreative && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setPreviewCreative(null)}>
+              <div className="bg-white rounded-md max-w-[900px] w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+                <div className="flex flex-col md:flex-row">
+                  <div className="md:w-[55%] bg-[#f4f4f6] flex items-center justify-center p-4">
+                    <img src={previewCreative.image_data} alt="" className="max-w-full max-h-[60vh] object-contain" />
+                  </div>
+                  <div className="md:w-[45%] p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-[14px] font-semibold text-[#111113]">{previewCreative.concept || 'Generated Creative'}</h3>
+                      <button onClick={() => setPreviewCreative(null)} className="text-[#9d9da8] hover:text-[#111113]">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
                     </div>
-                    <div className="p-4 bg-[#f8f8fa] flex justify-center">
-                      <img src={previewCreative.image_data} alt="" className="max-w-full max-h-[500px] object-contain" />
-                    </div>
-                    <div className="p-4 border-t border-[#e8e8ec] space-y-3">
-                      {previewCreative.metadata?.winnerAnalysis && (
-                        <details>
-                          <summary className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider mb-1 cursor-pointer">Winner Analysis</summary>
-                          <p className="text-[12px] text-[#111113] whitespace-pre-line leading-relaxed mt-2">{stripMarkdown(previewCreative.metadata.winnerAnalysis)}</p>
-                        </details>
+                    <div className="space-y-2 text-[12px] text-[#6b6b76]">
+                      <p><span className="text-[#9d9da8]">Ratio:</span> {previewCreative.aspect_ratio}</p>
+                      <p><span className="text-[#9d9da8]">Resolution:</span> {previewCreative.resolution}</p>
+                      <p><span className="text-[#9d9da8]">Created:</span> {new Date(previewCreative.created_at).toLocaleString()}</p>
+                      {previewCreative.prompt && (
+                        <div className="mt-3 pt-3 border-t border-[#e8e8ec]">
+                          <p className="text-[10px] text-[#9d9da8] uppercase tracking-wider mb-1">Prompt</p>
+                          <p className="text-[12px] text-[#6b6b76] whitespace-pre-wrap">{previewCreative.prompt}</p>
+                        </div>
                       )}
-                      <div className="flex flex-wrap gap-4">
-                        {previewCreative.metadata?.winnerName && <div><p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Based On</p><p className="text-[12px] text-[#111113]">{previewCreative.metadata.winnerName}</p></div>}
-                        <div><p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Mode</p><p className="text-[12px] text-[#111113]">{previewCreative.metadata?.mode || 'variation'}</p></div>
-                        <div><p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Ratio</p><p className="text-[12px] text-[#111113]">{previewCreative.aspect_ratio}</p></div>
-                        <div><p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Quality</p><p className="text-[12px] text-[#111113]">{previewCreative.resolution}</p></div>
-                        <div><p className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Generated</p><p className="text-[12px] text-[#111113]">{new Date(previewCreative.created_at).toLocaleString()}</p></div>
-                      </div>
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <button onClick={() => downloadImage(previewCreative.image_data, previewCreative.concept || 'creative')}
+                        className="px-3 py-1.5 rounded bg-[#111113] text-white text-[11px] font-medium hover:bg-[#2a2a2e]">
+                        Download
+                      </button>
                     </div>
                   </div>
                 </div>
-              )}
-            </>
+              </div>
+            </div>
           )}
         </div>
       )}
 
-      {/* ══════════ BRAND SETTINGS VIEW ══════════ */}
-      {selectedClient && viewMode === 'settings' && (
-        <div className="max-w-[800px]">
+      {/* ══════════ SETTINGS VIEW ══════════ */}
+      {viewMode === 'settings' && selectedClient && (
+        <div className="max-w-[700px]">
           <div className="border border-[#e8e8ec] rounded-md bg-white">
-            <div className="px-5 py-4 border-b border-[#e8e8ec]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-[14px] font-semibold text-[#111113]">Brand Assets for {clientName}</h2>
-                  <p className="text-[11px] text-[#9d9da8] mt-0.5">These settings are automatically applied when generating creatives</p>
-                </div>
-                <button onClick={autoConfigure} disabled={autoConfiguring}
-                  className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#111113] hover:border-[#2563eb] hover:text-[#2563eb] disabled:opacity-50 transition-colors flex-shrink-0">
-                  {autoConfiguring ? 'Analyzing...' : 'Auto-Detect from Winners'}
-                </button>
-              </div>
-            </div>
-            <div className="p-5 space-y-6">
-              {/* Colors */}
+            <div className="px-4 py-3 border-b border-[#e8e8ec] flex items-center justify-between">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider">Brand Colors</label>
-                  <button onClick={addColor} className="text-[11px] text-[#2563eb] hover:text-[#1d4ed8] font-medium">+ Add Color</button>
-                </div>
-                {brandColors.length === 0 ? (
-                  <p className="text-[11px] text-[#9d9da8] italic">No colors set. Add brand colors for consistent creative generation.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {brandColors.map((c, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input type="color" value={c.hex} onChange={e => updateColor(i, 'hex', e.target.value)} className="w-9 h-9 rounded border border-[#e8e8ec] cursor-pointer p-0.5" />
-                        <input value={c.hex} onChange={e => updateColor(i, 'hex', e.target.value)} placeholder="#000000" className="w-24 px-2 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[12px] text-[#111113] font-mono focus:outline-none focus:border-[#2563eb]" />
-                        <input value={c.name} onChange={e => updateColor(i, 'name', e.target.value)} placeholder="e.g. Primary, Accent, CTA" className="flex-1 px-3 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[12px] text-[#111113] focus:outline-none focus:border-[#2563eb]" />
-                        <button onClick={() => removeColor(i)} className="text-[#9d9da8] hover:text-[#dc2626] transition-colors p-1">
-                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <h3 className="text-[13px] font-semibold text-[#111113]">Brand Assets — {clientName}</h3>
+                <p className="text-[11px] text-[#9d9da8] mt-0.5">These settings are used automatically when generating images for this client</p>
               </div>
+              <button onClick={autoConfigure} disabled={autoConfiguring}
+                className="px-3 py-1.5 rounded border border-[#e8e8ec] text-[11px] font-medium text-[#6b6b76] hover:text-[#111113] disabled:opacity-50">
+                {autoConfiguring ? 'Analyzing...' : 'Auto-Detect from Ads'}
+              </button>
+            </div>
+            <div className="p-4 space-y-5">
+              {/* Brand Colors */}
+              <div>
+                <label className="text-[11px] font-medium text-[#111113] block mb-2">Brand Colors</label>
+                <div className="space-y-2">
+                  {brandColors.map((color, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input type="color" value={color.hex} onChange={e => updateColor(i, 'hex', e.target.value)} className="w-8 h-8 rounded border border-[#e8e8ec] cursor-pointer" />
+                      <input type="text" value={color.hex} onChange={e => updateColor(i, 'hex', e.target.value)}
+                        className="w-24 px-2 py-1 rounded border border-[#e8e8ec] text-[12px] font-mono" />
+                      <input type="text" value={color.name} onChange={e => updateColor(i, 'name', e.target.value)} placeholder="Name (e.g. Primary)"
+                        className="flex-1 px-2 py-1 rounded border border-[#e8e8ec] text-[12px]" />
+                      <button onClick={() => removeColor(i)} className="text-[#dc2626] hover:text-[#b91c1c] text-[12px]">Remove</button>
+                    </div>
+                  ))}
+                  <button onClick={addColor} className="text-[11px] text-[#2563eb] hover:underline">+ Add color</button>
+                </div>
+              </div>
+
               {/* Visual Tone */}
               <div>
-                <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-1">Visual Tone</label>
-                <input value={visualTone} onChange={e => setVisualTone(e.target.value)} placeholder="e.g. Natural & candid, Bold & modern, Cinematic & premium"
-                  className="w-full px-3 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb]" />
+                <label className="text-[11px] font-medium text-[#111113] block mb-1">Visual Tone</label>
+                <input type="text" value={visualTone} onChange={e => setVisualTone(e.target.value)} placeholder="e.g. Bold, masculine, premium — dark backgrounds with high contrast"
+                  className="w-full px-3 py-1.5 rounded border border-[#e8e8ec] text-[12px]" />
               </div>
+
               {/* Style Guide */}
               <div>
-                <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-1">Style Guide</label>
-                <textarea value={styleGuide} onChange={e => setStyleGuide(e.target.value)} rows={4}
-                  placeholder="Photography direction, typography preferences, layout rules, lighting notes..."
-                  className="w-full px-3 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] resize-none focus:outline-none focus:border-[#2563eb]" />
+                <label className="text-[11px] font-medium text-[#111113] block mb-1">Style Guide</label>
+                <textarea value={styleGuide} onChange={e => setStyleGuide(e.target.value)} placeholder="Typography preferences, layout rules, imagery guidelines..."
+                  rows={3} className="w-full px-3 py-1.5 rounded border border-[#e8e8ec] text-[12px] resize-none" />
               </div>
+
               {/* Creative Preferences */}
               <div>
-                <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-1">Creative Preferences</label>
-                <textarea value={creativePrefs} onChange={e => setCreativePrefs(e.target.value)} rows={4}
-                  placeholder="What works: full-bleed shots, natural lighting, candid feel...&#10;What doesn't: white backgrounds, stock photo vibes, dramatic lighting..."
-                  className="w-full px-3 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] resize-none focus:outline-none focus:border-[#2563eb]" />
+                <label className="text-[11px] font-medium text-[#111113] block mb-1">Creative Preferences</label>
+                <textarea value={creativePrefs} onChange={e => setCreativePrefs(e.target.value)} placeholder="What works well for this client's ads..."
+                  rows={3} className="w-full px-3 py-1.5 rounded border border-[#e8e8ec] text-[12px] resize-none" />
               </div>
+
               {/* Hard Rules */}
               <div>
-                <label className="text-[10px] font-semibold text-[#9d9da8] uppercase tracking-wider block mb-1">Hard Rules</label>
-                <textarea value={hardRules} onChange={e => setHardRules(e.target.value)} rows={3}
-                  placeholder="e.g. MUST use LLumar branding, MUST NOT include XPEL, NO faces, NO logos"
-                  className="w-full px-3 py-2 rounded bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] resize-none focus:outline-none focus:border-[#2563eb]" />
+                <label className="text-[11px] font-medium text-[#111113] block mb-1">Hard Rules</label>
+                <textarea value={hardRules} onChange={e => setHardRules(e.target.value)} placeholder="e.g. Never use competitor brand names, always include phone number..."
+                  rows={2} className="w-full px-3 py-1.5 rounded border border-[#e8e8ec] text-[12px] resize-none" />
               </div>
-              {/* Save */}
-              <button onClick={saveBrandAssets} disabled={savingAssets}
-                className="w-full py-2.5 rounded bg-[#111113] text-white text-[13px] font-medium hover:bg-[#2a2a2e] disabled:opacity-50 transition-colors">
-                {savingAssets ? 'Saving...' : assetsSaved ? 'Saved' : 'Save Brand Assets'}
-              </button>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button onClick={saveBrandAssets} disabled={savingAssets}
+                  className="px-4 py-2 rounded bg-[#111113] text-white text-[12px] font-medium hover:bg-[#2a2a2e] disabled:opacity-50">
+                  {savingAssets ? 'Saving...' : assetsSaved ? 'Saved' : 'Save Brand Assets'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
   )
-}
-
-function now(): string {
-  return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-}
-
-function stripMarkdown(text: string): string {
-  return text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').replace(/#{1,4}\s*/g, '').replace(/`(.+?)`/g, '$1').replace(/^\s*[-*]\s+/gm, '- ').replace(/\n{3,}/g, '\n\n').trim()
-}
-
-function formatTimeAgo(dateStr: string): string {
-  const hours = Math.round((Date.now() - new Date(dateStr).getTime()) / 3600000)
-  if (hours < 1) return 'just now'
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.round(hours / 24)}d ago`
 }

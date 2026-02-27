@@ -6,6 +6,7 @@ interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
+  imageData?: string
   timestamp: string
 }
 
@@ -124,19 +125,21 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
   async function saveConversation(msgs: Message[], title?: string) {
     if (!selectedClient || msgs.length === 0) return
 
+    // Strip imageData from messages before saving (too large for DB)
+    const saveMsgs = msgs.map(m => m.imageData ? { ...m, imageData: undefined, content: m.content || '[Generated image]' } : m)
     const convTitle = title || msgs.find(m => m.role === 'user')?.content.slice(0, 60) || 'New conversation'
 
     if (activeConvId) {
       await fetch('/api/pegasus/conversations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: activeConvId, messages: msgs, title: convTitle }),
+        body: JSON.stringify({ id: activeConvId, messages: saveMsgs, title: convTitle }),
       })
     } else {
       const res = await fetch('/api/pegasus/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: selectedClient.id, title: convTitle, messages: msgs, days }),
+        body: JSON.stringify({ clientId: selectedClient.id, title: convTitle, messages: saveMsgs, days }),
       })
       if (res.ok) {
         const conv = await res.json()
@@ -241,6 +244,9 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
               if (data === '[DONE]') break
               try {
                 const parsed = JSON.parse(data)
+                if (parsed.image) {
+                  setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, imageData: parsed.image } : m))
+                }
                 if (parsed.text) {
                   assistantContent += parsed.text
                   setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m))
@@ -474,6 +480,14 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
                       <span className="text-[12px] font-semibold text-[#111113]">{msg.role === 'assistant' ? 'Pegasus' : 'You'}</span>
                       <span className="text-[10px] text-[#c4c4cc]">{formatTime(msg.timestamp)}</span>
                     </div>
+                    {msg.imageData && (
+                      <div className="my-2 group relative">
+                        <img src={msg.imageData} alt="Generated" className="rounded-md max-w-full max-h-[400px] object-contain border border-[#e8e8ec]" />
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <a href={msg.imageData} download="pegasus-image.png" className="bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-medium text-[#111113] hover:bg-white shadow-sm">Download</a>
+                        </div>
+                      </div>
+                    )}
                     {msg.role === 'assistant' ? <MarkdownContent content={msg.content} /> : (
                       <p className="text-[12px] text-[#6b6b76] leading-relaxed">{msg.content}</p>
                     )}

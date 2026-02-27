@@ -93,6 +93,25 @@ async function fetchImageBase64(url: string): Promise<{ data: string; mimeType: 
 }
 
 // Detect if user message is asking for visual/video analysis of specific ads
+function detectImageGenIntent(message: string): boolean {
+  const lower = message.toLowerCase()
+  const genTerms = [
+    'generate an image', 'generate image', 'generate a image',
+    'create an image', 'create image', 'create a image',
+    'make an image', 'make image', 'make a image',
+    'generate an ad', 'generate ad', 'generate a ad',
+    'create an ad image', 'create ad image', 'create a ad image',
+    'make an ad', 'make ad creative', 'make a creative',
+    'generate creative', 'generate a creative',
+    'create a creative', 'create creative',
+    'design an ad', 'design a ad', 'design an image',
+    'make me an image', 'make me a image', 'make me an ad',
+    'generate me', 'create me an',
+    'build an ad', 'build a creative', 'build an image',
+  ]
+  return genTerms.some(t => lower.includes(t))
+}
+
 function detectMediaIntent(message: string): { needsMedia: boolean; keywords: string[] } {
   const lower = message.toLowerCase()
   const mediaTerms = ['transcript', 'transcribe', 'watch', 'look at', 'show me', 'what does', 'what do', 'see the', 'see this',
@@ -1050,6 +1069,102 @@ ${result.context}`
     }))
 
     const latestUserMsg = messages[messages.length - 1]?.content || ''
+
+    // ── IMAGE GENERATION FLOW ──
+    if (detectImageGenIntent(latestUserMsg)) {
+      // Load brand assets for the client
+      const { data: brandAssets } = await supabaseAdmin
+        .from('brand_assets').select('*').eq('org_id', ORG_ID).eq('client_id', clientId).single()
+      const { data: clientInfo } = await supabaseAdmin
+        .from('clients').select('name, industry, brand_voice, ai_notes, business_description').eq('id', clientId).single()
+
+      // Build a prompt that includes brand context
+      const brandContext: string[] = []
+      if (brandAssets?.brand_colors?.length) brandContext.push(`Brand colors: ${brandAssets.brand_colors.map((c: any) => `${c.name}: ${c.hex}`).join(', ')}`)
+      if (brandAssets?.visual_tone) brandContext.push(`Visual tone: ${brandAssets.visual_tone}`)
+      if (brandAssets?.style_guide) brandContext.push(`Style guide: ${brandAssets.style_guide}`)
+      if (brandAssets?.creative_prefs) brandContext.push(`Creative preferences: ${brandAssets.creative_prefs}`)
+      if (brandAssets?.hard_rules) brandContext.push(`Hard rules: ${brandAssets.hard_rules}`)
+      if (clientInfo?.industry) brandContext.push(`Industry: ${clientInfo.industry}`)
+      if (clientInfo?.business_description) brandContext.push(`Business: ${clientInfo.business_description}`)
+
+      const fullPrompt = `You are a professional ad creative designer. Generate a high-quality ad image based on this request.
+
+${brandContext.length > 0 ? `BRAND CONTEXT FOR ${clientInfo?.name || 'this client'}:\n${brandContext.join('\n')}\n\n` : ''}USER REQUEST: ${latestUserMsg}
+
+Generate a professional ad creative image. Make it scroll-stopping, clean, and ready for Meta Ads. All text must be large, legible, and spelled correctly. Use a clean sans-serif typeface.`
+
+      const genResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+            generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE'],
+              temperature: 1.0,
+            },
+          }),
+        }
+      )
+
+      if (!genResponse.ok) {
+        const errText = await genResponse.text()
+        console.error('Pegasus image gen error:', errText)
+        let detail = ''
+        try { detail = JSON.parse(errText)?.error?.message || '' } catch {}
+        return new Response(JSON.stringify({ error: `Image generation failed: ${genResponse.status}${detail ? ' — ' + detail : ''}` }), {
+          status: 502, headers: { 'Content-Type': 'application/json' }
+        })
+      }
+
+      const genResult = await genResponse.json()
+      const genParts = genResult.candidates?.[0]?.content?.parts || []
+      let imageData = ''
+      let imageMime = 'image/png'
+      let modelText = ''
+      for (const part of genParts) {
+        if (part.inlineData) { imageData = part.inlineData.data; imageMime = part.inlineData.mimeType || 'image/png' }
+        if (part.text) modelText += part.text
+      }
+
+      // Save to generated_creatives
+      if (imageData) {
+        const dataUrl = `data:${imageMime};base64,${imageData}`
+        await supabaseAdmin.from('generated_creatives').insert({
+          org_id: ORG_ID, client_id: clientId, prompt: latestUserMsg,
+          concept: modelText?.substring(0, 200) || null,
+          aspect_ratio: '1:1', resolution: '2K',
+          image_data: dataUrl, metadata: { source: 'pegasus-chat' },
+        })
+      }
+
+      // Stream back as SSE with image event
+      const encoder = new TextEncoder()
+      const readable = new ReadableStream({
+        start(controller) {
+          if (modelText) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: modelText })}\n\n`))
+          }
+          if (imageData) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ image: `data:${imageMime};base64,${imageData}` })}\n\n`))
+          }
+          if (!imageData && !modelText) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: 'Image generation did not produce a result. Try rephrasing your request.' })}\n\n`))
+          }
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          controller.close()
+        },
+      })
+
+      logActivity({ orgId: ORG_ID, ...userActor(user), action: 'pegasus.image_gen', category: 'ai', targetType: 'client', targetId: clientId, targetName: result.client.name, clientId, details: latestUserMsg.substring(0, 200) })
+
+      return new Response(readable, {
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
+      })
+    }
+
     const mediaIntent = detectMediaIntent(latestUserMsg)
     const geminiFilesToCleanup: string[] = []
 
