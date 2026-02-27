@@ -130,7 +130,7 @@ function parseSetFields(block: string, angleName: string, sets: ImageAdSet[]) {
     const ctaMatch = line.match(/^\s*[*-]\s*\*?\*?\s*CTA\s*\*?\*?\s*[:]\s*(.+)/i)
     if (ctaMatch) { currentSet.cta = ctaMatch[1]; continue }
 
-    const visMatch = line.match(/^\s*[*-]\s*\*?\*?\s*Visual\s*(?:Concept)?\s*\*?\*?\s*[:]\s*(.+)/i)
+    const visMatch = line.match(/^\s*[*-]\s*\*?\*?\s*(?:Visual\s*(?:Concept)?|Image\s*Prompt)\s*\*?\*?\s*[:]\s*(.+)/i)
     if (visMatch) { currentSet.visual = visMatch[1]; continue }
   }
   // Push last set
@@ -327,11 +327,14 @@ HEADLINE TEXT ON THE IMAGE: "${set.headline}"
 SUPPORTING TEXT: "${set.subHeadline}"
 CTA BUTTON TEXT: "${set.cta}"
 
-VISUAL CONCEPT: ${set.visualConcept || 'Professional, clean ad layout with the headline prominently displayed'}
+IMAGE DIRECTION: ${set.visualConcept || 'Professional, clean ad layout with the headline prominently displayed. Leave space for text overlay.'}
 
-The text must be crisp, legible, and properly typeset — large enough to read on a mobile phone. The headline should be the first thing the eye hits. The CTA should be in a contrasting pill-shaped button in the bottom 15%. Full-bleed composition, no white borders. Magazine-quality production.
-
-NO LOGOS. NO placeholder text. NO gibberish. Every word spelled perfectly.`
+CRITICAL REQUIREMENTS:
+- The headline text must be crisp, legible, and properly typeset in a bold clean sans-serif — large enough to read on a mobile phone at arm's length. It should be the first thing the eye hits.
+- The CTA should be in a contrasting pill-shaped button in the bottom 15%.
+- Full-bleed composition, no white borders, no frames. Magazine-quality production.
+- Follow the image direction above EXACTLY — it describes the scene, lighting, camera angle, and composition.
+- NO logos. NO placeholder text. NO gibberish. Every word spelled perfectly.`
 
       const res = await fetch('/api/creative-studio/generate', {
         method: 'POST',
@@ -592,7 +595,7 @@ NO LOGOS. NO placeholder text. NO gibberish. Every word spelled perfectly.`
 
                                   {set.visualConcept && (
                                     <div className="mt-3 pt-2 border-t border-[#f4f4f6]">
-                                      <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-medium mb-0.5">Visual Concept</p>
+                                      <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-medium mb-0.5">Image Prompt</p>
                                       <p className="text-[11px] text-[#6b6b76] leading-relaxed">{set.visualConcept}</p>
                                     </div>
                                   )}

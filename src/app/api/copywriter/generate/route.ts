@@ -303,12 +303,22 @@ Analyze the winning ads and the client info. Determine:
 - Key Proof Point
 - #1 Objection and how to handle it
 
-### SECTION 2: IMAGE AD TEXT (for design briefs)
+### SECTION 2: IMAGE AD TEXT (for design briefs + AI image generation)
 For each of 3 angles, write 3 sets of:
 - Headline (3-7 words, bold, unmissable)
 - Sub-headline (5-12 words)
 - CTA (2-4 words, action verb)
-- Visual Concept (1-2 sentences describing the image scene — what the viewer sees behind the text. Be specific: environment, subject, lighting, mood, camera angle. NOT a description of the text — a description of the VISUAL.)
+- Image Prompt: A detailed, cinematic scene description written as a direct instruction to an AI image generator. This is NOT a vague concept — it's a SPECIFIC, ready-to-generate prompt. Include ALL of the following:
+  * Subject: What is the main subject? A person, a product, a before/after, a workspace, a result? Be exact.
+  * Environment: Where is this? Indoor/outdoor, time of day, specific setting (e.g. "modern kitchen mid-renovation with exposed studs and fresh drywall")
+  * Lighting: Natural light, studio light, dramatic side light, golden hour, overhead fluorescent? Be specific.
+  * Camera: Close-up, wide shot, overhead flat lay, 3/4 angle, straight-on? What lens feel — wide angle, portrait compression, macro?
+  * Mood/Color: Dark and premium? Bright and energetic? Clean and minimal? What's the dominant color temperature?
+  * Composition: Where does the subject sit in the frame? Is there negative space for text overlay? Top third, bottom third, centered?
+  * People: If people are included, describe them specifically (gender, age range, expression, action, clothing). If NO people, say "no people."
+  * Style: Photorealistic, graphic design with bold shapes, editorial photography, flat lay product shot?
+  * Text placement: Where should headline/sub/CTA sit relative to the image? (e.g. "large white headline top-left with dark overlay, CTA button bottom-center")
+  Write this as one flowing paragraph, 3-5 sentences, like a creative director briefing a photographer + designer. Example: "Close-up 3/4 angle of a ceramic-coated black SUV hood reflecting golden hour sunlight, shot at eye level in a clean detailing bay with polished concrete floors. No people. The reflection should show clean geometric lines of the facility ceiling. Dark, premium mood with warm amber highlights. Leave the top 30% of frame as clean dark space for a bold white sans-serif headline, CTA pill button bottom-right in brand blue."
 = 9 total image ad text sets
 
 ### SECTION 3: PRIMARY TEXT (feed copy)
