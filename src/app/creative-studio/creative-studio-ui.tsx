@@ -352,7 +352,7 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-[#9d9da8] uppercase tracking-wider">Quality</span>
-              {['1K', '2K'].map(r => (
+              {['1K', '2K', '4K'].map(r => (
                 <button key={r} onClick={() => setResolution(r)}
                   className={`px-2 py-0.5 text-[11px] rounded transition-colors ${
                     resolution === r ? 'bg-[#111113] text-white' : 'bg-[#f4f4f6] text-[#6b6b76] hover:bg-[#e8e8ec]'
