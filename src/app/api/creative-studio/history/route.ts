@@ -10,15 +10,17 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const clientId = req.nextUrl.searchParams.get('clientId')
-  if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('generated_creatives')
-    .select('id, prompt, concept, aspect_ratio, resolution, image_data, model, metadata, created_at')
+    .select('id, prompt, concept, aspect_ratio, resolution, image_data, model, metadata, source, client_id, created_at')
     .eq('org_id', ORG_ID)
-    .eq('client_id', clientId)
     .order('created_at', { ascending: false })
     .limit(50)
+
+  if (clientId) query = query.eq('client_id', clientId)
+
+  const { data, error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ creatives: data || [] })

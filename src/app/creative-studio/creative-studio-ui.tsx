@@ -16,7 +16,7 @@ interface ChatMessage {
 
 interface GeneratedCreative {
   id: string; prompt: string; concept: string | null; aspect_ratio: string
-  resolution: string; image_data: string; metadata: any; created_at: string
+  resolution: string; image_data: string; metadata: any; source?: string; client_id?: string; created_at: string
 }
 
 interface BrandColor { name: string; hex: string }
@@ -67,6 +67,7 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
       }])
       setUploadedImages([])
     } else {
+      loadHistory()
       setMessages([{
         id: 'welcome-no-client',
         role: 'system',
@@ -94,7 +95,8 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
 
   async function loadHistory() {
     try {
-      const res = await fetch(`/api/creative-studio/history?clientId=${selectedClient}`)
+      const url = selectedClient ? `/api/creative-studio/history?clientId=${selectedClient}` : '/api/creative-studio/history'
+      const res = await fetch(url)
       setHistory((await res.json()).creatives || [])
     } catch {}
   }
@@ -503,7 +505,16 @@ export function CreativeStudioUI({ clients, initialClientId }: { clients: Client
                   <div className="p-2.5">
                     <p className="text-[11px] text-[#111113] font-medium truncate">{creative.concept || creative.prompt?.substring(0, 40) || 'Generated'}</p>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[10px] text-[#9d9da8]">{creative.aspect_ratio}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-[#9d9da8]">{creative.aspect_ratio}</span>
+                        {creative.source && creative.source !== 'creative-studio' && (
+                          <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
+                            creative.source === 'copywriter' ? 'bg-[#ede9fe] text-[#7c3aed]' :
+                            creative.source === 'pegasus-chat' ? 'bg-[#e0f2fe] text-[#0284c7]' :
+                            'bg-[#f4f4f6] text-[#6b6b76]'
+                          }`}>{creative.source === 'copywriter' ? 'Copy' : creative.source === 'pegasus-chat' ? 'Pegasus' : creative.source}</span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-[#9d9da8]">{new Date(creative.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>

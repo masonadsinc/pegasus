@@ -221,6 +221,7 @@ export function CopywriterUI({ clients, initialClientId }: { clients: Client[]; 
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [imageAdSets, setImageAdSets] = useState<ImageAdSet[]>([])
   const [aspectRatio, setAspectRatio] = useState('1:1')
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const outputRef = useRef<HTMLDivElement>(null)
 
   const selectedClientObj = clients.find(c => c.id === selectedClient)
@@ -545,48 +546,114 @@ CRITICAL REQUIREMENTS:
                 </div>
               ) : (
                 <>
+                  {/* Action bar */}
+                  <div className="flex items-center justify-between bg-white border border-[#e8e8ec] rounded-md px-4 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px] text-[#6b6b76]">
+                        {imageAdSets.filter(s => s.imageData).length}/{imageAdSets.length} images generated
+                      </span>
+                      <div className="h-1.5 w-32 bg-[#f4f4f6] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#16a34a] rounded-full transition-all" style={{ width: `${(imageAdSets.filter(s => s.imageData).length / imageAdSets.length) * 100}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select value={aspectRatio} onChange={e => setAspectRatio(e.target.value)}
+                        className="px-2 py-1 rounded border border-[#e8e8ec] text-[11px] text-[#111113] bg-white">
+                        <option value="1:1">1:1 Feed</option>
+                        <option value="4:5">4:5 Portrait</option>
+                        <option value="9:16">9:16 Stories</option>
+                        <option value="16:9">16:9 Landscape</option>
+                      </select>
+                      <button
+                        onClick={async () => {
+                          const ungenerated = imageAdSets.map((s, i) => ({ s, i })).filter(({ s }) => !s.imageData && !s.generating)
+                          for (const { i } of ungenerated) {
+                            await generateImage(i)
+                          }
+                        }}
+                        disabled={imageAdSets.some(s => s.generating) || imageAdSets.every(s => s.imageData)}
+                        className="px-3 py-1.5 rounded bg-[#111113] text-white text-[11px] font-medium hover:bg-[#2a2a2e] disabled:opacity-40 transition-colors"
+                      >
+                        {imageAdSets.some(s => s.generating) ? 'Generating...' : imageAdSets.every(s => s.imageData) ? 'All Generated' : `Generate All (${imageAdSets.filter(s => !s.imageData).length})`}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Group by angle */}
                   {(() => {
                     const angles = [...new Set(imageAdSets.map(s => s.angle))]
-                    return angles.map(angle => (
+                    return angles.map(angle => {
+                      const angleSets = imageAdSets.filter(s => s.angle === angle)
+                      const generatedCount = angleSets.filter(s => s.imageData).length
+                      return (
                       <div key={angle}>
-                        <h3 className="text-[13px] font-semibold text-[#111113] mb-2 uppercase tracking-wider">{angle}</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {imageAdSets.filter(s => s.angle === angle).map((set, i) => {
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-[13px] font-semibold text-[#111113] uppercase tracking-wider">{angle}</h3>
+                          <span className="text-[10px] text-[#9d9da8]">{generatedCount}/{angleSets.length} images</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {angleSets.map((set, i) => {
                             const globalIndex = imageAdSets.indexOf(set)
                             return (
-                              <div key={globalIndex} className="bg-white border border-[#e8e8ec] rounded-md overflow-hidden">
-                                {/* Generated image */}
-                                {set.imageData && (
-                                  <div className="relative bg-[#f4f4f6]">
-                                    <img src={set.imageData} alt={set.headline} className="w-full object-contain" />
-                                  </div>
-                                )}
+                              <div key={globalIndex} className="bg-white border border-[#e8e8ec] rounded-md overflow-hidden group">
+                                {/* Image area — fixed height */}
+                                <div className="relative aspect-square bg-[#f4f4f6]">
+                                  {set.imageData && (
+                                    <>
+                                      <img src={set.imageData} alt={set.headline} className="w-full h-full object-cover cursor-pointer" onClick={() => setPreviewImage(set.imageData!)} />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5">
+                                        <button onClick={() => { const a = document.createElement('a'); a.href = set.imageData!; a.download = `${set.angle}-set${set.setNumber}.png`; a.click() }}
+                                          className="bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-medium text-[#111113] hover:bg-white shadow-sm">
+                                          Download
+                                        </button>
+                                        <button onClick={() => setPreviewImage(set.imageData!)}
+                                          className="bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-medium text-[#111113] hover:bg-white shadow-sm">
+                                          Expand
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
 
-                                {/* Generating state */}
-                                {set.generating && (
-                                  <div className="h-48 bg-[#f4f4f6] flex items-center justify-center">
-                                    <div className="text-center">
-                                      <svg className="animate-spin w-6 h-6 text-[#2563eb] mx-auto mb-2" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity=".3" /><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
-                                      <p className="text-[11px] text-[#9d9da8]">Generating image...</p>
+                                  {set.generating && (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="text-center">
+                                        <svg className="animate-spin w-8 h-8 text-[#2563eb] mx-auto mb-2" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity=".2" /><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                                        <p className="text-[11px] text-[#6b6b76] font-medium">Generating...</p>
+                                        <p className="text-[10px] text-[#9d9da8] mt-0.5">15-30 seconds</p>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
 
-                                {/* Error state */}
-                                {set.error && !set.generating && (
-                                  <div className="h-24 bg-[#fef2f2] flex items-center justify-center px-4">
-                                    <p className="text-[11px] text-[#dc2626]">{set.error}</p>
-                                  </div>
-                                )}
+                                  {set.error && !set.generating && (
+                                    <div className="absolute inset-0 flex items-center justify-center px-4">
+                                      <div className="text-center">
+                                        <p className="text-[11px] text-[#dc2626] font-medium">Generation failed</p>
+                                        <p className="text-[10px] text-[#9d9da8] mt-1">{set.error}</p>
+                                        <button onClick={() => generateImage(globalIndex)} className="mt-2 text-[10px] text-[#2563eb] hover:underline">Retry</button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {!set.imageData && !set.generating && !set.error && (
+                                    <div className="absolute inset-0 flex items-center justify-center cursor-pointer hover:bg-[#e8e8ec] transition-colors" onClick={() => generateImage(globalIndex)}>
+                                      <div className="text-center">
+                                        <svg className="w-8 h-8 text-[#9d9da8] mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        <p className="text-[11px] text-[#9d9da8] font-medium">Click to generate</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
 
                                 {/* Ad text content */}
                                 <div className="p-3">
                                   <div className="flex items-start justify-between gap-2 mb-2">
                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f4f4f6] text-[#6b6b76] font-medium">Set {set.setNumber}</span>
-                                    <button onClick={() => copyToClipboard(`${set.headline}\n${set.subHeadline}\n${set.cta}`, `ias-${globalIndex}`)} className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${copiedId === `ias-${globalIndex}` ? 'bg-[#dcfce7] text-[#16a34a]' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
-                                      {copiedId === `ias-${globalIndex}` ? 'Copied' : 'Copy'}
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                      <button onClick={() => copyToClipboard(`${set.headline}\n${set.subHeadline}\n${set.cta}`, `ias-${globalIndex}`)} className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${copiedId === `ias-${globalIndex}` ? 'bg-[#dcfce7] text-[#16a34a]' : 'text-[#9d9da8] hover:bg-[#f4f4f6]'}`}>
+                                        {copiedId === `ias-${globalIndex}` ? 'Copied' : 'Copy text'}
+                                      </button>
+                                    </div>
                                   </div>
 
                                   <p className="text-[14px] font-semibold text-[#111113] leading-tight">{set.headline}</p>
@@ -594,33 +661,36 @@ CRITICAL REQUIREMENTS:
                                   <div className="mt-2 inline-block px-2.5 py-1 bg-[#2563eb] text-white text-[11px] font-semibold rounded">{set.cta}</div>
 
                                   {set.visualConcept && (
-                                    <div className="mt-3 pt-2 border-t border-[#f4f4f6]">
-                                      <p className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-medium mb-0.5">Image Prompt</p>
-                                      <p className="text-[11px] text-[#6b6b76] leading-relaxed">{set.visualConcept}</p>
-                                    </div>
+                                    <details className="mt-3 pt-2 border-t border-[#f4f4f6]">
+                                      <summary className="text-[10px] uppercase tracking-wider text-[#9d9da8] font-medium cursor-pointer hover:text-[#6b6b76]">Image Prompt</summary>
+                                      <p className="text-[11px] text-[#6b6b76] leading-relaxed mt-1">{set.visualConcept}</p>
+                                    </details>
                                   )}
 
-                                  {/* Generate Image button */}
-                                  <button
-                                    onClick={() => generateImage(globalIndex)}
-                                    disabled={set.generating}
-                                    className={`mt-3 w-full py-2 text-[12px] font-semibold rounded transition-colors ${
-                                      set.generating
-                                        ? 'bg-[#e8e8ec] text-[#9d9da8] cursor-not-allowed'
-                                        : set.imageData
-                                          ? 'bg-[#f4f4f6] text-[#6b6b76] hover:bg-[#e8e8ec]'
-                                          : 'bg-[#111113] text-white hover:bg-[#2a2a2e]'
-                                    }`}
-                                  >
-                                    {set.generating ? 'Generating...' : set.imageData ? 'Regenerate Image' : 'Generate Image'}
-                                  </button>
+                                  {/* Generate/Regenerate button */}
+                                  {set.imageData ? (
+                                    <button
+                                      onClick={() => generateImage(globalIndex)}
+                                      disabled={set.generating}
+                                      className="mt-2 w-full py-1.5 text-[11px] font-medium rounded border border-[#e8e8ec] text-[#6b6b76] hover:bg-[#f4f4f6] disabled:opacity-40 transition-colors"
+                                    >
+                                      Regenerate
+                                    </button>
+                                  ) : !set.generating && (
+                                    <button
+                                      onClick={() => generateImage(globalIndex)}
+                                      className="mt-2 w-full py-1.5 text-[11px] font-medium rounded bg-[#111113] text-white hover:bg-[#2a2a2e] transition-colors"
+                                    >
+                                      Generate Image
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             )
                           })}
                         </div>
                       </div>
-                    ))
+                    )})
                   })()}
                 </>
               )}
@@ -706,6 +776,24 @@ CRITICAL REQUIREMENTS:
           </div>
           <p className="text-[13px] text-[#6b6b76]">Ready to generate</p>
           <p className="text-[11px] text-[#9d9da8] mt-1">{mode === 'variation' ? 'Will iterate on winning ad copy patterns' : 'Will explore new creative directions'}</p>
+        </div>
+      )}
+      {/* Image preview modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <img src={previewImage} alt="Preview" className="max-w-full max-h-[85vh] object-contain rounded-md" />
+            <div className="absolute top-3 right-3 flex gap-2">
+              <a href={previewImage} download="copywriter-creative.png"
+                className="bg-white/90 backdrop-blur px-3 py-1.5 rounded text-[11px] font-medium text-[#111113] hover:bg-white shadow-sm">
+                Download
+              </a>
+              <button onClick={() => setPreviewImage(null)}
+                className="bg-white/90 backdrop-blur w-8 h-8 flex items-center justify-center rounded text-[#111113] hover:bg-white shadow-sm">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
