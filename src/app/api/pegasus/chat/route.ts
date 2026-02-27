@@ -1014,7 +1014,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const { messages, clientId, days } = await req.json()
+    const { messages, clientId, days, attachments = [] } = await req.json()
     if (!messages?.length) return new Response(JSON.stringify({ error: 'No messages' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
     if (!clientId) return new Response(JSON.stringify({ error: 'No client selected' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
 
@@ -1067,6 +1067,23 @@ ${result.context}`
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }))
+
+    // Add user-attached files to the last message
+    if (attachments?.length > 0) {
+      const lastMsg = geminiMessages[geminiMessages.length - 1]
+      if (lastMsg?.role === 'user') {
+        const parts: any[] = []
+        for (const att of attachments.slice(0, 6)) {
+          if (att.dataUrl && att.mimeType?.startsWith('image/')) {
+            const base64 = att.dataUrl.replace(/^data:[^;]+;base64,/, '')
+            parts.push({ inlineData: { mimeType: att.mimeType, data: base64 } })
+            parts.push({ text: `[User attached image: ${att.name || 'image'}. Analyze this image thoroughly — describe what you see, text, layout, colors, composition, subjects.]` })
+          }
+        }
+        parts.push({ text: lastMsg.parts[0].text })
+        lastMsg.parts = parts
+      }
+    }
 
     const latestUserMsg = messages[messages.length - 1]?.content || ''
 

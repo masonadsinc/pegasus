@@ -2,11 +2,18 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 
+interface Attachment {
+  name: string
+  dataUrl: string
+  mimeType: string
+}
+
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   imageData?: string
+  attachments?: Attachment[]
   timestamp: string
 }
 
@@ -94,6 +101,8 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState('')
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
@@ -125,8 +134,13 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
   async function saveConversation(msgs: Message[], title?: string) {
     if (!selectedClient || msgs.length === 0) return
 
-    // Strip imageData from messages before saving (too large for DB)
-    const saveMsgs = msgs.map(m => m.imageData ? { ...m, imageData: undefined, content: m.content || '[Generated image]' } : m)
+    // Strip imageData and attachments from messages before saving (too large for DB)
+    const saveMsgs = msgs.map(m => {
+      const cleaned = { ...m }
+      if (cleaned.imageData) { cleaned.imageData = undefined; if (!cleaned.content) cleaned.content = '[Generated image]' }
+      if (cleaned.attachments?.length) { cleaned.content = `[${cleaned.attachments.length} file(s) attached] ${cleaned.content}`; cleaned.attachments = undefined }
+      return cleaned
+    })
     const convTitle = title || msgs.find(m => m.role === 'user')?.content.slice(0, 60) || 'New conversation'
 
     if (activeConvId) {
@@ -193,13 +207,36 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
     setConversations([])
   }
 
-  async function sendMessage(content: string) {
-    if (!content.trim() || loading || !selectedClient) return
+  function handleFileSelect(files: FileList | null) {
+    if (!files) return
+    const maxFiles = 6 - attachments.length
+    Array.from(files).slice(0, maxFiles).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        setAttachments(prev => [...prev, {
+          name: file.name,
+          dataUrl: reader.result as string,
+          mimeType: file.type,
+        }].slice(0, 6))
+      }
+      reader.readAsDataURL(file)
+    })
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: content.trim(), timestamp: new Date().toISOString() }
+  async function sendMessage(content: string) {
+    if ((!content.trim() && attachments.length === 0) || loading || !selectedClient) return
+
+    const currentAttachments = [...attachments]
+    const userMsg: Message = {
+      id: Date.now().toString(), role: 'user', content: content.trim(),
+      attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
+      timestamp: new Date().toISOString(),
+    }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
+    setAttachments([])
     setLoading(true)
 
     try {
@@ -210,6 +247,7 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
           messages: newMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           clientId: selectedClient.id,
           days,
+          attachments: currentAttachments.map(a => ({ dataUrl: a.dataUrl, mimeType: a.mimeType, name: a.name })),
         }),
       })
 
@@ -488,6 +526,16 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
                         </div>
                       </div>
                     )}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {msg.attachments.filter(a => a.mimeType.startsWith('image/')).map((att, i) => (
+                          <img key={i} src={att.dataUrl} alt={att.name} className="w-20 h-20 rounded object-cover border border-[#e8e8ec]" />
+                        ))}
+                        {msg.attachments.filter(a => !a.mimeType.startsWith('image/')).map((att, i) => (
+                          <div key={i} className="px-2 py-1 rounded bg-[#f4f4f6] border border-[#e8e8ec] text-[10px] text-[#6b6b76]">{att.name}</div>
+                        ))}
+                      </div>
+                    )}
                     {msg.role === 'assistant' ? <MarkdownContent content={msg.content} /> : (
                       <p className="text-[12px] text-[#6b6b76] leading-relaxed">{msg.content}</p>
                     )}
@@ -514,15 +562,47 @@ export function PegasusChat({ clients, initialClientId }: { clients: ClientOptio
         {/* Input */}
         <div className="border-t border-[#e8e8ec] px-4 sm:px-6 py-3 bg-white">
           <div className="max-w-[760px] mx-auto">
-            <div className="relative">
-              <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                placeholder={`Ask about ${selectedClient.name}...`} rows={1}
-                className="w-full px-4 py-3 pr-12 rounded-md bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb] focus:bg-white transition-colors resize-none placeholder-[#9d9da8]"
-                style={{ minHeight: '44px', maxHeight: '120px' }} />
-              <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded flex items-center justify-center bg-[#111113] text-white hover:bg-[#333] disabled:opacity-30 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2L2 8.5l4.5 2L10 14l4-12z" /></svg>
+            {/* Attachment previews */}
+            {attachments.length > 0 && (
+              <div className="flex items-center gap-2 mb-2 overflow-x-auto pb-1">
+                {attachments.map((att, i) => (
+                  <div key={i} className="relative flex-shrink-0">
+                    {att.mimeType.startsWith('image/') ? (
+                      <img src={att.dataUrl} className="w-12 h-12 rounded object-cover border border-[#e8e8ec]" />
+                    ) : (
+                      <div className="w-12 h-12 rounded border border-[#e8e8ec] bg-[#f4f4f6] flex items-center justify-center">
+                        <svg className="w-5 h-5 text-[#9d9da8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      </div>
+                    )}
+                    <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#dc2626] text-white rounded-full text-[9px] flex items-center justify-center hover:bg-[#b91c1c]">
+                      x
+                    </button>
+                  </div>
+                ))}
+                <span className="text-[10px] text-[#9d9da8]">{attachments.length}/6</span>
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf,.csv,.txt" multiple
+                onChange={e => handleFileSelect(e.target.files)} />
+              <button onClick={() => fileInputRef.current?.click()} disabled={loading || attachments.length >= 6}
+                className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded border border-[#e8e8ec] bg-[#f8f8fa] text-[#9d9da8] hover:text-[#111113] hover:border-[#111113] transition-colors disabled:opacity-40"
+                title="Attach files">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
               </button>
+              <div className="relative flex-1">
+                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+                  placeholder={`Ask about ${selectedClient.name}...`} rows={1}
+                  className="w-full px-4 py-3 pr-12 rounded-md bg-[#f8f8fa] border border-[#e8e8ec] text-[13px] text-[#111113] focus:outline-none focus:border-[#2563eb] focus:bg-white transition-colors resize-none placeholder-[#9d9da8]"
+                  style={{ minHeight: '44px', maxHeight: '120px' }} />
+                <button onClick={() => sendMessage(input)} disabled={(!input.trim() && attachments.length === 0) || loading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded flex items-center justify-center bg-[#111113] text-white hover:bg-[#333] disabled:opacity-30 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2L2 8.5l4.5 2L10 14l4-12z" /></svg>
+                </button>
+              </div>
             </div>
             <p className="text-[10px] text-[#c4c4cc] mt-1.5 text-center">Analyzing {days}d of data for {selectedClient.name}</p>
           </div>
