@@ -9,6 +9,8 @@ import { CampaignsTab } from './tabs/campaigns-tab'
 import { DataTable, AdImage } from './tabs/shared'
 import { AudienceTab } from './tabs/audience-tab'
 import { PlacementsTab } from './tabs/placements-tab'
+import { GeographicTab } from './tabs/geographic-tab'
+import { SettingsTab } from './tabs/settings-tab'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { formatCurrency, formatNumber, formatPercent, formatCompact, wowChange, wowChangeCPL } from '@/lib/utils'
@@ -259,8 +261,6 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
   const [adStatusFilter, setAdStatusFilter] = useState<'all' | 'active' | 'paused'>('all')
   const [campaignFilter, setCampaignFilter] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
-  const [portalToken, setPortalToken] = useState<string | null>(initialPortalToken || null)
-  const [portalLoading, setPortalLoading] = useState(false)
   // Notes/Annotations (localStorage-based)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [editingNote, setEditingNote] = useState<string | null>(null)
@@ -789,123 +789,12 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
         </TabsContent>
       )}
 
-      {/* ═══════════════════ GEOGRAPHIC ═══════════════════ */}
-      {region.length > 0 && (() => {
-        const geoTotal = { spend: 0, impressions: 0, clicks: 0 }
-        region.forEach(r => { geoTotal.spend += r.spend; geoTotal.impressions += r.impressions; geoTotal.clicks += r.clicks })
-        const maxR = region[0]?.spend || 1
-
-        // State abbreviation map
-        const stateAbbr: Record<string, string> = {
-          'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA','Colorado':'CO',
-          'Connecticut':'CT','Delaware':'DE','Florida':'FL','Georgia':'GA','Hawaii':'HI','Idaho':'ID',
-          'Illinois':'IL','Indiana':'IN','Iowa':'IA','Kansas':'KS','Kentucky':'KY','Louisiana':'LA',
-          'Maine':'ME','Maryland':'MD','Massachusetts':'MA','Michigan':'MI','Minnesota':'MN','Mississippi':'MS',
-          'Missouri':'MO','Montana':'MT','Nebraska':'NE','Nevada':'NV','New Hampshire':'NH','New Jersey':'NJ',
-          'New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND','Ohio':'OH','Oklahoma':'OK',
-          'Oregon':'OR','Pennsylvania':'PA','Rhode Island':'RI','South Carolina':'SC','South Dakota':'SD',
-          'Tennessee':'TN','Texas':'TX','Utah':'UT','Vermont':'VT','Virginia':'VA','Washington':'WA',
-          'West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY','District of Columbia':'DC',
-        }
-        const getAbbr = (name: string) => stateAbbr[name] || name?.slice(0, 2).toUpperCase() || '??'
-
-        // US region mapping
-        const regionMap: Record<string, string[]> = {
-          'Northeast': ['Connecticut','Maine','Massachusetts','New Hampshire','New Jersey','New York','Pennsylvania','Rhode Island','Vermont'],
-          'Southeast': ['Alabama','Arkansas','Delaware','Florida','Georgia','Kentucky','Louisiana','Maryland','Mississippi','North Carolina','South Carolina','Tennessee','Virginia','West Virginia','District of Columbia'],
-          'Midwest': ['Illinois','Indiana','Iowa','Kansas','Michigan','Minnesota','Missouri','Nebraska','North Dakota','Ohio','South Dakota','Wisconsin'],
-          'Southwest': ['Arizona','New Mexico','Oklahoma','Texas'],
-          'West': ['Alaska','California','Colorado','Hawaii','Idaho','Montana','Nevada','Oregon','Utah','Washington','Wyoming'],
-        }
-        const regionGroups: Record<string, { spend: number; ctr: number; count: number }> = {}
-        for (const [rg, states] of Object.entries(regionMap)) {
-          let spend = 0, impr = 0, clicks = 0, count = 0
-          region.forEach(r => { if (states.some(s => r.dimension_value === s)) { spend += r.spend; impr += r.impressions; clicks += r.clicks; count++ } })
-          if (count) regionGroups[rg] = { spend, ctr: impr > 0 ? (clicks / impr) * 100 : 0, count }
-        }
-
-        return (
-          <TabsContent value="geographic">
-            <div className="space-y-5">
-              {/* Overview row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <Card className="p-5">
-                  <h3 className="text-[13px] font-semibold mb-2">Geographic Overview</h3>
-                  <p className="text-[11px] text-[#9d9da8] mb-3">{region.length} states active</p>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
-                    <div><span className="text-[#9d9da8]">Total Spend</span><p className="font-semibold text-[18px]">{formatCompact(geoTotal.spend)}</p></div>
-                    <div><span className="text-[#9d9da8]">Impressions</span><p className="font-semibold text-[18px]">{formatCompact(geoTotal.impressions)}</p></div>
-                    <div><span className="text-[#9d9da8]">Clicks</span><p className="font-semibold text-[18px]">{formatCompact(geoTotal.clicks)}</p></div>
-                    <div><span className="text-[#9d9da8]">CTR</span><p className="font-semibold text-[18px]">{geoTotal.impressions > 0 ? formatPercent((geoTotal.clicks / geoTotal.impressions) * 100) : '—'}</p></div>
-                  </div>
-                </Card>
-
-                <Card className="p-5">
-                  <h3 className="text-[13px] font-semibold mb-3">Regional Performance</h3>
-                  <div className="space-y-2">
-                    {Object.entries(regionGroups).sort((a, b) => b[1].spend - a[1].spend).map(([name, data]) => (
-                      <div key={name} className="flex items-center justify-between text-[12px]">
-                        <span className="font-medium">{name} <span className="text-[#9d9da8]">({data.count})</span></span>
-                        <span className="tabular-nums text-[#6b6b76]">{formatCurrency(data.spend)} · {formatPercent(data.ctr)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card className="p-5">
-                  <h3 className="text-[13px] font-semibold mb-3">Top States</h3>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {region.slice(0, 15).map(r => {
-                      const abbr = getAbbr(r.dimension_value)
-                      const pct = totalSpend > 0 ? ((r.spend / totalSpend) * 100).toFixed(1) : '0'
-                      return (
-                        <div key={r.dimension_value} className="text-center p-1.5 rounded bg-[#f4f4f6]">
-                          <p className="text-[11px] font-semibold text-[#2563eb]">{abbr}</p>
-                          <p className="text-[9px] text-[#9d9da8]">{pct}%</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </Card>
-              </div>
-
-              {/* Top States bar chart */}
-              <Card className="p-5">
-                <h3 className="text-[13px] font-semibold mb-3">Top States by Spend</h3>
-                <div className="space-y-2">
-                  {region.slice(0, 10).map(r => (
-                    <div key={r.dimension_value} className="flex items-center gap-3">
-                      <span className="text-[11px] font-medium w-8 text-[#6b6b76]">{getAbbr(r.dimension_value)}</span>
-                      <div className="flex-1 h-5 bg-[#f4f4f6] rounded overflow-hidden">
-                        <div className="h-full bg-[#16a34a] rounded" style={{ width: `${(r.spend / maxR) * 100}%` }} />
-                      </div>
-                      <span className="text-[11px] tabular-nums w-16 text-right font-medium">{formatCurrency(r.spend)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              {/* All States table */}
-              <Card>
-                <div className="px-5 py-4 border-b border-[#e8e8ec]">
-                  <h3 className="text-[13px] font-semibold">All States</h3>
-                </div>
-                <DataTable
-                  columns={[
-                    { key: 'dimension_value', label: 'State', format: (v) => <div className="flex items-center gap-2"><span className="text-[11px] text-[#9d9da8] font-medium w-6">{getAbbr(v)}</span><span className="font-medium">{v}</span></div> },
-                    { key: 'spend', label: 'Spend', format: (v) => formatCurrency(v), align: 'right' },
-                    { key: 'impressions', label: 'Impressions', format: (v) => formatNumber(v), align: 'right' },
-                    { key: 'clicks', label: 'Clicks', format: (v) => formatNumber(v), align: 'right' },
-                    { key: 'ctr', label: 'CTR', format: (v: number) => formatPercent(v), align: 'right' },
-                    { key: '_pct', label: '% of Spend', format: (_, row) => <span className="text-[#9d9da8]">{totalSpend > 0 ? `${((row.spend / totalSpend) * 100).toFixed(1)}%` : '—'}</span>, align: 'right' },
-                  ]}
-                  data={region}
-                />
-              </Card>
-            </div>
-          </TabsContent>
-        )
-      })()}
+      {/* Geographic Tab */}
+      {region.length > 0 && (
+        <TabsContent value="geographic">
+          <GeographicTab region={region} totalSpend={totalSpend} />
+        </TabsContent>
+      )}
       {/* ═══════════════════ SETTINGS ═══════════════════ */}
       {!portalMode && clientId && (
         <TabsContent value="creative-analysis">
@@ -913,119 +802,18 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
         </TabsContent>
       )}
 
-      {!portalMode && <TabsContent value="settings">
-        <div className="space-y-5 max-w-2xl">
-          <Card className="p-5">
-            <h3 className="text-[13px] font-semibold mb-4">Account Configuration</h3>
-            <div className="space-y-3 text-[13px]">
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Account Name</span>
-                <span className="font-medium">{clientName || '—'}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Platform Account ID</span>
-                <span className="font-mono text-[12px]">{platformAccountId || '—'}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Objective</span>
-                <span className="font-medium capitalize">{objective || '—'}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Primary Action Type</span>
-                <span className="font-mono text-[12px]">{primaryActionType || 'lead'}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Result Label</span>
-                <span className="font-medium">{resultLabel}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">{isEcom ? 'Target ROAS' : 'Target CPR'}</span>
-                <span className="font-semibold">{isEcom ? (targetRoas ? `${targetRoas}x` : '—') : (targetCpl ? formatCurrency(targetCpl) : '—')}</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-[#9d9da8]">Account Type</span>
-                <Badge variant={isEcom ? 'info' : 'success'}>{isEcom ? 'E-commerce' : 'Lead Gen'}</Badge>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="text-[13px] font-semibold mb-4">Client Portal</h3>
-            <p className="text-[12px] text-[#9d9da8] mb-3">Generate a shareable link for your client to view their dashboard — no login required.</p>
-            <div className="space-y-3">
-              {portalToken ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      readOnly
-                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/portal/${portalToken}`}
-                      className="flex-1 px-3 py-2 border border-[#e8e8ec] rounded text-[12px] text-[#111113] bg-[#f8f8fa] font-mono"
-                    />
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/portal/${portalToken}`); }}
-                      className="px-3 py-2 rounded border border-[#e8e8ec] text-[12px] font-medium text-[#111113] hover:bg-[#f8f8fa]"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (!confirm('This will invalidate the current link. Continue?')) return
-                      setPortalLoading(true)
-                      const res = await fetch('/api/portal', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId }) })
-                      if (res.ok) setPortalToken(null)
-                      setPortalLoading(false)
-                    }}
-                    className="text-[11px] text-[#dc2626] hover:underline"
-                  >
-                    Revoke link
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={async () => {
-                    setPortalLoading(true)
-                    const res = await fetch('/api/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId }) })
-                    const data = await res.json()
-                    if (data.token) setPortalToken(data.token)
-                    setPortalLoading(false)
-                  }}
-                  disabled={portalLoading}
-                  className="px-4 py-2 rounded bg-[#2563eb] text-white text-[12px] font-medium hover:bg-[#1d4ed8] disabled:opacity-50"
-                >
-                  {portalLoading ? 'Generating...' : 'Generate Portal Link'}
-                </button>
-              )}
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="text-[13px] font-semibold mb-4">Data Summary</h3>
-            <div className="space-y-3 text-[13px]">
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Data Range</span>
-                <span className="font-medium">Last 30 days</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Total Days with Data</span>
-                <span className="font-medium">{daily.length}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Active Campaigns</span>
-                <span className="font-medium">{campaigns.length}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#f4f4f6]">
-                <span className="text-[#9d9da8]">Active Ads</span>
-                <span className="font-medium">{ads.length}</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-[#9d9da8]">Breakdown Data</span>
-                <span className="font-medium">{ageGender.length > 0 ? 'Available' : 'None'}</span>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </TabsContent>}
+      {!portalMode && (
+        <TabsContent value="settings">
+          <SettingsTab
+            clientId={clientId} clientName={clientName} platformAccountId={platformAccountId}
+            objective={objective} primaryActionType={primaryActionType} resultLabel={resultLabel}
+            isEcom={isEcom} targetCpl={targetCpl} targetRoas={targetRoas}
+            initialPortalToken={initialPortalToken || null}
+            dailyCount={daily.length} campaignCount={campaigns.length} adCount={ads.length}
+            hasBreakdownData={ageGender.length > 0}
+          />
+        </TabsContent>
+      )}
     </Tabs>
     <AdDetailModal
       ad={selectedAd}
