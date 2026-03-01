@@ -77,17 +77,17 @@ export async function POST(req: NextRequest) {
 
   const { data: adEntities } = await supabaseAdmin
     .from('ads')
-    .select('platform_ad_id, name, creative_url, creative_headline, creative_body, creative_cta')
+    .select('platform_ad_id, name, creative_url, stored_creative_url, creative_headline, creative_body, creative_cta')
     .eq('ad_account_id', account.id)
     .in('platform_ad_id', topAdIds)
 
-  const adsWithImages = (adEntities || []).filter(a => a.creative_url)
+  const adsWithImages = (adEntities || []).filter(a => a.stored_creative_url || a.creative_url)
   if (!adsWithImages.length) return NextResponse.json({ error: 'No ads with images found' }, { status: 400 })
 
   // Download top 3 images
   const images: { data: string; mimeType: string; name: string }[] = []
   for (const ad of adsWithImages.slice(0, 3)) {
-    const img = await fetchImageBase64(ad.creative_url!)
+    const img = await fetchImageBase64(ad.stored_creative_url || ad.creative_url!)
     if (img) images.push({ ...img, name: ad.name })
   }
 

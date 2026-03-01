@@ -16,6 +16,7 @@ interface LiveAd {
   creative_url: string
   creative_thumbnail_url: string | null
   creative_video_url: string | null
+  stored_creative_url: string | null
   creative_headline: string | null
   creative_body: string | null
   creative_cta: string | null
@@ -222,7 +223,7 @@ export function AdLibraryUI({ clients, initialClientId }: { clients: Client[]; i
                 {liveAds.map(ad => (
                   <div key={ad.id} onClick={() => setSelectedAd(ad)} className="bg-white border border-[#e8e8ec] rounded-md overflow-hidden cursor-pointer hover:border-[#2563eb] hover:shadow-sm transition-all group">
                     <div className="relative aspect-square bg-[#f4f4f6]">
-                      <img src={ad.creative_url} alt={ad.name} className="w-full h-full object-cover" loading="lazy" />
+                      <img src={ad.stored_creative_url || ad.creative_url} alt={ad.name} className="w-full h-full object-cover" loading="lazy" />
                       {ad.isVideo && (
                         <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">VIDEO</div>
                       )}
@@ -319,7 +320,7 @@ export function AdLibraryUI({ clients, initialClientId }: { clients: Client[]; i
             <div className="flex flex-col md:flex-row">
               {/* Image */}
               <div className="md:w-[45%] bg-[#f4f4f6] flex items-center justify-center min-h-[300px]">
-                <img src={selectedAd.creative_url} alt={selectedAd.name} className="w-full h-full object-contain" />
+                <img src={selectedAd.stored_creative_url || selectedAd.creative_url} alt={selectedAd.name} className="w-full h-full object-contain" />
               </div>
               {/* Details */}
               <div className="md:w-[55%] p-5">

@@ -404,7 +404,7 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
   if (error) throw error
 
   // Get ad + campaign names
-  const { data: ads } = await supabaseAdmin.from('ads').select('platform_ad_id, name, creative_url, creative_thumbnail_url, creative_video_url, creative_body, creative_headline, creative_cta, effective_status').eq('ad_account_id', accountId)
+  const { data: ads } = await supabaseAdmin.from('ads').select('platform_ad_id, name, creative_url, creative_thumbnail_url, creative_video_url, stored_creative_url, creative_body, creative_headline, creative_cta, effective_status').eq('ad_account_id', accountId)
   const { data: campaigns } = await supabaseAdmin.from('campaigns').select('platform_campaign_id, name').eq('ad_account_id', accountId)
 
   const adMap = new Map<string, any>()
@@ -427,7 +427,7 @@ export async function getAdBreakdown(accountId: string, days: number = 30, prima
       platform_campaign_id: r.platform_campaign_id,
       campaign_name: campNames.get(r.platform_campaign_id) || r.platform_campaign_id,
       spend: 0, impressions: 0, clicks: 0, results: 0, result_label, cpr: 0, ctr: 0, landing_page_views: 0,
-      creative_url: adInfo?.creative_url || null,
+      creative_url: adInfo?.stored_creative_url || adInfo?.creative_url || null,
       creative_thumbnail_url: adInfo?.creative_thumbnail_url || null,
       creative_video_url: adInfo?.creative_video_url || null,
       creative_body: adInfo?.creative_body || null,

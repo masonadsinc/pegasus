@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     let query = supabaseAdmin
       .from('ads')
       .select(`
-        id, platform_ad_id, name, status, creative_url, creative_thumbnail_url, 
+        id, platform_ad_id, name, status, creative_url, creative_thumbnail_url, stored_creative_url, 
         creative_video_url, creative_headline, creative_body, creative_cta,
         ad_account_id, created_at
       `)

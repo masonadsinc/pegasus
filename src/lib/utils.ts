@@ -49,3 +49,11 @@ export function wowChangeCPL(current: number, previous: number): { value: number
 export function isEcomActionType(pat: string | null): boolean {
   return ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'].includes(pat || '')
 }
+
+/**
+ * Get the best available creative URL for an ad.
+ * Prefers stored (permanent Supabase) URL over Meta CDN URL.
+ */
+export function getCreativeUrl(ad: any): string | null {
+  return ad?.stored_creative_url || ad?.creative_url || ad?.creative_thumbnail_url || null
+}

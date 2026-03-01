@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
     // Get ad details
     const { data: adDetails } = await supabaseAdmin
       .from('ads')
-      .select('platform_ad_id, name, creative_url, creative_video_url, creative_thumbnail_url, creative_headline, creative_body, creative_cta, created_time')
+      .select('platform_ad_id, name, creative_url, creative_video_url, creative_thumbnail_url, stored_creative_url, creative_headline, creative_body, creative_cta, created_time')
       .eq('ad_account_id', account.id)
       .in('platform_ad_id', adIds)
 
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
         return {
           platformId: ad.platform_ad_id,
           name: ad.name,
-          imageUrl: ad.creative_url,
+          imageUrl: ad.stored_creative_url || ad.creative_url,
           videoUrl: ad.creative_video_url,
           thumbnailUrl: ad.creative_thumbnail_url,
           headline: ad.creative_headline,

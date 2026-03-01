@@ -129,7 +129,7 @@ function AdDetailModal({ ad, open, onClose, resultLabel, targetCpl, onPrev, onNe
   }, [ad?.platform_ad_id, open])
 
   if (!ad) return null
-  const imageUrl = ad.creative_url || ad.creative_thumbnail_url
+  const imageUrl = ad.stored_creative_url || ad.stored_creative_url || ad.creative_url || ad.creative_thumbnail_url
   const ctaMap: Record<string, string> = {
     LEARN_MORE: 'Learn More', SIGN_UP: 'Sign Up', SHOP_NOW: 'Shop Now', BOOK_TRAVEL: 'Book Now',
     CONTACT_US: 'Contact Us', DOWNLOAD: 'Download', GET_OFFER: 'Get Offer', GET_QUOTE: 'Get Quote',
@@ -515,7 +515,7 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
                 <div className="space-y-3">
                   {topAds.map((ad, i) => (
                     <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
-                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded flex-shrink-0" />
+                      <AdImage src={ad.stored_creative_url || ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded flex-shrink-0" />
                       <span className="w-5 h-5 rounded-full bg-[#dcfce7] text-[#16a34a] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
@@ -533,7 +533,7 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
                 <div className="space-y-3">
                   {bottomAds.map((ad, i) => (
                     <div key={ad.platform_ad_id} className="flex items-center gap-3 cursor-pointer hover:bg-[#fafafb] rounded p-1.5 -m-1.5 transition-colors" onClick={() => setSelectedAd(ad)}>
-                      <AdImage src={ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded flex-shrink-0" />
+                      <AdImage src={ad.stored_creative_url || ad.creative_url || ad.creative_thumbnail_url} alt={ad.ad_name} className="w-10 h-10 rounded flex-shrink-0" />
                       <span className="w-5 h-5 rounded-full bg-[#fef2f2] text-[#dc2626] text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{ad.ad_name}</p>
@@ -628,7 +628,7 @@ export function ClientTabs({ clientId, initialPortalToken, portalMode = false, d
           {adsView === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAds.map((ad, idx) => {
-                const imageUrl = ad.creative_url || ad.creative_thumbnail_url
+                const imageUrl = ad.stored_creative_url || ad.stored_creative_url || ad.creative_url || ad.creative_thumbnail_url
                 return (
                   <Card key={ad.platform_ad_id} className="overflow-hidden cursor-pointer card-hover" style={{ animationDelay: `${idx * 30}ms` }} onClick={() => setSelectedAd(ad)}>
                     <AdImage src={imageUrl} alt={ad.ad_name} className="w-full h-[180px]" />

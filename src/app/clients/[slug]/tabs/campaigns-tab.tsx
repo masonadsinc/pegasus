@@ -127,7 +127,7 @@ export function CampaignsTab({ campaigns, adSets, ads, resultLabel, targetCpl, o
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {drillAds.length === 0 && <p className="text-[13px] text-[#9d9da8] col-span-3 text-center py-8">No ads found</p>}
             {drillAds.map((ad: any) => {
-              const imageUrl = ad.creative_url || ad.creative_thumbnail_url
+              const imageUrl = ad.stored_creative_url || ad.creative_url || ad.creative_thumbnail_url
               return (
                 <Card key={ad.platform_ad_id} className="overflow-hidden cursor-pointer hover:shadow-md hover:border-[#c4c4cc] transition-all" onClick={() => onSelectAd(ad)}>
                   <AdImage src={imageUrl} alt={ad.ad_name} className="w-full h-[160px]" />

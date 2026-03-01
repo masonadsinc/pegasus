@@ -148,7 +148,7 @@ function findReferencedAds(message: string, activeAds: any[]): any[] {
 
   // If they say "top performing" or "best" — pick by CPR from context
   if (lower.includes('top') || lower.includes('best') || lower.includes('winner') || lower.includes('#1') || lower.includes('number one')) {
-    return activeAds.filter(a => a.creative_url || a.creative_video_url).slice(0, 3)
+    return activeAds.filter(a => a.stored_creative_url || a.creative_url || a.creative_video_url).slice(0, 3)
   }
 
   return []
@@ -239,7 +239,7 @@ async function getClientContext(clientId: string, days = 7, ORG_ID: string) {
     // Active ads with creative info + creation date
     supabaseAdmin
       .from('ads')
-      .select('platform_ad_id, ad_set_id, name, creative_headline, creative_body, creative_cta, creative_url, creative_video_url, creative_thumbnail_url, effective_status, created_time')
+      .select('platform_ad_id, ad_set_id, name, creative_headline, creative_body, creative_cta, creative_url, creative_video_url, creative_thumbnail_url, stored_creative_url, effective_status, created_time')
       .eq('ad_account_id', account.id)
       .in('effective_status', ['ACTIVE', 'PAUSED'])
       .limit(100),
@@ -1189,7 +1189,7 @@ Generate a professional ad creative image. Make it scroll-stopping, clean, and r
     if (mediaIntent.needsMedia && result.client) {
       const activeAds = (await supabaseAdmin
         .from('ads')
-        .select('platform_ad_id, name, creative_url, creative_video_url, creative_thumbnail_url, creative_headline, creative_body, effective_status')
+        .select('platform_ad_id, name, creative_url, creative_video_url, creative_thumbnail_url, stored_creative_url, creative_headline, creative_body, effective_status')
         .eq('ad_account_id', (result.client.ad_accounts as any[])?.find((a: any) => a.is_active)?.id || '')
         .in('effective_status', ['ACTIVE', 'PAUSED'])
         .limit(100)
@@ -1230,8 +1230,8 @@ Generate a professional ad creative image. Make it scroll-stopping, clean, and r
           }
 
           // Fallback to image if no video attached
-          if (!videoAttached && ad.creative_url) {
-            const img = await fetchImageBase64(ad.creative_url)
+          if (!videoAttached && ad.stored_creative_url || ad.creative_url) {
+            const img = await fetchImageBase64(ad.stored_creative_url || ad.creative_url)
             if (img) {
               parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
               const isKnownVideo = wantsVideo && !videoAttached

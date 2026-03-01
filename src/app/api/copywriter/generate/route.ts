@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   const adIds = Array.from(adMap.keys())
   const { data: adEntities } = await supabaseAdmin
     .from('ads')
-    .select('platform_ad_id, name, creative_headline, creative_body, creative_cta, creative_url, creative_video_url, status')
+    .select('platform_ad_id, name, creative_headline, creative_body, creative_cta, creative_url, stored_creative_url, creative_video_url, status')
     .eq('ad_account_id', account.id)
     .in('platform_ad_id', adIds.length > 0 ? adIds : ['__none__'])
 
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
         headline: ad.creative_headline,
         body: ad.creative_body,
         cta: ad.creative_cta,
-        hasImage: !!ad.creative_url,
+        hasImage: !!(ad.stored_creative_url || ad.creative_url),
         hasVideo: !!ad.creative_video_url,
         status: ad.status,
         spend: stats.spend,

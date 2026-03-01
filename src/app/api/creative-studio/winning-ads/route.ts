@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   const adIds = Array.from(adMap.keys())
   const { data: adEntities } = await supabaseAdmin
     .from('ads')
-    .select('platform_ad_id, name, creative_url, creative_thumbnail_url, creative_video_url, creative_headline, creative_body, creative_cta, status')
+    .select('platform_ad_id, name, creative_url, creative_thumbnail_url, creative_video_url, stored_creative_url, creative_headline, creative_body, creative_cta, status')
     .eq('ad_account_id', account.id)
     .in('platform_ad_id', adIds)
 
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       return {
         platformAdId: ad.platform_ad_id,
         name: ad.name,
-        imageUrl: ad.creative_url,
+        imageUrl: ad.stored_creative_url || ad.creative_url,
         thumbnailUrl: ad.creative_thumbnail_url,
         videoUrl: ad.creative_video_url,
         headline: ad.creative_headline,
